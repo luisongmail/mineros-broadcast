@@ -1,8 +1,7 @@
 {
-  "name": "@mineros/core",
+  "name": "@mineros/asset-manager",
   "version": "0.0.0",
   "private": true,
-  "description": "Contratos de integración, tipos compartidos y utilidades — Mineros Broadcast",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -10,9 +9,12 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mineros/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "*",
