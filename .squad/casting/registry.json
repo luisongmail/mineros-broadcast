@@ -1,0 +1,10 @@
+[
+  {"persistent_name":"Babe","universe":"baseball-legends","role":"Lead / Arquitecto","created_at":"2026-06-23T17:34:00-04:00","legacy_named":false,"status":"active"},
+  {"persistent_name":"Sandy","universe":"baseball-legends","role":"Backend Engineer","created_at":"2026-06-23T17:34:00-04:00","legacy_named":false,"status":"active"},
+  {"persistent_name":"Jeter","universe":"baseball-legends","role":"Frontend Engineer","created_at":"2026-06-23T17:34:00-04:00","legacy_named":false,"status":"active"},
+  {"persistent_name":"Mariano","universe":"baseball-legends","role":"QA / Tester","created_at":"2026-06-23T17:34:00-04:00","legacy_named":false,"status":"active"},
+  {"persistent_name":"Robinson","universe":"baseball-legends","role":"Infrastructure / DevOps","created_at":"2026-06-23T17:34:00-04:00","legacy_named":false,"status":"active"},
+  {"persistent_name":"Scribe","universe":"exempt","role":"Session Logger","created_at":"2026-06-23T17:34:00-04:00","legacy_named":false,"status":"active"},
+  {"persistent_name":"Ralph","universe":"exempt","role":"Work Monitor","created_at":"2026-06-23T17:34:00-04:00","legacy_named":false,"status":"active"},
+  {"persistent_name":"Rai","universe":"exempt","role":"RAI Reviewer","created_at":"2026-06-23T17:34:00-04:00","legacy_named":false,"status":"active"}
+]

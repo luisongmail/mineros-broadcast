@@ -1,0 +1,21 @@
+{
+  "name": "@mineros/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Contratos de integración, tipos compartidos y utilidades — Mineros Broadcast",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "^1.0.0"
+  }
+}
