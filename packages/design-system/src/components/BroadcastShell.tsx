@@ -1,4 +1,4 @@
-import { PropsWithChildren } from 'react';
+import type { PropsWithChildren } from 'react';
 
 export interface BroadcastShellProps extends PropsWithChildren {
   title?: string;
@@ -7,16 +7,7 @@ export interface BroadcastShellProps extends PropsWithChildren {
 
 export function BroadcastShell({ children }: BroadcastShellProps) {
   return (
-    <section
-      className="mb-shell"
-      style={{
-        width: 1920,
-        height: 1080,
-        position: 'relative',
-        background: 'transparent',
-        overflow: 'hidden',
-      }}
-    >
+    <section className="mb-shell relative h-[1080px] w-[1920px] overflow-hidden bg-transparent">
       {children}
     </section>
   );

@@ -1,53 +1,19 @@
-import React from 'react';
 import type { ScorebugProps } from './types';
 
-const NAVY = '#1B2F5B';
-const RED = '#D71920';
-const GOLD = '#D4AF37';
-const DARK = '#0D1B30';
-const WHITE = '#FFFFFF';
+const baseDiamondClass =
+  'absolute h-[14px] w-[14px] rotate-45 rounded-[2px] border border-white/35 bg-white/10';
 
-const teamLabelStyle: React.CSSProperties = {
-  fontSize: 22,
-  fontWeight: 800,
-  letterSpacing: 1.5,
-  lineHeight: 1,
-  color: WHITE,
-};
-
-const scoreStyle: React.CSSProperties = {
-  fontSize: 34,
-  fontWeight: 900,
-  lineHeight: 1,
-  color: WHITE,
-};
-
-const sectionLabelStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: 1.2,
-  textTransform: 'uppercase',
-  color: 'rgba(255,255,255,0.68)',
-};
-
-const hiddenTextStyle: React.CSSProperties = {
-  display: 'none',
-};
-
-function renderBase(active: boolean, extraStyle: React.CSSProperties): React.ReactNode {
+function BaseDiamond({ active, position }: { active: boolean; position: string }) {
   return (
     <span
-      style={{
-        position: 'absolute',
-        width: 14,
-        height: 14,
-        borderRadius: 2,
-        transform: 'rotate(45deg)',
-        background: active ? GOLD : 'rgba(255,255,255,0.12)',
-        border: `1px solid ${active ? GOLD : 'rgba(255,255,255,0.35)'}`,
-        boxShadow: active ? '0 0 12px rgba(212,175,55,0.45)' : 'none',
-        ...extraStyle,
-      }}
+      aria-hidden="true"
+      className={[
+        baseDiamondClass,
+        position,
+        active && 'border-mineros-gold bg-mineros-gold shadow-[0_0_12px_rgba(212,175,55,0.45)]',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     />
   );
 }
@@ -58,133 +24,82 @@ export function Scorebug({ game }: ScorebugProps) {
   const inningMarker = inningHalf === 'bottom' ? '▼' : '▲';
 
   return (
-    <section
-      className="mb-shell"
-      style={{
-        position: 'absolute',
-        left: 60,
-        bottom: 60,
-        display: 'flex',
-        alignItems: 'stretch',
-        minWidth: 620,
-        background: NAVY,
-        border: `2px solid ${GOLD}`,
-        borderRadius: 6,
-        overflow: 'hidden',
-        boxShadow: '0px 10px 28px rgba(0,0,0,0.38)',
-        fontFamily: 'Inter, Arial, sans-serif',
-      }}
-    >
-      <div style={{ width: 8, background: RED }} />
+    <section className="mb-shell relative h-[1080px] w-[1920px] overflow-hidden bg-transparent font-inter text-white">
+      <div className="absolute bottom-[60px] left-[60px] flex min-w-[620px] items-stretch overflow-hidden rounded-[6px] border-2 border-mineros-gold bg-mineros-navy shadow-[0px_10px_28px_rgba(0,0,0,0.38)]">
+        <div className="w-2 bg-mineros-red" />
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 18,
-          padding: '16px 18px',
-          background: `linear-gradient(90deg, ${DARK} 0%, ${NAVY} 100%)`,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={teamLabelStyle}>{awayTeam.shortName}</span>
-          <span style={scoreStyle}>{score.away}</span>
-        </div>
-
-        <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,0.14)' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={scoreStyle}>{score.home}</span>
-          <span style={{ ...teamLabelStyle, color: GOLD }}>{homeTeam.shortName}</span>
-        </div>
-      </div>
-
-      <div style={{ width: 3, background: GOLD }} />
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '14px 16px',
-          background: DARK,
-          borderLeft: '1px solid rgba(255,255,255,0.08)',
-        }}
-      >
-        <span style={{ fontSize: 24, color: GOLD, lineHeight: 1 }}>{inningMarker}</span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={sectionLabelStyle}>Inning</span>
-          <span style={{ fontSize: 28, fontWeight: 900, color: WHITE, lineHeight: 1 }}>{inning}</span>
-        </div>
-      </div>
-
-      <div style={{ width: 1, background: 'rgba(255,255,255,0.12)' }} />
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          padding: '14px 16px',
-          background: DARK,
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={sectionLabelStyle}>Outs</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {[0, 1, 2].map((index) => (
-              <span
-                key={index}
-                style={{
-                  width: 11,
-                  height: 11,
-                  borderRadius: '50%',
-                  background: safeOuts !== null && index < safeOuts ? RED : 'rgba(255,255,255,0.16)',
-                  border: '1px solid rgba(255,255,255,0.28)',
-                  boxShadow: safeOuts !== null && index < safeOuts ? '0 0 10px rgba(215,25,32,0.45)' : 'none',
-                }}
-              />
-            ))}
+        <div className="flex items-center gap-[18px] bg-gradient-to-r from-mineros-dark to-mineros-navy px-[18px] py-4">
+          <div className="flex items-center gap-3">
+            <span className="text-[22px] font-extrabold uppercase leading-none tracking-[0.08em]">{awayTeam.shortName}</span>
+            <span className="text-[34px] font-black leading-none">{score.away}</span>
           </div>
-          {safeOuts !== null && (
-            <span style={hiddenTextStyle}>{safeOuts === 2 ? `${safeOuts} OUTS` : `${safeOuts} OUT`}</span>
-          )}
-        </div>
 
-        <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,0.1)' }} />
+          <div className="self-stretch border-l border-white/15" />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={sectionLabelStyle}>Bases</span>
-          <div style={{ position: 'relative', width: 44, height: 28 }}>
-            {renderBase(bases.second, { top: 0, left: 15 })}
-            {renderBase(bases.third, { top: 12, left: 3 })}
-            {renderBase(bases.first, { top: 12, left: 27 })}
+          <div className="flex items-center gap-3">
+            <span className="text-[34px] font-black leading-none">{score.home}</span>
+            <span className="text-[22px] font-extrabold uppercase leading-none tracking-[0.08em] text-mineros-gold">
+              {homeTeam.shortName}
+            </span>
           </div>
-          <span style={hiddenTextStyle}>1B:{bases.first ? '●' : '○'}</span>
-          <span style={hiddenTextStyle}>2B:{bases.second ? '●' : '○'}</span>
-          <span style={hiddenTextStyle}>3B:{bases.third ? '●' : '○'}</span>
         </div>
+
+        <div className="w-[3px] bg-mineros-gold" />
+
+        <div className="flex items-center gap-[10px] border-l border-white/10 bg-mineros-dark px-4 py-[14px]">
+          <span className="text-2xl leading-none text-mineros-gold">{inningMarker}</span>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white/70">Inning</span>
+            <span className="text-[28px] font-black leading-none">{inning}</span>
+          </div>
+        </div>
+
+        <div className="w-px bg-white/15" />
+
+        <div className="flex items-center gap-4 bg-mineros-dark px-4 py-[14px]">
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white/70">Outs</span>
+            <div className="flex items-center gap-[6px]" aria-hidden="true">
+              {[0, 1, 2].map((index) => (
+                <span
+                  key={index}
+                  className={[
+                    'h-[11px] w-[11px] rounded-full border border-white/30 bg-white/15',
+                    safeOuts !== null && index < safeOuts && 'bg-mineros-red shadow-[0_0_10px_rgba(215,25,32,0.45)]',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                />
+              ))}
+            </div>
+            {safeOuts !== null && <span className="sr-only">{safeOuts === 2 ? `${safeOuts} OUTS` : `${safeOuts} OUT`}</span>}
+          </div>
+
+          <div className="self-stretch border-l border-white/10" />
+
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white/70">Bases</span>
+            <div className="relative h-7 w-11" aria-hidden="true">
+              <BaseDiamond active={bases.second} position="left-[15px] top-0" />
+              <BaseDiamond active={bases.third} position="left-[3px] top-3" />
+              <BaseDiamond active={bases.first} position="left-[27px] top-3" />
+            </div>
+            <span className="sr-only">1B:{bases.first ? '●' : '○'}</span>
+            <span className="sr-only">2B:{bases.second ? '●' : '○'}</span>
+            <span className="sr-only">3B:{bases.third ? '●' : '○'}</span>
+          </div>
+        </div>
+
+        {count && (
+          <>
+            <div className="w-px bg-white/15" />
+            <div className="flex min-w-[84px] flex-col justify-center gap-[6px] bg-[#08101F] px-4 py-[14px]">
+              <span className="text-[18px] font-extrabold leading-none">B {count.balls}</span>
+              <span className="text-[18px] font-extrabold leading-none">S {count.strikes}</span>
+            </div>
+          </>
+        )}
       </div>
-
-      {count && (
-        <>
-          <div style={{ width: 1, background: 'rgba(255,255,255,0.12)' }} />
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              gap: 6,
-              minWidth: 84,
-              padding: '14px 16px',
-              background: '#08101F',
-            }}
-          >
-            <span style={{ fontSize: 18, fontWeight: 800, color: WHITE, lineHeight: 1 }}>B {count.balls}</span>
-            <span style={{ fontSize: 18, fontWeight: 800, color: WHITE, lineHeight: 1 }}>S {count.strikes}</span>
-          </div>
-        </>
-      )}
     </section>
   );
 }

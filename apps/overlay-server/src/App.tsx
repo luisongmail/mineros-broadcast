@@ -18,9 +18,6 @@ const initial: GameSlice = {
   count: { balls: 2, strikes: 1 },
 };
 
-const btn =
-  'px-3 py-1 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/20 cursor-pointer';
-
 export function App() {
   const [game, setGame] = useState<GameSlice>(initial);
   const [bg, setBg] = useState<'video' | 'black' | 'grid'>('black');
