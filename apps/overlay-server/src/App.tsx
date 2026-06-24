@@ -36,6 +36,22 @@ const sampleNextBatters = [
   { state: 'in_the_hole', order: 3, playerId: 'p3', name: 'V. Rios', number: '08', position: 'SS', avg: '.278' },
 ] as const;
 
+const OVERLAY_VARIANTS: Record<string, string[]> = {
+  'batter':             ['lower_third', 'compact', 'scorebug_expanded', 'fullscreen_card'],
+  'next-batters':       ['horizontal_compact', 'vertical_side', 'lower_third'],
+  'inning-transition':  ['lower_third_compact', 'full_width', 'minimal', 'scorebug_attached', 'end_game'],
+  'final-score':        ['lower_third_compact', 'full_width', 'full_card', 'minimal', 'sponsor_closing'],
+  'sponsor-break':      ['lower_third_compact', 'full_width', 'logo_only', 'sponsor_cta', 'multi_sponsor'],
+};
+
+const DEFAULT_VARIANT: Record<string, string> = {
+  'batter':            'lower_third',
+  'next-batters':      'horizontal_compact',
+  'inning-transition': 'lower_third_compact',
+  'final-score':       'lower_third_compact',
+  'sponsor-break':     'lower_third_compact',
+};
+
 const overlayOptions = [
   { id: 'scorebug', label: 'Scorebug' },
   { id: 'batter', label: 'Batter' },
@@ -60,6 +76,7 @@ export function App() {
   const [game, setGame] = useState(() => engine.getState());
   const [bg, setBg] = useState<'video' | 'black' | 'grid'>('black');
   const [activeOverlay, setActiveOverlay] = useState<ActiveOverlay>('scorebug');
+  const [activeVariant, setActiveVariant] = useState<string>('lower_third');
   const [batterIndex, setBatterIndex] = useState(0);
   const autoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,6 +85,12 @@ export function App() {
       clearTimeout(autoHideTimer.current);
       autoHideTimer.current = null;
     }
+  };
+
+  const switchOverlay = (id: ActiveOverlay) => {
+    cancelTimer();
+    setActiveOverlay(id);
+    setActiveVariant(DEFAULT_VARIANT[id] ?? '');
   };
 
   const showBatterOverlay = () => {
@@ -181,7 +204,7 @@ export function App() {
          <button
            key={overlay.id}
            style={{ ...buttonStyle, opacity: activeOverlay === overlay.id ? 1 : 0.45, padding: '3px 10px', background: activeOverlay === overlay.id ? '#2a2a4a' : 'transparent', fontSize: 12 }}
-           onClick={() => setActiveOverlay(overlay.id)}
+           onClick={() => switchOverlay(overlay.id)}
          >
            {overlay.label}
          </button>
@@ -248,6 +271,22 @@ export function App() {
         </button>
       </div>
 
+      {/* Barra de variantes — solo cuando hay variantes disponibles */}
+      {OVERLAY_VARIANTS[activeOverlay] && (
+        <div style={{ padding: '6px 16px', background: '#111827', borderBottom: '1px solid #222', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{ fontSize: 11, opacity: 0.4, marginRight: 4 }}>Variante:</span>
+          {OVERLAY_VARIANTS[activeOverlay].map((v) => (
+            <button
+              key={v}
+              style={{ ...buttonStyle, fontSize: 11, padding: '2px 10px', background: activeVariant === v ? '#D4AF37' : 'transparent', color: activeVariant === v ? '#000' : '#aaa', borderColor: activeVariant === v ? '#D4AF37' : '#444' }}
+              onClick={() => setActiveVariant(v)}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div style={{ padding: 16 }}>
         <div style={{ fontSize: 11, opacity: 0.4, marginBottom: 6 }}>Canvas 1920x1080 @ Browser Source preview (60%)</div>
         <div style={{ width: 1152, height: 648, background: backgrounds[bg], borderRadius: 6, overflow: 'hidden', position: 'relative', border: '1px solid #2a2a2a' }}>
@@ -257,7 +296,7 @@ export function App() {
             </div>
             {activeOverlay === 'batter' && (
               <div style={{ position: 'absolute', inset: 0 }}>
-                <BatterOverlay batter={DEMO_BATTERS[batterIndex]} variant="lower_third" />
+                <BatterOverlay batter={DEMO_BATTERS[batterIndex]} variant={activeVariant as 'lower_third' | 'compact' | 'scorebug_expanded' | 'fullscreen_card'} />
               </div>
             )}
             {activeOverlay === 'next-batters' && (
@@ -266,23 +305,23 @@ export function App() {
                   batters={[...sampleNextBatters]}
                   inning={{ number: game.inning, half: game.inningHalf }}
                   team={{ teamId: 'team-mineros', name: 'Mineros de Santiago', shortName: 'MIN', logoAssetId: 'AM-LOGO-001' }}
-                  variant="horizontal_compact"
+                  variant={activeVariant as 'horizontal_compact' | 'vertical_side' | 'lower_third'}
                 />
               </div>
             )}
             {activeOverlay === 'inning-transition' && (
               <div style={{ position: 'absolute', inset: 0 }}>
-                <InningTransitionOverlay data={demoInningTransition} variant="lower_third_compact" />
+                <InningTransitionOverlay data={demoInningTransition} variant={activeVariant as never} />
               </div>
             )}
             {activeOverlay === 'final-score' && (
               <div style={{ position: 'absolute', inset: 0 }}>
-                <FinalScoreOverlay data={demoFinalScore} variant="lower_third_compact" />
+                <FinalScoreOverlay data={demoFinalScore} variant={activeVariant as never} />
               </div>
             )}
             {activeOverlay === 'sponsor-break' && (
               <div style={{ position: 'absolute', inset: 0 }}>
-                <SponsorBreakOverlay data={demoSponsor} variant="lower_third_compact" />
+                <SponsorBreakOverlay data={demoSponsor} variant={activeVariant as never} />
               </div>
             )}
           </div>
