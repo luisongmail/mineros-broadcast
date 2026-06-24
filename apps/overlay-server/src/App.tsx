@@ -63,8 +63,15 @@ export function App() {
   const [batterIndex, setBatterIndex] = useState(0);
   const autoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const cancelTimer = () => {
+    if (autoHideTimer.current) {
+      clearTimeout(autoHideTimer.current);
+      autoHideTimer.current = null;
+    }
+  };
+
   const showBatterOverlay = () => {
-    if (autoHideTimer.current) clearTimeout(autoHideTimer.current);
+    cancelTimer();
     setActiveOverlay('batter');
     autoHideTimer.current = setTimeout(() => setActiveOverlay('scorebug'), 8000);
   };
@@ -76,10 +83,14 @@ export function App() {
       showBatterOverlay();
     };
     const onInningStarted = () => {
+      cancelTimer();
       setActiveOverlay('inning-transition');
-      setTimeout(() => setActiveOverlay('scorebug'), 6000);
+      autoHideTimer.current = setTimeout(() => setActiveOverlay('scorebug'), 6000);
     };
-    const onGameFinalized = () => setActiveOverlay('final-score');
+    const onGameFinalized = () => {
+      cancelTimer();
+      setActiveOverlay('final-score');
+    };
 
     engine.on('event', syncGame);
     engine.on('batter_changed', onBatterChanged);
@@ -184,7 +195,7 @@ export function App() {
         <button style={{ ...buttonStyle, fontSize: 12 }} onClick={() => engine.advanceHalfInning()}>
           Avanzar
         </button>
-        <button style={{ ...buttonStyle, fontSize: 12, borderColor: '#D71920', color: '#D71920' }} onClick={() => engine.endGame()}>
+        <button style={{ ...buttonStyle, fontSize: 12, borderColor: '#D71920', color: '#D71920' }} onClick={() => { cancelTimer(); engine.endGame(); }}>
           Fin Juego
         </button>
         {sep}
