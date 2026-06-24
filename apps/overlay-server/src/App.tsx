@@ -39,9 +39,9 @@ const sampleNextBatters = [
 const OVERLAY_VARIANTS: Record<string, string[]> = {
   'batter':             ['lower_third', 'compact', 'scorebug_expanded', 'fullscreen_card'],
   'next-batters':       ['horizontal_compact', 'vertical_side', 'lower_third'],
-  'inning-transition':  ['lower_third_compact', 'full_width', 'minimal', 'scorebug_attached', 'end_game'],
-  'final-score':        ['lower_third_compact', 'full_width', 'full_card', 'minimal', 'sponsor_closing'],
-  'sponsor-break':      ['lower_third_compact', 'full_width', 'logo_only', 'sponsor_cta', 'multi_sponsor'],
+  'inning-transition':  ['lower_third_compact', 'minimal'],
+  'final-score':        ['lower_third_compact', 'full_card'],
+  'sponsor-break':      ['lower_third_compact', 'logo_only'],
 };
 
 const DEFAULT_VARIANT: Record<string, string> = {
