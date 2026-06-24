@@ -179,4 +179,75 @@ describe('GameEngine', () => {
     expect(engine.getState().outs).not.toBe(3);
     expect(engine.getState().outs).toBe(0);
   });
+
+  describe('setCount — strikeout y walk', () => {
+    it('3er strike activa strikeout: out +1, conteo queda en 0-0', () => {
+      const engine = createEngine();
+      engine.startGame();
+      engine.setCount({ strikes: 2 });
+      engine.setCount({ strikes: 3 });
+      const s = engine.getState();
+      expect(s.outs).toBe(1);
+      expect(s.count.strikes).toBe(0);
+      expect(s.count.balls).toBe(0);
+    });
+
+    it('4a bola: walk, bateador va a 1a (1a estaba vacia)', () => {
+      const engine = createEngine();
+      engine.startGame();
+      engine.setCount({ balls: 3 });
+      engine.setCount({ balls: 4 });
+      const s = engine.getState();
+      expect(s.bases.first).toBe(true);
+      expect(s.bases.second).toBe(false);
+      expect(s.count.balls).toBe(0);
+    });
+
+    it('walk con corredor en 1a: 1a y 2a ocupadas', () => {
+      const engine = createEngine();
+      engine.startGame();
+      engine.setBases({ first: true });
+      engine.setCount({ balls: 4 });
+      const s = engine.getState();
+      expect(s.bases.first).toBe(true);
+      expect(s.bases.second).toBe(true);
+      expect(s.bases.third).toBe(false);
+    });
+
+    it('walk con 1a y 2a ocupadas: las tres bases ocupadas', () => {
+      const engine = createEngine();
+      engine.startGame();
+      engine.setBases({ first: true, second: true });
+      engine.setCount({ balls: 4 });
+      const s = engine.getState();
+      expect(s.bases.first).toBe(true);
+      expect(s.bases.second).toBe(true);
+      expect(s.bases.third).toBe(true);
+    });
+
+    it('walk con bases llenas: anota carrera, bases siguen llenas', () => {
+      const engine = createEngine();
+      engine.startGame();
+      engine.setBases({ first: true, second: true, third: true });
+      const before = engine.getState().score;
+      engine.setCount({ balls: 4 });
+      const s = engine.getState();
+      const battingTeam = 'away'; // top = visitante batea
+      expect(s.score[battingTeam]).toBe(before[battingTeam] + 1);
+      expect(s.bases.first).toBe(true);
+      expect(s.bases.second).toBe(true);
+      expect(s.bases.third).toBe(true);
+    });
+
+    it('walk con solo 2a ocupada: no hay fuerza en 2a, 1a y 2a ocupadas', () => {
+      const engine = createEngine();
+      engine.startGame();
+      engine.setBases({ second: true });
+      engine.setCount({ balls: 4 });
+      const s = engine.getState();
+      expect(s.bases.first).toBe(true);
+      expect(s.bases.second).toBe(true);
+      expect(s.bases.third).toBe(false);
+    });
+  });
 });

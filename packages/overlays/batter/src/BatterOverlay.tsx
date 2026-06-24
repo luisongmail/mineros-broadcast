@@ -44,7 +44,7 @@ function LowerThirdLayout({ batter, assetBaseUrl, className }: { batter: BatterD
   return (
     <div
       className={[
-        'absolute bottom-[130px] left-[60px] flex w-[700px] items-start gap-5 rounded-md border-2 border-mineros-gold bg-mineros-navy px-5 py-5 text-white shadow-[0px_10px_28px_rgba(0,0,0,0.35)]',
+        'absolute bottom-[160px] left-[60px] flex w-[700px] items-start gap-5 rounded-md border-2 border-mineros-gold bg-mineros-navy px-5 py-5 text-white shadow-[0px_10px_28px_rgba(0,0,0,0.35)]',
         className,
       ]
         .filter(Boolean)

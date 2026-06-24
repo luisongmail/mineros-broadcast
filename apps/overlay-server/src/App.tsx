@@ -172,10 +172,10 @@ export function App() {
         <span style={{ minWidth: 48, textAlign: 'center', fontSize: 13 }}>
           B {game.count.balls} / S {game.count.strikes}
         </span>
-        <button style={buttonStyle} onClick={() => engine.setCount({ balls: (game.count.balls + 1) % 4 })}>
+        <button style={buttonStyle} onClick={() => engine.setCount({ balls: game.count.balls + 1 })}>
           +B
         </button>
-        <button style={buttonStyle} onClick={() => engine.setCount({ strikes: (game.count.strikes + 1) % 3 })}>
+        <button style={buttonStyle} onClick={() => engine.setCount({ strikes: game.count.strikes + 1 })}>
           +S
         </button>
         <button style={buttonStyle} onClick={() => engine.setCount({ balls: 0, strikes: 0 })}>

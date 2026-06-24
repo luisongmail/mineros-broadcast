@@ -216,17 +216,45 @@ export class GameEngine {
 
     const merged = { ...this.state.count, ...count };
 
-    // Tercer strike → strikeout → addOut() maneja reset de conteo y batter_changed
+    // 3er strike → strikeout: addOut() maneja reset de conteo y batter_changed
     if (merged.strikes >= 3) {
       this.addOut();
       return;
     }
 
-    // Cuarta bola → base por bolas → reset conteo + batter_changed
+    // 4ª bola → base por bolas: avance forzado de corredores
     if (merged.balls >= 4) {
+      const previousBases = this.clone(this.state.bases);
+      const previousScore = this.clone(this.state.score);
+      const b = this.state.bases;
+
+      // Algoritmo de avance forzado:
+      // Un corredor avanza sólo si la base que deja es "empujada" por el bateador
+      // → runner en 3ª anota SÓLO si había corredor en 1ª Y 2ª Y 3ª (bases llenas)
+      const scoredRun = b.first && b.second && b.third;
+      this.state.bases = {
+        first: true,                            // bateador siempre a 1ª
+        second: b.second || b.first,            // 2ª: estaba ocupada ó forzado desde 1ª
+        third: b.third || (b.second && b.first), // 3ª: estaba ocupada ó forzado desde 2ª (requiere que 1ª tb lo estuviera)
+      };
+
       const previousCount = this.clone(this.state.count);
       this.state.count = this.clone(EMPTY_COUNT);
+
+      this.emitEvent('bases_changed', { previousBases, bases: this.clone(this.state.bases) });
       this.emitEvent('count_changed', { previousCount, count: this.clone(this.state.count) });
+
+      if (scoredRun) {
+        const battingTeam = this.state.inningHalf === 'top' ? 'away' : 'home';
+        this.state.score = { ...this.state.score, [battingTeam]: this.state.score[battingTeam] + 1 };
+        this.emitEvent('run_scored', {
+          team: battingTeam,
+          reason: 'walk',
+          previousScore,
+          score: this.clone(this.state.score),
+        });
+      }
+
       this.emitEvent('batter_changed', {
         previousBatterId: this.state.currentBatterId,
         currentBatterId: this.state.currentBatterId,
