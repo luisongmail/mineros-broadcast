@@ -16,6 +16,8 @@
     "react-dom": "^18.3.0",
     "@mineros/core": "workspace:*",
     "@mineros/game-engine": "workspace:*",
+    "@mineros/overlay-batter": "workspace:*",
+    "@mineros/overlay-next-batters": "workspace:*",
     "@mineros/overlay-scorebug": "workspace:*"
   },
   "devDependencies": {

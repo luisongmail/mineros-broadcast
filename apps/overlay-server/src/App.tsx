@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameEngine, type GameTeam } from '@mineros/game-engine';
+import { BatterOverlay } from '@mineros/overlay-batter';
+import { NextBattersOverlay } from '@mineros/overlay-next-batters';
 import { Scorebug } from '@mineros/overlay-scorebug';
 
 const homeTeam: GameTeam = {
@@ -18,6 +20,30 @@ const awayTeam: GameTeam = {
   role: 'away',
 };
 
+const sampleBatter = {
+  playerId: 'player-015',
+  number: '15',
+  name: 'Martina Pellizaris',
+  position: '2B',
+  status: 'AL BATE',
+  teamId: 'team-mineros',
+  stats: { avg: '.385', hits: 5, rbi: 4, today: '2-2' },
+};
+
+const sampleNextBatters = [
+  { state: 'current', order: 1, playerId: 'p1', name: 'C. Jara', number: '12', position: '2B', avg: '.385' },
+  { state: 'on_deck', order: 2, playerId: 'p2', name: 'M. Pellizaris', number: '15', position: '3B', avg: '.300' },
+  { state: 'in_the_hole', order: 3, playerId: 'p3', name: 'V. Ríos', number: '08', position: 'SS', avg: '.278' },
+] as const;
+
+const overlayOptions = [
+  { id: 'scorebug', label: 'Scorebug' },
+  { id: 'batter', label: 'Batter Overlay' },
+  { id: 'next-batters', label: 'Next Batters' },
+] as const;
+
+type ActiveOverlay = (typeof overlayOptions)[number]['id'];
+
 export function App() {
   const engineRef = useRef<GameEngine | null>(null);
 
@@ -30,6 +56,7 @@ export function App() {
   const engine = engineRef.current!;
   const [game, setGame] = useState(() => engine.getState());
   const [bg, setBg] = useState<'video' | 'black' | 'grid'>('black');
+  const [activeOverlay, setActiveOverlay] = useState<ActiveOverlay>('scorebug');
 
   useEffect(() => {
     const syncGame = () => setGame(engine.getState());
@@ -72,6 +99,18 @@ export function App() {
         ))}
         {sep}
 
+        <span style={{ fontSize: 11, opacity: 0.5 }}>Overlay:</span>
+        {overlayOptions.map((overlay) => (
+         <button
+           key={overlay.id}
+           style={{ ...buttonStyle, opacity: activeOverlay === overlay.id ? 1 : 0.45, padding: '3px 10px', background: activeOverlay === overlay.id ? '#2a2a4a' : 'transparent', fontSize: 12 }}
+           onClick={() => setActiveOverlay(overlay.id)}
+         >
+           {overlay.label}
+         </button>
+        ))}
+        {sep}
+ 
         <span style={{ fontSize: 11, opacity: 0.5 }}>Entrada:</span>
         <span style={{ minWidth: 56, textAlign: 'center', fontSize: 13 }}>
           {game.inningHalf === 'top' ? 'ALTA' : 'BAJA'} {game.inning}
@@ -132,8 +171,25 @@ export function App() {
       <div style={{ padding: 16 }}>
         <div style={{ fontSize: 11, opacity: 0.4, marginBottom: 6 }}>Canvas 1920x1080 @ Browser Source preview (60%)</div>
         <div style={{ width: 1152, height: 648, background: backgrounds[bg], borderRadius: 6, overflow: 'hidden', position: 'relative', border: '1px solid #2a2a2a' }}>
-          <div style={{ transform: 'scale(0.6)', transformOrigin: 'top left', width: 1920, height: 1080 }}>
-            <Scorebug game={engine.getState()} />
+          <div style={{ transform: 'scale(0.6)', transformOrigin: 'top left', width: 1920, height: 1080, position: 'relative' }}>
+            <div style={{ position: 'absolute', inset: 0 }}>
+              <Scorebug game={game} />
+            </div>
+            {activeOverlay === 'batter' && (
+              <div style={{ position: 'absolute', inset: 0, transform: 'translateY(-180px)' }}>
+                <BatterOverlay batter={sampleBatter} variant="lower_third" />
+              </div>
+            )}
+            {activeOverlay === 'next-batters' && (
+              <div style={{ position: 'absolute', inset: 0, transform: 'translateY(-160px)' }}>
+                <NextBattersOverlay
+                  batters={[...sampleNextBatters]}
+                  inning={{ number: game.inning, half: game.inningHalf }}
+                  team={{ teamId: 'team-mineros', name: 'Mineros de Santiago', shortName: 'MIN', logoAssetId: 'AM-LOGO-001' }}
+                  variant="lower_third"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
