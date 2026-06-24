@@ -18,7 +18,10 @@
     "@mineros/game-engine": "workspace:*",
     "@mineros/overlay-batter": "workspace:*",
     "@mineros/overlay-next-batters": "workspace:*",
-    "@mineros/overlay-scorebug": "workspace:*"
+    "@mineros/overlay-scorebug": "workspace:*",
+    "@mineros/overlay-inning-transition": "workspace:*",
+    "@mineros/overlay-final-score": "workspace:*",
+    "@mineros/overlay-sponsor-break": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

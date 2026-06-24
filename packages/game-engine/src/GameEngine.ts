@@ -308,6 +308,17 @@ export class GameEngine {
     this.advanceHalfInningInternal(this.state.outs);
   }
 
+  endGame(): void {
+    if (this.state.status === 'final') return;
+
+    this.state.status = 'final';
+    this.emitEvent('game_finalized', {
+      finalScore: this.clone(this.state.score),
+      inning: this.state.inning,
+      inningHalf: this.state.inningHalf,
+    });
+  }
+
   setLineup(lineup: GameLineup): void {
     validateLineup(lineup);
 

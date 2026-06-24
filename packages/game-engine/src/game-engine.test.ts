@@ -250,4 +250,31 @@ describe('GameEngine', () => {
       expect(s.bases.third).toBe(false);
     });
   });
+
+  describe('endGame', () => {
+    it('cambia el estado a final y emite game_finalized', () => {
+      const engine = createEngine();
+      const handler = vi.fn<(event: GameEvent) => void>();
+      engine.on('game_finalized', handler);
+      engine.startGame();
+      engine.incrementScore('home');
+      engine.endGame();
+      expect(engine.getState().status).toBe('final');
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler.mock.calls[0][0]).toMatchObject({
+        eventType: 'game_finalized',
+        payload: { finalScore: { home: 1, away: 0 } },
+      });
+    });
+
+    it('no emite evento si el juego ya es final', () => {
+      const engine = createEngine();
+      const handler = vi.fn<(event: GameEvent) => void>();
+      engine.on('game_finalized', handler);
+      engine.startGame();
+      engine.endGame();
+      engine.endGame();
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+  });
 });

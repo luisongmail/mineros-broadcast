@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameEngine, type GameTeam } from '@mineros/game-engine';
 import { BatterOverlay } from '@mineros/overlay-batter';
+import { FinalScoreOverlay } from '@mineros/overlay-final-score';
+import { InningTransitionOverlay } from '@mineros/overlay-inning-transition';
 import { NextBattersOverlay } from '@mineros/overlay-next-batters';
 import { Scorebug } from '@mineros/overlay-scorebug';
+import { SponsorBreakOverlay } from '@mineros/overlay-sponsor-break';
 
 const homeTeam: GameTeam = {
   id: 'MIN',
@@ -23,20 +26,23 @@ const awayTeam: GameTeam = {
 const DEMO_BATTERS = [
   { playerId: 'p1', number: '15', name: 'Martina Pellizaris', position: '2B', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.385', hits: 5, rbi: 4, today: '2-2' } },
   { playerId: 'p2', number: '08', name: 'Carolina Jara', position: 'SS', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.312', hits: 3, rbi: 2, today: '1-3' } },
-  { playerId: 'p3', number: '22', name: 'Valentina Ríos', position: '3B', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.278', hits: 4, rbi: 5, today: '0-2' } },
-  { playerId: 'p4', number: '07', name: 'Sofía Mendoza', position: 'CF', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.340', hits: 6, rbi: 3, today: '2-4' } },
+  { playerId: 'p3', number: '22', name: 'Valentina Rios', position: '3B', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.278', hits: 4, rbi: 5, today: '0-2' } },
+  { playerId: 'p4', number: '07', name: 'Sofia Mendoza', position: 'CF', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.340', hits: 6, rbi: 3, today: '2-4' } },
 ];
 
 const sampleNextBatters = [
   { state: 'current', order: 1, playerId: 'p1', name: 'C. Jara', number: '12', position: '2B', avg: '.385' },
   { state: 'on_deck', order: 2, playerId: 'p2', name: 'M. Pellizaris', number: '15', position: '3B', avg: '.300' },
-  { state: 'in_the_hole', order: 3, playerId: 'p3', name: 'V. Ríos', number: '08', position: 'SS', avg: '.278' },
+  { state: 'in_the_hole', order: 3, playerId: 'p3', name: 'V. Rios', number: '08', position: 'SS', avg: '.278' },
 ] as const;
 
 const overlayOptions = [
   { id: 'scorebug', label: 'Scorebug' },
-  { id: 'batter', label: 'Batter Overlay' },
+  { id: 'batter', label: 'Batter' },
   { id: 'next-batters', label: 'Next Batters' },
+  { id: 'inning-transition', label: 'Transicion' },
+  { id: 'final-score', label: 'Final Score' },
+  { id: 'sponsor-break', label: 'Sponsor Break' },
 ] as const;
 
 type ActiveOverlay = (typeof overlayOptions)[number]['id'];
@@ -69,15 +75,21 @@ export function App() {
       setBatterIndex((i) => (i + 1) % DEMO_BATTERS.length);
       showBatterOverlay();
     };
-    const onInningStarted = () => setActiveOverlay('scorebug');
+    const onInningStarted = () => {
+      setActiveOverlay('inning-transition');
+      setTimeout(() => setActiveOverlay('scorebug'), 6000);
+    };
+    const onGameFinalized = () => setActiveOverlay('final-score');
 
     engine.on('event', syncGame);
     engine.on('batter_changed', onBatterChanged);
     engine.on('inning_started', onInningStarted);
+    engine.on('game_finalized', onGameFinalized);
     return () => {
       engine.off('event', syncGame);
       engine.off('batter_changed', onBatterChanged);
       engine.off('inning_started', onInningStarted);
+      engine.off('game_finalized', onGameFinalized);
       if (autoHideTimer.current) clearTimeout(autoHideTimer.current);
     };
   }, [engine]);
@@ -100,6 +112,45 @@ export function App() {
     color: '#fff',
     cursor: 'pointer',
   } as const;
+
+  const demoInningTransition = {
+    gameId: 'demo-game-001',
+    transition: {
+      type: 'top_to_bottom' as const,
+      label: 'Cambio de entrada',
+      statusLabel: `Fin ${game.inning}a`,
+      nextLabel: `Cambio a baja ${game.inning}a`,
+    },
+    inning: { number: game.inning, completedHalf: game.inningHalf, nextHalf: (game.inningHalf === 'top' ? 'bottom' : 'top') as 'top' | 'bottom' },
+    score: {
+      home: { teamId: 'MIN', shortName: 'MIN', runs: game.score.home },
+      away: { teamId: 'RIV', shortName: 'RIV', runs: game.score.away },
+    },
+    nextBattingTeam: { teamId: 'MIN', shortName: 'MIN' },
+    nextBattersSummary: 'Batean 6 . 7 . 8',
+  };
+
+  const demoFinalScore = {
+    gameId: 'demo-game-001',
+    status: 'final' as const,
+    winner: { teamId: 'MIN', name: 'Mineros', shortName: 'MIN' },
+    loser: { teamId: 'RIV', name: 'Rivales', shortName: 'RIV' },
+    finalScore: { winnerRuns: game.score.home, loserRuns: game.score.away },
+    lineScore: {
+      winner: { runs: game.score.home, hits: 9, errors: 1 },
+      loser: { runs: game.score.away, hits: 7, errors: 2 },
+    },
+    featuredPlayer: { playerId: 'p2', name: 'C. Jara', summary: '2-3 . 2 RBI . Doble' },
+    context: { inningsPlayed: game.inning, label: `Final ${game.inning} entradas` },
+  };
+
+  const demoSponsor = {
+    placement: { type: 'primary' as const, slot: 'between_innings' },
+    sponsor: { sponsorId: 'sponsor-001', name: 'Merchise' },
+    message: { title: 'Gracias', subtitle: 'Por apoyar a Mineros' },
+    cta: { text: 'Siguenos', handle: '@clubminerosdesantiago' },
+    context: { label: 'Entre entradas', durationSeconds: 10 },
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', fontFamily: 'Inter, sans-serif', color: '#fff' }}>
@@ -125,13 +176,16 @@ export function App() {
          </button>
         ))}
         {sep}
- 
+
         <span style={{ fontSize: 11, opacity: 0.5 }}>Entrada:</span>
         <span style={{ minWidth: 56, textAlign: 'center', fontSize: 13 }}>
           {game.inningHalf === 'top' ? 'ALTA' : 'BAJA'} {game.inning}
         </span>
         <button style={{ ...buttonStyle, fontSize: 12 }} onClick={() => engine.advanceHalfInning()}>
           Avanzar
+        </button>
+        <button style={{ ...buttonStyle, fontSize: 12, borderColor: '#D71920', color: '#D71920' }} onClick={() => engine.endGame()}>
+          Fin Juego
         </button>
         {sep}
 
@@ -187,7 +241,6 @@ export function App() {
         <div style={{ fontSize: 11, opacity: 0.4, marginBottom: 6 }}>Canvas 1920x1080 @ Browser Source preview (60%)</div>
         <div style={{ width: 1152, height: 648, background: backgrounds[bg], borderRadius: 6, overflow: 'hidden', position: 'relative', border: '1px solid #2a2a2a' }}>
           <div style={{ transform: 'scale(0.6)', transformOrigin: 'top left', width: 1920, height: 1080, position: 'relative' }}>
-            {/* Scorebug siempre visible como base */}
             <div style={{ position: 'absolute', inset: 0 }}>
               <Scorebug game={game} />
             </div>
@@ -204,6 +257,21 @@ export function App() {
                   team={{ teamId: 'team-mineros', name: 'Mineros de Santiago', shortName: 'MIN', logoAssetId: 'AM-LOGO-001' }}
                   variant="horizontal_compact"
                 />
+              </div>
+            )}
+            {activeOverlay === 'inning-transition' && (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <InningTransitionOverlay data={demoInningTransition} variant="lower_third_compact" />
+              </div>
+            )}
+            {activeOverlay === 'final-score' && (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <FinalScoreOverlay data={demoFinalScore} variant="lower_third_compact" />
+              </div>
+            )}
+            {activeOverlay === 'sponsor-break' && (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <SponsorBreakOverlay data={demoSponsor} variant="lower_third_compact" />
               </div>
             )}
           </div>
