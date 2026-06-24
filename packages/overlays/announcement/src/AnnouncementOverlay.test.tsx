@@ -55,7 +55,7 @@ describe('AnnouncementOverlay', () => {
     expect(container.querySelector('.mb-shell')).toBeTruthy();
   });
   it('renderiza variante clinic_card', () => {
-    const { container } = render(<AnnouncementOverlay data={VALID} variant="clinic_card" />);
+    render(<AnnouncementOverlay data={VALID} variant="clinic_card" />);
     expect(screen.getAllByText('Clinica gratuita de bateo').length).toBeGreaterThan(0);
   });
   it('muestra error cuando faltan datos requeridos', () => {
