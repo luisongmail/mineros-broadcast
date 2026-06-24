@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { GameEngine, type GameTeam } from '@mineros/game-engine';
 import { BatterOverlay } from '@mineros/overlay-batter';
 import { FinalScoreOverlay } from '@mineros/overlay-final-score';
@@ -11,6 +12,8 @@ import { SocialLowerThirdOverlay } from '@mineros/overlay-social-lower-third';
 import { CountdownOverlay } from '@mineros/overlay-countdown';
 import { SubstitutionOverlay } from '@mineros/overlay-substitution';
 import { GameEventOverlay } from '@mineros/overlay-game-event';
+
+import { OverlayPage } from './pages/OverlayPage';
 
 const CANVAS_SCALE = 0.45;
 const CANVAS_WIDTH = 1920;
@@ -151,6 +154,32 @@ const TRIGGER_GROUPS: Array<{ title: OverlayDefinition['category']; overlays: Ov
   { title: 'Accion', overlays: ['substitution', 'game-event'] },
 ];
 
+const OUTPUT_OVERLAY_IDS: Array<'scorebug' | OverlayId> = [
+  'scorebug',
+  'batter',
+  'next-batters',
+  'inning-transition',
+  'final-score',
+  'announcement',
+  'social',
+  'countdown',
+  'sponsor-break',
+  'substitution',
+  'game-event',
+];
+
+function outputOverlayLabel(overlayId: 'scorebug' | OverlayId): string {
+  return overlayId === 'scorebug' ? 'Scorebug' : OVERLAYS[overlayId].label;
+}
+
+function buildOutputUrl(origin: string, overlayId: 'scorebug' | OverlayId): string {
+  if (overlayId === 'scorebug') {
+    return `${origin}/overlay/${overlayId}`;
+  }
+
+  return `${origin}/overlay/${overlayId}?variant=${OVERLAYS[overlayId].defaultVariant}`;
+}
+
 function formatClock(date = new Date()): string {
   return date.toLocaleTimeString('en-GB', { hour12: false });
 }
@@ -217,6 +246,17 @@ function CanvasFrame({
 }
 
 export function App() {
+  return (
+    <Routes>
+      <Route path="/overlay/:overlayId" element={<OverlayPage />} />
+      <Route path="/control" element={<OperatorControlPanel />} />
+      <Route path="/" element={<OperatorControlPanel />} />
+      <Route path="*" element={<Navigate replace to="/" />} />
+    </Routes>
+  );
+}
+
+function OperatorControlPanel() {
   const engineRef = useRef<GameEngine | null>(null);
   const programTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -237,6 +277,15 @@ export function App() {
   const [batterIndex, setBatterIndex] = useState(0);
   const [latencyMs, setLatencyMs] = useState(24);
   const [autoHideEnabled, setAutoHideEnabled] = useState(true);
+  const browserSourceOrigin = typeof window === 'undefined' ? 'http://localhost:5174' : window.location.origin;
+
+  const copyToClipboard = useCallback((value: string) => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) {
+      return;
+    }
+
+    void navigator.clipboard.writeText(value).catch(() => undefined);
+  }, []);
 
   const clearProgramTimer = useCallback(() => {
     if (programTimerRef.current) {
@@ -790,6 +839,46 @@ export function App() {
                 <div className="px-4 py-6 text-sm text-white/50">Sin acciones registradas todavia.</div>
               )}
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-white/10 bg-white/5 p-5 shadow-broadcast">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="font-bebas text-3xl uppercase tracking-wide text-mineros-gold">Browser Source URLs (OBS)</p>
+              <p className="text-sm text-white/60">Cada overlay vive en su propia ruta, sin toolbar y con fondo transparente para Browser Source.</p>
+            </div>
+            <span className="rounded-md border border-white/15 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white/65">
+              Output
+            </span>
+          </div>
+
+          <div className="grid gap-3 xl:grid-cols-2">
+            {OUTPUT_OVERLAY_IDS.map((overlayId) => {
+              const outputUrl = buildOutputUrl(browserSourceOrigin, overlayId);
+              return (
+                <div key={overlayId} className="flex flex-col gap-3 rounded-lg border border-white/10 bg-broadcast-black/50 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{outputOverlayLabel(overlayId)}</p>
+                    <code className="mt-2 block break-all rounded-md border border-white/10 bg-broadcast-black px-3 py-2 text-xs text-mineros-gold">
+                      {outputUrl}
+                    </code>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-white/50">
+                      {overlayId === 'scorebug' ? 'Salida persistente sin variante.' : 'Incluye la variante por defecto; puedes cambiarla por querystring.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(outputUrl)}
+                      className="rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white hover:bg-white/15"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       </div>
