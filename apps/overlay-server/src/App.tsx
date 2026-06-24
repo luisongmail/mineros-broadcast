@@ -271,21 +271,25 @@ export function App() {
         </button>
       </div>
 
-      {/* Barra de variantes — solo cuando hay variantes disponibles */}
-      {OVERLAY_VARIANTS[activeOverlay] && (
-        <div style={{ padding: '6px 16px', background: '#111827', borderBottom: '1px solid #222', display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 11, opacity: 0.4, marginRight: 4 }}>Variante:</span>
-          {OVERLAY_VARIANTS[activeOverlay].map((v) => (
-            <button
-              key={v}
-              style={{ ...buttonStyle, fontSize: 11, padding: '2px 10px', background: activeVariant === v ? '#D4AF37' : 'transparent', color: activeVariant === v ? '#000' : '#aaa', borderColor: activeVariant === v ? '#D4AF37' : '#444' }}
-              onClick={() => setActiveVariant(v)}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Barra de variantes — altura fija siempre para que el canvas no salte */}
+      <div style={{ padding: '6px 16px', background: '#111827', borderBottom: '1px solid #222', display: 'flex', gap: 8, alignItems: 'center', minHeight: 32 }}>
+        {OVERLAY_VARIANTS[activeOverlay] ? (
+          <>
+            <span style={{ fontSize: 11, opacity: 0.4, marginRight: 4 }}>Variante:</span>
+            {OVERLAY_VARIANTS[activeOverlay].map((v) => (
+              <button
+                key={v}
+                style={{ ...buttonStyle, fontSize: 11, padding: '2px 10px', background: activeVariant === v ? '#D4AF37' : 'transparent', color: activeVariant === v ? '#000' : '#aaa', borderColor: activeVariant === v ? '#D4AF37' : '#444' }}
+                onClick={() => setActiveVariant(v)}
+              >
+                {v}
+              </button>
+            ))}
+          </>
+        ) : (
+          <span style={{ fontSize: 11, opacity: 0.2 }}>Sin variantes</span>
+        )}
+      </div>
 
       <div style={{ padding: 16 }}>
         <div style={{ fontSize: 11, opacity: 0.4, marginBottom: 6 }}>Canvas 1920x1080 @ Browser Source preview (60%)</div>
