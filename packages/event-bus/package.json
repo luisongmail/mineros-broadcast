@@ -1,0 +1,26 @@
+{
+  "name": "@mineros/event-bus",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "prebuild": "pnpm --filter @mineros/core build",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mineros/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "typescript": "*",
+    "vitest": "^1.0.0"
+  }
+}

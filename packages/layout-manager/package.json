@@ -1,0 +1,26 @@
+{
+  "name": "@mineros/layout-manager",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "pretest": "pnpm --filter @mineros/event-bus build",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mineros/core": "workspace:*",
+    "@mineros/event-bus": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "^1.0.0"
+  }
+}
