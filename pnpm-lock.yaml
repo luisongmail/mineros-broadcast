@@ -87,12 +87,21 @@ importers:
       '@mineros/game-engine':
         specifier: workspace:*
         version: link:../../packages/game-engine
+      '@mineros/overlay-announcement':
+        specifier: workspace:*
+        version: link:../../packages/overlays/announcement
       '@mineros/overlay-batter':
         specifier: workspace:*
         version: link:../../packages/overlays/batter
+      '@mineros/overlay-countdown':
+        specifier: workspace:*
+        version: link:../../packages/overlays/countdown
       '@mineros/overlay-final-score':
         specifier: workspace:*
         version: link:../../packages/overlays/final-score
+      '@mineros/overlay-game-event':
+        specifier: workspace:*
+        version: link:../../packages/overlays/game-event
       '@mineros/overlay-inning-transition':
         specifier: workspace:*
         version: link:../../packages/overlays/inning-transition
@@ -102,9 +111,15 @@ importers:
       '@mineros/overlay-scorebug':
         specifier: workspace:*
         version: link:../../packages/overlays/scorebug
+      '@mineros/overlay-social-lower-third':
+        specifier: workspace:*
+        version: link:../../packages/overlays/social-lower-third
       '@mineros/overlay-sponsor-break':
         specifier: workspace:*
         version: link:../../packages/overlays/sponsor-break
+      '@mineros/overlay-substitution':
+        specifier: workspace:*
+        version: link:../../packages/overlays/substitution
       react:
         specifier: ^18.3.0
         version: 18.3.1
@@ -272,6 +287,58 @@ importers:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@20.19.43)(jsdom@29.1.1)
 
+  packages/overlays/announcement:
+    dependencies:
+      '@mineros/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@mineros/design-system':
+        specifier: workspace:*
+        version: link:../../design-system
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.0
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.0.0
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.0
+        version: 4.7.0(vite@5.4.21(@types/node@20.19.43))
+      autoprefixer:
+        specifier: ^10.4.0
+        version: 10.5.1(postcss@8.5.15)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      postcss:
+        specifier: ^8.4.0
+        version: 8.5.15
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vite:
+        specifier: ^5.3.0
+        version: 5.4.21(@types/node@20.19.43)
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.43)(jsdom@29.1.1)
+
   packages/overlays/batter:
     dependencies:
       '@mineros/core':
@@ -324,7 +391,111 @@ importers:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@20.19.43)(jsdom@29.1.1)
 
+  packages/overlays/countdown:
+    dependencies:
+      '@mineros/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@mineros/design-system':
+        specifier: workspace:*
+        version: link:../../design-system
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.0
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.0.0
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.0
+        version: 4.7.0(vite@5.4.21(@types/node@20.19.43))
+      autoprefixer:
+        specifier: ^10.4.0
+        version: 10.5.1(postcss@8.5.15)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      postcss:
+        specifier: ^8.4.0
+        version: 8.5.15
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vite:
+        specifier: ^5.3.0
+        version: 5.4.21(@types/node@20.19.43)
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.43)(jsdom@29.1.1)
+
   packages/overlays/final-score:
+    dependencies:
+      '@mineros/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@mineros/design-system':
+        specifier: workspace:*
+        version: link:../../design-system
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.0
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.0.0
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.0
+        version: 4.7.0(vite@5.4.21(@types/node@20.19.43))
+      autoprefixer:
+        specifier: ^10.4.0
+        version: 10.5.1(postcss@8.5.15)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      postcss:
+        specifier: ^8.4.0
+        version: 8.5.15
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vite:
+        specifier: ^5.3.0
+        version: 5.4.21(@types/node@20.19.43)
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.43)(jsdom@29.1.1)
+
+  packages/overlays/game-event:
     dependencies:
       '@mineros/core':
         specifier: workspace:*
@@ -639,7 +810,111 @@ importers:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@20.19.43)(jsdom@29.1.1)
 
+  packages/overlays/social-lower-third:
+    dependencies:
+      '@mineros/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@mineros/design-system':
+        specifier: workspace:*
+        version: link:../../design-system
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.0
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.0.0
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.0
+        version: 4.7.0(vite@5.4.21(@types/node@20.19.43))
+      autoprefixer:
+        specifier: ^10.4.0
+        version: 10.5.1(postcss@8.5.15)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      postcss:
+        specifier: ^8.4.0
+        version: 8.5.15
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vite:
+        specifier: ^5.3.0
+        version: 5.4.21(@types/node@20.19.43)
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.43)(jsdom@29.1.1)
+
   packages/overlays/sponsor-break:
+    dependencies:
+      '@mineros/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@mineros/design-system':
+        specifier: workspace:*
+        version: link:../../design-system
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.0
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.0.0
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.0
+        version: 4.7.0(vite@5.4.21(@types/node@20.19.43))
+      autoprefixer:
+        specifier: ^10.4.0
+        version: 10.5.1(postcss@8.5.15)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      postcss:
+        specifier: ^8.4.0
+        version: 8.5.15
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vite:
+        specifier: ^5.3.0
+        version: 5.4.21(@types/node@20.19.43)
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.43)(jsdom@29.1.1)
+
+  packages/overlays/substitution:
     dependencies:
       '@mineros/core':
         specifier: workspace:*

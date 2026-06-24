@@ -21,7 +21,12 @@
     "@mineros/overlay-scorebug": "workspace:*",
     "@mineros/overlay-inning-transition": "workspace:*",
     "@mineros/overlay-final-score": "workspace:*",
-    "@mineros/overlay-sponsor-break": "workspace:*"
+    "@mineros/overlay-sponsor-break": "workspace:*",
+    "@mineros/overlay-announcement": "workspace:*",
+    "@mineros/overlay-social-lower-third": "workspace:*",
+    "@mineros/overlay-countdown": "workspace:*",
+    "@mineros/overlay-substitution": "workspace:*",
+    "@mineros/overlay-game-event": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

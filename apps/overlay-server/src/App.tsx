@@ -6,6 +6,11 @@ import { InningTransitionOverlay } from '@mineros/overlay-inning-transition';
 import { NextBattersOverlay } from '@mineros/overlay-next-batters';
 import { Scorebug } from '@mineros/overlay-scorebug';
 import { SponsorBreakOverlay } from '@mineros/overlay-sponsor-break';
+import { AnnouncementOverlay } from '@mineros/overlay-announcement';
+import { SocialLowerThirdOverlay } from '@mineros/overlay-social-lower-third';
+import { CountdownOverlay } from '@mineros/overlay-countdown';
+import { SubstitutionOverlay } from '@mineros/overlay-substitution';
+import { GameEventOverlay } from '@mineros/overlay-game-event';
 
 const homeTeam: GameTeam = {
   id: 'MIN',
@@ -42,6 +47,11 @@ const OVERLAY_VARIANTS: Record<string, string[]> = {
   'inning-transition':  ['lower_third_compact', 'minimal'],
   'final-score':        ['lower_third_compact', 'full_card'],
   'sponsor-break':      ['lower_third_compact', 'logo_only'],
+  'announcement':       ['lower_third_compact', 'minimal', 'alert', 'clinic_card'],
+  'social':             ['lower_third_compact', 'minimal_handle', 'dual_channel'],
+  'countdown':          ['lower_third_compact', 'minimal_timer'],
+  'substitution':       ['lower_third_compact', 'minimal'],
+  'game-event':         ['lower_third_compact', 'minimal'],
 };
 
 const DEFAULT_VARIANT: Record<string, string> = {
@@ -50,6 +60,11 @@ const DEFAULT_VARIANT: Record<string, string> = {
   'inning-transition': 'lower_third_compact',
   'final-score':       'lower_third_compact',
   'sponsor-break':     'lower_third_compact',
+  'announcement':      'lower_third_compact',
+  'social':            'lower_third_compact',
+  'countdown':         'lower_third_compact',
+  'substitution':      'lower_third_compact',
+  'game-event':        'lower_third_compact',
 };
 
 const overlayOptions = [
@@ -59,6 +74,11 @@ const overlayOptions = [
   { id: 'inning-transition', label: 'Transicion' },
   { id: 'final-score', label: 'Final Score' },
   { id: 'sponsor-break', label: 'Sponsor Break' },
+  { id: 'announcement', label: 'Anuncio' },
+  { id: 'social', label: 'Social' },
+  { id: 'countdown', label: 'Cuenta Regresiva' },
+  { id: 'substitution', label: 'Sustitucion' },
+  { id: 'game-event', label: 'Evento Juego' },
 ] as const;
 
 type ActiveOverlay = (typeof overlayOptions)[number]['id'];
@@ -186,6 +206,59 @@ export function App() {
     context: { label: 'Entre entradas', durationSeconds: 10 },
   };
 
+  const demoAnnouncement = {
+    announcement: {
+      type: 'clinic' as const,
+      title: 'Clinica gratuita de bateo',
+      subtitle: 'Este sabado 10:00 - 13:00',
+      detail: 'Cupo limitado - inscribirse antes del viernes',
+      place: 'Estadio Antupiren',
+      date: 'Sabado 14 jun',
+      categories: '4 a 16 anos',
+      action: 'Inscribete ya',
+      socialHandle: '@clubminerosdesantiago',
+    },
+  };
+
+  const demoSocial = {
+    social: {
+      primaryHandle: '@clubminerosdesantiago',
+      instagram: { handle: '@clubmineros', label: 'Fotos y reels' },
+      youtube: { handle: 'Club Mineros', label: 'Partidos en vivo' },
+    },
+    message: { type: 'follow' as const, title: 'Siguenos en redes', subtitle: 'Contenido exclusivo del club', cta: 'Comparte el partido' },
+  };
+
+  const demoCountdown = {
+    countdown: {
+      targetTime: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      type: 'game_start' as const,
+      label: 'Inicio del partido',
+    },
+    event: {
+      title: 'Mineros vs Rivales',
+      subtitle: 'Liga Femenina 2025',
+      venue: 'Estadio Antupiren',
+      status: 'En breve',
+    },
+  };
+
+  const demoSubstitution = {
+    gameId: 'demo-game-001',
+    substitution: { type: 'pitcher_change' as const, label: 'Cambio de lanzadora', reason: 'Relevo estrategico' },
+    playerOut: { playerId: 'p-031', number: '31', name: 'L. Soto', position: 'P', detail: '3.2 IP 54 PIT' },
+    playerIn: { playerId: 'p-007', number: '07', name: 'M. Castro', position: 'P' },
+    inning: game.inning,
+  };
+
+  const demoGameEvent = {
+    gameId: 'demo-game-001',
+    event: { type: 'double' as const, label: 'DOBLE', description: 'Doble al jardin derecho', direction: 'Jardin derecho' },
+    player: { playerId: 'p-012', number: '12', name: 'C. Jara', position: '2B', stat: '2B . RBI 1' },
+    scoreImpact: { team: 'MIN', change: 1, label: 'Empata' },
+    bases: { label: 'Corredora en 2B' },
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#111', fontFamily: 'Inter, sans-serif', color: '#fff' }}>
       <div style={{ padding: '10px 16px', background: '#1a1a2e', borderBottom: '1px solid #333', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -225,23 +298,17 @@ export function App() {
 
         <span style={{ fontSize: 11, opacity: 0.5 }}>MIN:</span>
         <span style={{ minWidth: 16, textAlign: 'center', fontSize: 13 }}>{game.score.home}</span>
-        <button style={buttonStyle} onClick={() => engine.incrementScore('home')}>
-          +
-        </button>
+        <button style={buttonStyle} onClick={() => engine.incrementScore('home')}>+</button>
         {sep}
 
         <span style={{ fontSize: 11, opacity: 0.5 }}>RIV:</span>
         <span style={{ minWidth: 16, textAlign: 'center', fontSize: 13 }}>{game.score.away}</span>
-        <button style={buttonStyle} onClick={() => engine.incrementScore('away')}>
-          +
-        </button>
+        <button style={buttonStyle} onClick={() => engine.incrementScore('away')}>+</button>
         {sep}
 
         <span style={{ fontSize: 11, opacity: 0.5 }}>Outs:</span>
         <span style={{ minWidth: 16, textAlign: 'center', fontSize: 13 }}>{game.outs}</span>
-        <button style={buttonStyle} onClick={() => engine.addOut()}>
-          + OUT
-        </button>
+        <button style={buttonStyle} onClick={() => engine.addOut()}>+ OUT</button>
         {sep}
 
         <span style={{ fontSize: 11, opacity: 0.5 }}>Bases:</span>
@@ -260,18 +327,12 @@ export function App() {
         <span style={{ minWidth: 48, textAlign: 'center', fontSize: 13 }}>
           B {game.count.balls} / S {game.count.strikes}
         </span>
-        <button style={buttonStyle} onClick={() => engine.setCount({ balls: game.count.balls + 1 })}>
-          +B
-        </button>
-        <button style={buttonStyle} onClick={() => engine.setCount({ strikes: game.count.strikes + 1 })}>
-          +S
-        </button>
-        <button style={buttonStyle} onClick={() => engine.setCount({ balls: 0, strikes: 0 })}>
-          Reset
-        </button>
+        <button style={buttonStyle} onClick={() => engine.setCount({ balls: game.count.balls + 1 })}>+B</button>
+        <button style={buttonStyle} onClick={() => engine.setCount({ strikes: game.count.strikes + 1 })}>+S</button>
+        <button style={buttonStyle} onClick={() => engine.setCount({ balls: 0, strikes: 0 })}>Reset</button>
       </div>
 
-      {/* Barra de variantes — altura fija siempre para que el canvas no salte */}
+      {/* Barra de  altura fija siempre para que el canvas no salte */}variantes 
       <div style={{ padding: '6px 16px', background: '#111827', borderBottom: '1px solid #222', display: 'flex', gap: 8, alignItems: 'center', minHeight: 32 }}>
         {OVERLAY_VARIANTS[activeOverlay] ? (
           <>
@@ -326,6 +387,31 @@ export function App() {
             {activeOverlay === 'sponsor-break' && (
               <div style={{ position: 'absolute', inset: 0 }}>
                 <SponsorBreakOverlay data={demoSponsor} variant={activeVariant as never} />
+              </div>
+            )}
+            {activeOverlay === 'announcement' && (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <AnnouncementOverlay data={demoAnnouncement} variant={activeVariant as never} />
+              </div>
+            )}
+            {activeOverlay === 'social' && (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <SocialLowerThirdOverlay data={demoSocial} variant={activeVariant as never} />
+              </div>
+            )}
+            {activeOverlay === 'countdown' && (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <CountdownOverlay data={demoCountdown} variant={activeVariant as never} />
+              </div>
+            )}
+            {activeOverlay === 'substitution' && (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <SubstitutionOverlay data={demoSubstitution} variant={activeVariant as never} />
+              </div>
+            )}
+            {activeOverlay === 'game-event' && (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <GameEventOverlay data={demoGameEvent} variant={activeVariant as never} />
               </div>
             )}
           </div>
