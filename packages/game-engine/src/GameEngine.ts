@@ -158,8 +158,19 @@ export class GameEngine {
 
     if (nextOuts < 3) {
       const previousOuts = this.state.outs;
+      const previousCount = this.clone(this.state.count);
       this.state.outs = nextOuts;
+      // Al registrar un out, el conteo se reinicia (nuevo bateador)
+      this.state.count = this.clone(EMPTY_COUNT);
       this.emitEvent('outs_changed', { previousOuts, outs: this.state.outs });
+      if (previousCount.balls !== 0 || previousCount.strikes !== 0) {
+        this.emitEvent('count_changed', { previousCount, count: this.clone(this.state.count) });
+      }
+      this.emitEvent('batter_changed', {
+        previousBatterId: this.state.currentBatterId,
+        currentBatterId: this.state.currentBatterId,
+        reason: 'out',
+      });
       return;
     }
 
@@ -203,8 +214,29 @@ export class GameEngine {
   setCount(count: Partial<GameCount>): void {
     validateCount(count);
 
+    const merged = { ...this.state.count, ...count };
+
+    // Tercer strike → strikeout → addOut() maneja reset de conteo y batter_changed
+    if (merged.strikes >= 3) {
+      this.addOut();
+      return;
+    }
+
+    // Cuarta bola → base por bolas → reset conteo + batter_changed
+    if (merged.balls >= 4) {
+      const previousCount = this.clone(this.state.count);
+      this.state.count = this.clone(EMPTY_COUNT);
+      this.emitEvent('count_changed', { previousCount, count: this.clone(this.state.count) });
+      this.emitEvent('batter_changed', {
+        previousBatterId: this.state.currentBatterId,
+        currentBatterId: this.state.currentBatterId,
+        reason: 'walk',
+      });
+      return;
+    }
+
     const previousCount = this.clone(this.state.count);
-    this.state.count = { ...this.state.count, ...count };
+    this.state.count = merged;
     this.emitEvent('count_changed', { previousCount, count: this.clone(this.state.count) });
   }
 

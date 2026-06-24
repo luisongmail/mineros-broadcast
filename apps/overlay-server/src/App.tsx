@@ -20,15 +20,12 @@ const awayTeam: GameTeam = {
   role: 'away',
 };
 
-const sampleBatter = {
-  playerId: 'player-015',
-  number: '15',
-  name: 'Martina Pellizaris',
-  position: '2B',
-  status: 'AL BATE',
-  teamId: 'team-mineros',
-  stats: { avg: '.385', hits: 5, rbi: 4, today: '2-2' },
-};
+const DEMO_BATTERS = [
+  { playerId: 'p1', number: '15', name: 'Martina Pellizaris', position: '2B', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.385', hits: 5, rbi: 4, today: '2-2' } },
+  { playerId: 'p2', number: '08', name: 'Carolina Jara', position: 'SS', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.312', hits: 3, rbi: 2, today: '1-3' } },
+  { playerId: 'p3', number: '22', name: 'Valentina Ríos', position: '3B', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.278', hits: 4, rbi: 5, today: '0-2' } },
+  { playerId: 'p4', number: '07', name: 'Sofía Mendoza', position: 'CF', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.340', hits: 6, rbi: 3, today: '2-4' } },
+];
 
 const sampleNextBatters = [
   { state: 'current', order: 1, playerId: 'p1', name: 'C. Jara', number: '12', position: '2B', avg: '.385' },
@@ -57,13 +54,31 @@ export function App() {
   const [game, setGame] = useState(() => engine.getState());
   const [bg, setBg] = useState<'video' | 'black' | 'grid'>('black');
   const [activeOverlay, setActiveOverlay] = useState<ActiveOverlay>('scorebug');
+  const [batterIndex, setBatterIndex] = useState(0);
+  const autoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showBatterOverlay = () => {
+    if (autoHideTimer.current) clearTimeout(autoHideTimer.current);
+    setActiveOverlay('batter');
+    autoHideTimer.current = setTimeout(() => setActiveOverlay('scorebug'), 8000);
+  };
 
   useEffect(() => {
     const syncGame = () => setGame(engine.getState());
+    const onBatterChanged = () => {
+      setBatterIndex((i) => (i + 1) % DEMO_BATTERS.length);
+      showBatterOverlay();
+    };
+    const onInningStarted = () => setActiveOverlay('scorebug');
 
     engine.on('event', syncGame);
+    engine.on('batter_changed', onBatterChanged);
+    engine.on('inning_started', onInningStarted);
     return () => {
       engine.off('event', syncGame);
+      engine.off('batter_changed', onBatterChanged);
+      engine.off('inning_started', onInningStarted);
+      if (autoHideTimer.current) clearTimeout(autoHideTimer.current);
     };
   }, [engine]);
 
@@ -178,7 +193,7 @@ export function App() {
             </div>
             {activeOverlay === 'batter' && (
               <div style={{ position: 'absolute', inset: 0 }}>
-                <BatterOverlay batter={sampleBatter} variant="lower_third" />
+                <BatterOverlay batter={DEMO_BATTERS[batterIndex]} variant="lower_third" />
               </div>
             )}
             {activeOverlay === 'next-batters' && (
