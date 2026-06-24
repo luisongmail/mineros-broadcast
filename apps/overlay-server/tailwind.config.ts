@@ -6,6 +6,6 @@ export default {
   content: [
     './src/**/*.{ts,tsx}',
     '../../packages/design-system/src/**/*.{ts,tsx}',
-    '../../packages/overlays/scorebug/src/**/*.{ts,tsx}',
+    '../../packages/overlays/*/src/**/*.{ts,tsx}',
   ],
 } satisfies Config;

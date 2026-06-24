@@ -172,21 +172,22 @@ export function App() {
         <div style={{ fontSize: 11, opacity: 0.4, marginBottom: 6 }}>Canvas 1920x1080 @ Browser Source preview (60%)</div>
         <div style={{ width: 1152, height: 648, background: backgrounds[bg], borderRadius: 6, overflow: 'hidden', position: 'relative', border: '1px solid #2a2a2a' }}>
           <div style={{ transform: 'scale(0.6)', transformOrigin: 'top left', width: 1920, height: 1080, position: 'relative' }}>
+            {/* Scorebug siempre visible como base */}
             <div style={{ position: 'absolute', inset: 0 }}>
               <Scorebug game={game} />
             </div>
             {activeOverlay === 'batter' && (
-              <div style={{ position: 'absolute', inset: 0, transform: 'translateY(-180px)' }}>
+              <div style={{ position: 'absolute', inset: 0 }}>
                 <BatterOverlay batter={sampleBatter} variant="lower_third" />
               </div>
             )}
             {activeOverlay === 'next-batters' && (
-              <div style={{ position: 'absolute', inset: 0, transform: 'translateY(-160px)' }}>
+              <div style={{ position: 'absolute', inset: 0 }}>
                 <NextBattersOverlay
                   batters={[...sampleNextBatters]}
                   inning={{ number: game.inning, half: game.inningHalf }}
                   team={{ teamId: 'team-mineros', name: 'Mineros de Santiago', shortName: 'MIN', logoAssetId: 'AM-LOGO-001' }}
-                  variant="lower_third"
+                  variant="horizontal_compact"
                 />
               </div>
             )}
