@@ -1,0 +1,23 @@
+{
+  "name": "@mineros/asset-manager",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mineros/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "^1.0.0"
+  }
+}

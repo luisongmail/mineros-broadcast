@@ -19,7 +19,42 @@ packages/overlays/{name}/   → Overlays individuales (fuentes: 10-22)
 apps/control-panel/         → Panel del operador, SPA React, PC + móvil (fuente: 24)
 apps/overlay-server/        → Páginas HTML para Browser Source en OBS/Meld Studio
 infra/supabase/             → Migraciones PostgreSQL + seed
-docs/requirements/          → Especificaciones originales (NO modificar)
+docs/requirements/          → Especificaciones originales (NO modificar — 26 documentos aprobados)
+```
+
+## Documentos de requerimientos (`docs/requirements/`)
+
+Antes de implementar cualquier módulo, leer el documento correspondiente. Son la fuente de verdad del sistema.
+
+| Archivo | Módulo | Estado |
+|---------|--------|--------|
+| `00-master-index.md` | Índice maestro + principios del sistema | APROBADO |
+| `01-layout-manager.md` | Layout Manager — zonas, Preview/Program, perfiles | CERRADO |
+| `02-design-system.md` | Design System — paleta, tipografías, grid, safe area | CERRADO |
+| `03-asset-manager.md` | Asset Manager — flujo de vida, metadata, assetId | CERRADO |
+| `04-game-engine.md` | Game Engine — estado deportivo, comandos, eventos, auditoría | CERRADO |
+| `05-sponsor-engine.md` | Sponsor Engine — campañas, placements, vigencias | CERRADO |
+| `06-event-engine.md` | Event Engine — eventos → acciones visuales/comerciales | CERRADO |
+| `07-scene-engine.md` | Scene Engine — catálogo de escenas, transiciones | CERRADO |
+| `08-overlay-manager.md` | Overlay Manager — contrato de render, estados | CERRADO |
+| `09-integration-contracts.md` | Contratos de integración — envelope IC-003, tipos de mensaje | CERRADO |
+| `10-scorebug.md` | Overlay Scorebug — marcador permanente | CERRADO |
+| `11-batter-overlay.md` | Overlay Bateador | CERRADO |
+| `12-lineup.md` | Overlay Lineup | CERRADO |
+| `13-next-batters.md` | Overlay Próximos Bateadores | CERRADO |
+| `14-pitcher-overlay.md` | Overlay Pitcher | CERRADO |
+| `15-substitution-overlay.md` | Overlay Sustitución | CERRADO |
+| `16-game-event-overlay.md` | Overlay Evento de Juego | CERRADO |
+| `17-inning-transition.md` | Overlay Transición de Entrada | CERRADO |
+| `18-final-score-overlay.md` | Overlay Marcador Final | CERRADO |
+| `19-sponsor-break-overlay.md` | Overlay Pausa Comercial | CERRADO |
+| `20-announcement-overlay.md` | Overlay Anuncio | CERRADO |
+| `21-social-lower-third.md` | Overlay Lower Third Social | CERRADO |
+| `22-countdown-overlay.md` | Overlay Cuenta Regresiva | CERRADO |
+| `23-overlay-lifecycle.md` | Ciclo de vida de overlays | CERRADO |
+| `24-operator-control-panel.md` | Panel del Operador — acciones, roles, reglas de seguridad | CERRADO |
+| `25-qa-acceptance-checklist.md` | Checklist de aceptación QA | CERRADO |
+| `26-master-package-index.md` | Índice final del paquete + orden de implementación | CERRADO |
 ```
 
 ## Comandos

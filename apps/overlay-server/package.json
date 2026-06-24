@@ -1,0 +1,53 @@
+{
+  "name": "@mineros/overlay-server",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc && vite build",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "dev": "vite",
+    "preview": "vite preview",
+    "server": "tsx server/index.ts",
+    "dev:server": "tsx watch server/index.ts"
+  },
+  "dependencies": {
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "@mineros/core": "workspace:*",
+    "@mineros/game-engine": "workspace:*",
+    "@mineros/overlay-batter": "workspace:*",
+    "@mineros/overlay-next-batters": "workspace:*",
+    "@mineros/overlay-scorebug": "workspace:*",
+    "@mineros/overlay-inning-transition": "workspace:*",
+    "@mineros/overlay-final-score": "workspace:*",
+    "@mineros/overlay-sponsor-break": "workspace:*",
+    "@mineros/overlay-announcement": "workspace:*",
+    "@mineros/overlay-social-lower-third": "workspace:*",
+    "@mineros/overlay-countdown": "workspace:*",
+    "@mineros/overlay-substitution": "workspace:*",
+    "@mineros/overlay-game-event": "workspace:*",
+    "express": "^4.18.0",
+    "ws": "^8.16.0",
+    "cors": "^2.8.5",
+    "react-router-dom": "^6.22.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "*",
+    "vite": "^5.3.0",
+    "vitest": "^1.0.0",
+    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "@types/express": "^4.17.0",
+    "@types/ws": "^8.5.0",
+    "@types/cors": "^2.8.0",
+    "@types/node": "^20.19.0",
+    "tsx": "^4.20.6"
+  }
+}
