@@ -1091,9 +1091,9 @@ function OperatorControlPanel() {
           </div>
         </aside>
 
-        {/* ── CENTRO + DERECHA: condicional según tab activo ── */}
+        {/* ── CENTRO: canvases arriba + panel de tabs abajo ── */}
         {rightTab === 'layout' ? (
-          /* Layout editor: ocupa toda la zona central + derecha */
+          /* Layout editor: ocupa toda la zona central */
           <LayoutEditor
             gameId={game.gameId}
             apiBase={import.meta.env.DEV ? 'http://localhost:3001/api' : '/api'}
@@ -1101,198 +1101,194 @@ function OperatorControlPanel() {
             onLayoutChange={reloadActiveLayout}
           />
         ) : (
-          <>
-            {/* ── CENTRO: Preview + Program + controles ── */}
-            <main className="flex-1 overflow-hidden flex flex-col p-3 gap-3 min-w-0">
-          {/* Canvases lado a lado */}
-          <div className="flex gap-3 items-start">
-            {/* PREVIEW */}
-            <div className="flex-1 min-w-0">
-              <CanvasFrame
-                title="Preview"
-                subtitle={previewOverlay ? overlayLabel(previewOverlay) + ' · ' + formatVariantLabel(previewVariant) : 'Sin overlay'}
-                background="#111827"
-                badge={
-                  previewOverlay ? (
-                    <span className="rounded border border-mineros-gold/40 bg-mineros-gold/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-mineros-gold">
-                      Ready
-                    </span>
-                  ) : undefined
-                }
-              >
-                <div style={previewOverlay ? zoneStyle(previewOverlay) : { position: 'absolute', inset: 0 }}>{renderOverlay(previewOverlay, previewVariant)}</div>
-              </CanvasFrame>
+          <main className="flex-1 overflow-hidden flex flex-col min-w-0">
+
+            {/* ── FILA SUPERIOR: Canvases Preview + Program ── */}
+            <div className="shrink-0 flex gap-3 p-3 pb-0 items-start">
+              {/* PREVIEW */}
+              <div className="flex-1 min-w-0">
+                <CanvasFrame
+                  title="Preview"
+                  subtitle={previewOverlay ? overlayLabel(previewOverlay) + ' · ' + formatVariantLabel(previewVariant) : 'Sin overlay'}
+                  background="#111827"
+                  badge={
+                    previewOverlay ? (
+                      <span className="rounded border border-mineros-gold/40 bg-mineros-gold/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-mineros-gold">
+                        Ready
+                      </span>
+                    ) : undefined
+                  }
+                >
+                  <div style={previewOverlay ? zoneStyle(previewOverlay) : { position: 'absolute', inset: 0 }}>{renderOverlay(previewOverlay, previewVariant)}</div>
+                </CanvasFrame>
+              </div>
+
+              {/* PROGRAM */}
+              <div className="flex-1 min-w-0">
+                <CanvasFrame
+                  title="Program"
+                  subtitle={programOverlay ? overlayLabel(programOverlay) + ' · ' + formatVariantLabel(programVariant) : 'Scorebug permanente'}
+                  background="#05070b"
+                  badge={<span className={programBadgeClass}>{programOverlay ? 'ON AIR' : 'OFF AIR'}</span>}
+                >
+                  <div style={zoneStyle('scorebug')}>
+                    <Scorebug game={game} assetBaseUrl={import.meta.env.VITE_ASSETS_BASE_URL} />
+                  </div>
+                  <div style={programOverlay ? zoneStyle(programOverlay) : { position: 'absolute', inset: 0 }}>{renderOverlay(programOverlay, programVariant)}</div>
+                </CanvasFrame>
+              </div>
             </div>
 
-            {/* PROGRAM */}
-            <div className="flex-1 min-w-0">
-              <CanvasFrame
-                title="Program"
-                subtitle={programOverlay ? overlayLabel(programOverlay) + ' · ' + formatVariantLabel(programVariant) : 'Scorebug permanente'}
-                background="#05070b"
-                badge={<span className={programBadgeClass}>{programOverlay ? 'ON AIR' : 'OFF AIR'}</span>}
-              >
-                <div style={zoneStyle('scorebug')}>
-                  <Scorebug game={game} assetBaseUrl={import.meta.env.VITE_ASSETS_BASE_URL} />
-                </div>
-                <div style={programOverlay ? zoneStyle(programOverlay) : { position: 'absolute', inset: 0 }}>{renderOverlay(programOverlay, programVariant)}</div>
-              </CanvasFrame>
+            {/* ── BARRA DE TRANSICIÓN ── */}
+            <div className="shrink-0 flex items-center gap-3 mx-3 mt-2 rounded border border-white/10 bg-white/5 px-4 py-2">
+              <div className="flex-1 min-w-0">
+                <label className="text-[10px] uppercase tracking-wider text-white/40">Variante</label>
+                <select
+                  value={previewVariant}
+                  onChange={(e) => setPreviewVariant(e.target.value)}
+                  disabled={!previewOverlay}
+                  className="mt-0.5 block w-full rounded border border-white/10 bg-broadcast-black px-2 py-1.5 text-xs text-white outline-none focus:border-mineros-gold disabled:opacity-40"
+                >
+                  {previewOverlay ? (
+                    previewVariants.map((v) => <option key={v} value={v}>{formatVariantLabel(v)}</option>)
+                  ) : (
+                    <option value="">Selecciona un overlay</option>
+                  )}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={takeOverlay} disabled={!previewOverlay} className={takeClass}>
+                  Take →
+                </button>
+                <button
+                  type="button"
+                  onClick={clearPreview}
+                  className="rounded border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-white/15"
+                >
+                  Clear
+                </button>
+                <button type="button" onClick={hideProgramOverlay} disabled={!programOverlay} className={`rounded px-4 py-2 text-xs font-semibold uppercase tracking-wide ${programOverlay ? 'border border-white/15 bg-white/10 text-white hover:bg-white/15' : 'cursor-not-allowed opacity-35 border border-white/10 bg-white/5 text-white'}`}>
+                  Hide
+                </button>
+                <button
+                  type="button"
+                  onClick={hideAll}
+                  className="rounded bg-mineros-red px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-red-700"
+                >
+                  Hide All
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Controles de transición */}
-          <div className="flex items-center gap-3 rounded border border-white/10 bg-white/5 px-4 py-2.5">
-            <div className="flex-1 min-w-0">
-              <label className="text-[10px] uppercase tracking-wider text-white/40">Variante</label>
-              <select
-                value={previewVariant}
-                onChange={(e) => setPreviewVariant(e.target.value)}
-                disabled={!previewOverlay}
-                className="mt-0.5 block w-full rounded border border-white/10 bg-broadcast-black px-2 py-1.5 text-xs text-white outline-none focus:border-mineros-gold disabled:opacity-40"
-              >
-                {previewOverlay ? (
-                  previewVariants.map((v) => <option key={v} value={v}>{formatVariantLabel(v)}</option>)
-                ) : (
-                  <option value="">Selecciona un overlay</option>
+            {/* ── PANEL INFERIOR: Tabs (ocupa todo el espacio restante) ── */}
+            <div className="flex-1 flex flex-col overflow-hidden mt-2 border-t border-white/10">
+              {/* Tab bar */}
+              <div className="flex shrink-0 border-b border-white/10 bg-broadcast-black/60">
+                {(
+                  [
+                    { key: 'config', label: '⚙️ Config' },
+                    { key: 'metadata', label: '⚾ Partido' },
+                    { key: 'data', label: '🗃️ Datos' },
+                    { key: 'history', label: '📋 Historial' },
+                    { key: 'layout', label: '🖼️ Layout' },
+                    { key: 'obs', label: '📡 OBS' },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setRightTab(tab.key)}
+                    className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest transition whitespace-nowrap ${rightTab === tab.key ? 'border-b-2 border-mineros-gold text-mineros-gold bg-white/5' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab content — ancho completo */}
+              <div className="flex-1 overflow-y-auto">
+                {/* CONFIG */}
+                {rightTab === 'config' && (
+                  <div className="p-4">
+                    <GameConfigPanel
+                      onGameLoaded={(payload) => {
+                        setGame(payload.state);
+                        setGameConfigDetail(payload.game);
+                        setServerAvailable(true);
+                      }}
+                    />
+                  </div>
                 )}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={takeOverlay} disabled={!previewOverlay} className={takeClass}>
-                Take →
-              </button>
-              <button
-                type="button"
-                onClick={clearPreview}
-                className="rounded border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-white/15"
-              >
-                Clear
-              </button>
-              <button type="button" onClick={hideProgramOverlay} disabled={!programOverlay} className={`rounded px-4 py-2 text-xs font-semibold uppercase tracking-wide ${programOverlay ? 'border border-white/15 bg-white/10 text-white hover:bg-white/15' : 'cursor-not-allowed opacity-35 border border-white/10 bg-white/5 text-white'}`}>
-                Hide
-              </button>
-              <button
-                type="button"
-                onClick={hideAll}
-                className="rounded bg-mineros-red px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-red-700"
-              >
-                Hide All
-              </button>
-            </div>
-          </div>
-        </main>
 
-            {/* ── COLUMNA DERECHA: Tabs ── */}
-            <aside className="w-80 shrink-0 flex flex-col overflow-hidden">
-          {/* Tabs header */}
-          <div className="flex border-b border-white/10 bg-broadcast-black/60">
-            {(
-              [
-                { key: 'config', label: 'Config' },
-                { key: 'metadata', label: 'Partido' },
-                { key: 'data', label: '🗃️ Datos' },
-                { key: 'history', label: 'Hist.' },
-                { key: 'layout', label: 'Layout' },
-                { key: 'obs', label: 'OBS' },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setRightTab(tab.key)}
-                className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-widest transition ${rightTab === tab.key ? 'border-b-2 border-mineros-gold text-mineros-gold' : 'text-white/40 hover:text-white/70'}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
-          <div className="flex-1 overflow-y-auto">
-            {/* CONFIG */}
-            {rightTab === 'config' && (
-              <div className="p-3">
-                <GameConfigPanel
-                  onGameLoaded={(payload) => {
-                    setGame(payload.state);
-                    setGameConfigDetail(payload.game);
-                    setServerAvailable(true);
-                  }}
-                />
-              </div>
-            )}
-
-            {/* DATOS DEL PARTIDO */}
-            {rightTab === 'metadata' && (
-              <div className="p-3">
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-white/35">
-                  Datos del partido · Competencia · Sponsors
-                </p>
-                <MatchMetadataEditor gameId={game.gameId} />
-              </div>
-            )}
-
-            {rightTab === 'data' && (
-              <div className="p-3">
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-white/35">
-                  Equipos · Roster · Categorías · Torneos · Sponsors
-                </p>
-                <DataPanel />
-              </div>
-            )}
-
-            {/* HISTORIAL */}
-            {rightTab === 'history' && (
-              <div className="p-3">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/35">Últimas acciones</p>
-                <div className="overflow-hidden rounded border border-white/10">
-                  <div className="grid grid-cols-[80px_90px_1fr] bg-white/5 px-2 py-1.5 text-[9px] font-semibold uppercase tracking-widest text-white/35">
-                    <span>Hora</span><span>Acción</span><span>Overlay</span>
+                {/* DATOS DEL PARTIDO */}
+                {rightTab === 'metadata' && (
+                  <div className="p-4">
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-white/35">
+                      Datos del partido · Competencia · Sponsors
+                    </p>
+                    <MatchMetadataEditor gameId={game.gameId} />
                   </div>
-                  <div className="divide-y divide-white/10">
-                    {history.length > 0 ? history.map((entry, i) => (
-                      <div key={entry.time + i} className="grid grid-cols-[80px_90px_1fr] px-2 py-2 text-xs text-white/70">
-                        <span className="font-mono text-white/40 text-[10px]">{entry.time}</span>
-                        <span>{actionLabel(entry.action)}</span>
-                        <span className="truncate text-white/50">{entry.overlay}</span>
-                      </div>
-                    )) : (
-                      <div className="px-3 py-4 text-xs text-white/35">Sin acciones.</div>
-                    )}
+                )}
+
+                {/* DATOS */}
+                {rightTab === 'data' && (
+                  <div className="p-4">
+                    <DataPanel />
                   </div>
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* LAYOUT — el editor ocupa el área principal cuando este tab está activo */}
-
-            {/* OBS URLS */}
-            {rightTab === 'obs' && (
-              <div className="p-3 space-y-2">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/35">Browser Source URLs</p>
-                {OUTPUT_OVERLAY_IDS.map((overlayId) => {
-                  const outputUrl = buildOutputUrl(browserSourceOrigin, overlayId);
-                  return (
-                    <div key={overlayId} className="rounded border border-white/10 bg-broadcast-black/40 p-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-white/80">{outputOverlayLabel(overlayId)}</span>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(outputUrl)}
-                          className="rounded border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-white/15 shrink-0"
-                        >
-                          Copiar
-                        </button>
+                {/* HISTORIAL */}
+                {rightTab === 'history' && (
+                  <div className="p-4">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/35">Últimas acciones</p>
+                    <div className="overflow-hidden rounded border border-white/10">
+                      <div className="grid grid-cols-[80px_120px_1fr] bg-white/5 px-2 py-1.5 text-[9px] font-semibold uppercase tracking-widest text-white/35">
+                        <span>Hora</span><span>Acción</span><span>Overlay</span>
                       </div>
-                      <code className="mt-1 block truncate text-[10px] text-mineros-gold/70">{outputUrl}</code>
+                      <div className="divide-y divide-white/10">
+                        {history.length > 0 ? history.map((entry, i) => (
+                          <div key={entry.time + i} className="grid grid-cols-[80px_120px_1fr] px-2 py-2 text-xs text-white/70">
+                            <span className="font-mono text-white/40 text-[10px]">{entry.time}</span>
+                            <span>{actionLabel(entry.action)}</span>
+                            <span className="truncate text-white/50">{entry.overlay}</span>
+                          </div>
+                        )) : (
+                          <div className="px-3 py-4 text-xs text-white/35">Sin acciones aún.</div>
+                        )}
+                      </div>
                     </div>
-                  );
-                })}
+                  </div>
+                )}
+
+                {/* OBS URLS */}
+                {rightTab === 'obs' && (
+                  <div className="p-4">
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-white/35">Browser Source URLs</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {OUTPUT_OVERLAY_IDS.map((overlayId) => {
+                        const outputUrl = buildOutputUrl(browserSourceOrigin, overlayId);
+                        return (
+                          <div key={overlayId} className="rounded border border-white/10 bg-broadcast-black/40 p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-white/80">{outputOverlayLabel(overlayId)}</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(outputUrl)}
+                                className="rounded border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-white/15 shrink-0"
+                              >
+                                Copiar
+                              </button>
+                            </div>
+                            <code className="mt-1 block truncate text-[10px] text-mineros-gold/70">{outputUrl}</code>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </aside>
-          </>
+            </div>
+          </main>
         )}
       </div>
 
