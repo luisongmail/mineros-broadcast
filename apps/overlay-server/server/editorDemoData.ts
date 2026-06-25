@@ -174,22 +174,47 @@ export interface DemoGameEvent {
 }
 
 export const demoCategories: DemoCategory[] = [
-  {
-    id: 'cat-juvenil',
-    sport_id: 'baseball',
-    name: 'Juvenil',
-    description: 'Categoría de desarrollo para torneos juveniles.',
-    active: 1,
-    created_at: '2026-01-10T12:00:00.000Z',
-  },
-  {
-    id: 'cat-mayor',
-    sport_id: 'baseball',
-    name: 'Mayor',
-    description: 'Categoría principal para competencias superiores.',
-    active: 1,
-    created_at: '2026-01-10T12:05:00.000Z',
-  },
+  // Pequeñas Ligas
+  { id: 'cat-pb-tball',    sport_id: 'baseball_m', name: 'T-Ball',         description: 'Iniciación, 4-6 años',           active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pb-novato',   sport_id: 'baseball_m', name: 'Novato',         description: 'División Novato, 6-8 años',       active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pb-menor',    sport_id: 'baseball_m', name: 'Pequeñas Ligas', description: 'División principal, 9-12 años',   active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pb-junior',   sport_id: 'baseball_m', name: 'Junior',         description: 'División Junior, 13-14 años',     active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pb-senior',   sport_id: 'baseball_m', name: 'Senior',         description: 'División Senior, 15-16 años',     active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pb-biglearn', sport_id: 'baseball_m', name: 'Big League',     description: 'División Big League, 16-18 años', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  // Pony League
+  { id: 'cat-pony-shetland',  sport_id: 'baseball_m', name: 'Shetland',  description: 'Pony League, 5-6 años',   active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pony-pony',      sport_id: 'baseball_m', name: 'Pony',      description: 'Pony League, 13-14 años', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pony-colt',      sport_id: 'baseball_m', name: 'Colt',      description: 'Pony League, 15-16 años', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pony-palomino',  sport_id: 'baseball_m', name: 'Palomino',  description: 'Pony League, 17-18 años', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pony-thorobred', sport_id: 'baseball_m', name: 'Thorobred', description: 'Pony League, 19-22 años', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  // Federado Béisbol Masculino
+  { id: 'cat-fed-bm-sub15',  sport_id: 'baseball_m', name: 'Sub-15', description: 'Béisbol Federado Masculino Sub-15', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-bm-sub18',  sport_id: 'baseball_m', name: 'Sub-18', description: 'Béisbol Federado Masculino Sub-18', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-bm-sub23',  sport_id: 'baseball_m', name: 'Sub-23', description: 'Béisbol Federado Masculino Sub-23', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-bm-adulto', sport_id: 'baseball_m', name: 'Adulto', description: 'Béisbol Federado Masculino Adulto', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-bm-master', sport_id: 'baseball_m', name: 'Máster', description: 'Béisbol Federado Masculino Máster', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  // Federado Béisbol Femenino
+  { id: 'cat-fed-bf-sub15',  sport_id: 'baseball_f', name: 'Sub-15', description: 'Béisbol Federado Femenino Sub-15', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-bf-sub18',  sport_id: 'baseball_f', name: 'Sub-18', description: 'Béisbol Federado Femenino Sub-18', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-bf-sub23',  sport_id: 'baseball_f', name: 'Sub-23', description: 'Béisbol Federado Femenino Sub-23', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-bf-adulto', sport_id: 'baseball_f', name: 'Adulto', description: 'Béisbol Federado Femenino Adulto', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-bf-master', sport_id: 'baseball_f', name: 'Máster', description: 'Béisbol Federado Femenino Máster', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  // Federado Softball Femenino
+  { id: 'cat-fed-sf-sub15',  sport_id: 'softball_fast_f', name: 'Sub-15', description: 'Softball Federado Femenino Sub-15', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-sf-sub18',  sport_id: 'softball_fast_f', name: 'Sub-18', description: 'Softball Federado Femenino Sub-18', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-sf-sub23',  sport_id: 'softball_fast_f', name: 'Sub-23', description: 'Softball Federado Femenino Sub-23', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-sf-adulto', sport_id: 'softball_fast_f', name: 'Adulto', description: 'Softball Federado Femenino Adulto', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-sf-master', sport_id: 'softball_fast_f', name: 'Máster', description: 'Softball Federado Femenino Máster', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  // Federado Softball Masculino
+  { id: 'cat-fed-sm-sub15',  sport_id: 'softball_fast_m', name: 'Sub-15', description: 'Softball Federado Masculino Sub-15', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-sm-sub18',  sport_id: 'softball_fast_m', name: 'Sub-18', description: 'Softball Federado Masculino Sub-18', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-sm-sub23',  sport_id: 'softball_fast_m', name: 'Sub-23', description: 'Softball Federado Masculino Sub-23', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-sm-adulto', sport_id: 'softball_fast_m', name: 'Adulto', description: 'Softball Federado Masculino Adulto', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-fed-sm-master', sport_id: 'softball_fast_m', name: 'Máster', description: 'Softball Federado Masculino Máster', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  // Béisbol5
+  { id: 'cat-b5-sub14',  sport_id: 'baseball5', name: 'Sub-14', description: 'Béisbol5 Sub-14', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-b5-sub17',  sport_id: 'baseball5', name: 'Sub-17', description: 'Béisbol5 Sub-17', active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-b5-adulto', sport_id: 'baseball5', name: 'Adulto', description: 'Béisbol5 Adulto',  active: 1, created_at: '2026-01-10T12:00:00.000Z' },
 ];
 
 export const demoTeams: DemoTeam[] = [
@@ -261,11 +286,11 @@ export const demoTeams: DemoTeam[] = [
 ];
 
 export const demoTeamCategories = [
-  { team_id: 'team-mineros', category_id: 'cat-juvenil' },
-  { team_id: 'team-mineros', category_id: 'cat-mayor' },
-  { team_id: 'team-aguilas-cibao-demo', category_id: 'cat-mayor' },
-  { team_id: 'team-chile', category_id: 'cat-mayor' },
-  { team_id: 'team-guerreras', category_id: 'cat-mayor' },
+  { team_id: 'team-mineros', category_id: 'cat-fed-bm-sub18' },
+  { team_id: 'team-mineros', category_id: 'cat-fed-bm-adulto' },
+  { team_id: 'team-aguilas-cibao-demo', category_id: 'cat-fed-bm-adulto' },
+  { team_id: 'team-chile', category_id: 'cat-fed-bm-adulto' },
+  { team_id: 'team-guerreras', category_id: 'cat-fed-bm-adulto' },
 ];
 
 export const demoPlayers: DemoPlayer[] = [
@@ -394,7 +419,7 @@ export const demoTournaments: DemoTournament[] = [
   {
     id: 'tournament-copa-norte-2026',
     league_id: 'league-liga-norte',
-    category_id: 'cat-juvenil',
+    category_id: 'cat-fed-bm-sub18',
     name: 'Copa del Norte 2026',
     short_name: 'Copa Norte',
     type: 'regular_season',
