@@ -3,6 +3,8 @@ export type Category = {
   name: string;
   description: string;
   sportId: string;
+  ageMin: number | null;
+  ageMax: number | null;
   active: boolean;
 };
 
@@ -113,11 +115,15 @@ function asNumber(value: unknown, fallback = 0): number {
 
 export function normalizeCategory(value: unknown): Category {
   const raw = (value ?? {}) as Record<string, unknown>;
+  const ageMin = raw.ageMin ?? raw.age_min;
+  const ageMax = raw.ageMax ?? raw.age_max;
   return {
     id: asString(raw.id, asString(raw.category_id, '')),
     name: asString(raw.name),
     description: asString(raw.description),
     sportId: asString(raw.sportId, asString(raw.sport_id, 'baseball')),
+    ageMin: ageMin !== null && ageMin !== undefined ? Number(ageMin) : null,
+    ageMax: ageMax !== null && ageMax !== undefined ? Number(ageMax) : null,
     active: asBoolean(raw.active, true),
   };
 }

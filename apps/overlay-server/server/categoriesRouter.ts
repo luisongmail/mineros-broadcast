@@ -10,6 +10,8 @@ interface CategoryRow extends RowDataPacket {
   sport_id: string;
   name: string;
   description: string | null;
+  age_min: number | null;
+  age_max: number | null;
   active: 0 | 1;
   created_at: string | Date;
 }
@@ -19,6 +21,8 @@ interface CategoryPayload {
   sport_id: string;
   name: string;
   description: string | null;
+  age_min: number | null;
+  age_max: number | null;
   active: boolean;
   created_at: string;
 }
@@ -29,6 +33,8 @@ function mapCategory(row: CategoryRow | DemoCategory): CategoryPayload {
     sport_id: row.sport_id,
     name: row.name,
     description: row.description,
+    age_min: (row as CategoryRow).age_min ?? null,
+    age_max: (row as CategoryRow).age_max ?? null,
     active: Boolean(row.active),
     created_at: toIsoString(row.created_at),
   };
@@ -85,7 +91,7 @@ router.get('/categories', async (request: Request, response: Response) => {
 
     const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
     const [rows] = await pool.query<CategoryRow[]>(
-      `SELECT id, sport_id, name, description, active, created_at
+      `SELECT id, sport_id, name, description, age_min, age_max, active, created_at
        FROM categories
        ${whereClause}
        ORDER BY active DESC, name ASC`,
@@ -123,13 +129,13 @@ router.post('/categories', async (request: Request, response: Response) => {
     }
 
     await pool.query<ResultSetHeader>(
-      `INSERT INTO categories (id, sport_id, name, description, active)
-       VALUES (?, ?, ?, ?, ?)`,
-      [id, sportId, name, description, toTinyInt(active ?? true)],
+      `INSERT INTO categories (id, sport_id, name, description, age_min, age_max, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, sportId, name, description, (body.age_min as number | null) ?? null, (body.age_max as number | null) ?? null, toTinyInt(active ?? true)],
     );
 
     const [rows] = await pool.query<CategoryRow[]>(
-      'SELECT id, sport_id, name, description, active, created_at FROM categories WHERE id = ? LIMIT 1',
+      'SELECT id, sport_id, name, description, age_min, age_max, active, created_at FROM categories WHERE id = ? LIMIT 1',
       [id],
     );
 
@@ -175,6 +181,16 @@ router.put('/categories/:id', async (request: Request, response: Response) => {
       params.push(toTinyInt(active));
     }
 
+    if (Object.prototype.hasOwnProperty.call(body, 'age_min')) {
+      updates.push('age_min = ?');
+      params.push((body.age_min as number | null) ?? null);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'age_max')) {
+      updates.push('age_max = ?');
+      params.push((body.age_max as number | null) ?? null);
+    }
+
     if (updates.length === 0) {
       sendErr(response, 'No hay cambios para aplicar');
       return;
@@ -189,7 +205,7 @@ router.put('/categories/:id', async (request: Request, response: Response) => {
     }
 
     const [rows] = await pool.query<CategoryRow[]>(
-      'SELECT id, sport_id, name, description, active, created_at FROM categories WHERE id = ? LIMIT 1',
+      'SELECT id, sport_id, name, description, age_min, age_max, active, created_at FROM categories WHERE id = ? LIMIT 1',
       [request.params.id],
     );
 

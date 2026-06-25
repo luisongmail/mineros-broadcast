@@ -7,7 +7,7 @@ import { normalizeCategory, type Category } from './types';
 
 type Sport = { id: string; name: string; gender: string };
 
-const emptyCategory = (): Category => ({ id: '', name: '', description: '', sportId: 'softball_fast_f', active: true });
+const emptyCategory = (): Category => ({ id: '', name: '', description: '', sportId: 'softball_fast_f', ageMin: null, ageMax: null, active: true });
 
 export function CategoryEditor() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -65,6 +65,8 @@ export function CategoryEditor() {
       sport_id:    form.sportId,
       name:        form.name,
       description: form.description || null,
+      age_min:     form.ageMin ?? null,
+      age_max:     form.ageMax ?? null,
       active:      form.active,
     };
 
@@ -134,6 +136,7 @@ export function CategoryEditor() {
                 <tr>
                   <th className={tableHeaderClass}>Nombre</th>
                   <th className={tableHeaderClass}>Deporte</th>
+                  <th className={tableHeaderClass}>Edad</th>
                   <th className={tableHeaderClass}>Estado</th>
                   <th className={tableHeaderClass}>Acciones</th>
                 </tr>
@@ -143,6 +146,15 @@ export function CategoryEditor() {
                   <tr key={category.id}>
                     <td className={tableCellClass}>{category.name}</td>
                     <td className={tableCellClass}>{category.sportId}</td>
+                    <td className={`${tableCellClass} text-gray-400`}>
+                      {category.ageMin !== null && category.ageMax !== null
+                        ? `${category.ageMin}–${category.ageMax} años`
+                        : category.ageMin !== null
+                          ? `${category.ageMin}+ años`
+                          : category.ageMax !== null
+                            ? `hasta ${category.ageMax} años`
+                            : '—'}
+                    </td>
                     <td className={tableCellClass}>{category.active ? 'Activa' : 'Inactiva'}</td>
                     <td className={tableCellClass}>
                       <div className="flex gap-2">
@@ -178,6 +190,28 @@ export function CategoryEditor() {
                   : sports.map((sport) => <option key={sport.id} value={sport.id}>{sport.name}</option>)
                 }
               </select>
+            </Field>
+            <Field label="Edad mínima">
+              <input
+                className={fieldClass}
+                type="number"
+                min={0}
+                max={99}
+                placeholder="ej: 13"
+                value={form.ageMin ?? ''}
+                onChange={(event) => setForm((current) => ({ ...current, ageMin: event.target.value ? Number(event.target.value) : null }))}
+              />
+            </Field>
+            <Field label="Edad máxima">
+              <input
+                className={fieldClass}
+                type="number"
+                min={0}
+                max={99}
+                placeholder="ej: 18"
+                value={form.ageMax ?? ''}
+                onChange={(event) => setForm((current) => ({ ...current, ageMax: event.target.value ? Number(event.target.value) : null }))}
+              />
             </Field>
             <div className="md:col-span-2">
               <Field label="Descripción">

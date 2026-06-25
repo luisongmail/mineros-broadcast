@@ -1,9 +1,9 @@
 import type { Category, League, Player, Sponsor, StaffMember, Team, Tournament } from './types';
 
 export const mockCategories: Category[] = [
-  { id: 'cat-u12', name: 'U12', description: 'Categoría infantil menor', sportId: 'baseball', active: true },
-  { id: 'cat-u15', name: 'U15', description: 'Categoría intermedia', sportId: 'baseball', active: true },
-  { id: 'cat-adultos', name: 'Adultos', description: 'Categoría mayores', sportId: 'baseball', active: true },
+  { id: 'cat-fed-bm-sub15',  name: 'Sub-15',         description: 'Béisbol Federado Masculino Sub-15', sportId: 'baseball_m',      ageMin: null, ageMax: 15, active: true },
+  { id: 'cat-fed-bm-adulto', name: 'Adulto',          description: 'Béisbol Federado Masculino Adulto', sportId: 'baseball_m',      ageMin: 18,   ageMax: null, active: true },
+  { id: 'cat-fed-sf-adulto', name: 'Adulto',          description: 'Softball Federado Femenino Adulto', sportId: 'softball_fast_f', ageMin: 18,   ageMax: null, active: true },
 ];
 
 export const mockTeams: Team[] = [
