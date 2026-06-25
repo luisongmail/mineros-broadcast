@@ -170,7 +170,7 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
   // Cargar partidos
   useEffect(() => {
     setLoading(true);
-    fetch(`${API}/games`)
+    fetch(`${API}/games?all=true`)
       .then((r) => r.json() as Promise<{ result?: string; payload?: { games?: unknown[] } }>)
       .then((body) => {
         const list = body.result === 'ok' && Array.isArray(body.payload?.games) ? body.payload!.games! : [];
@@ -227,16 +227,19 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
     setError(null);
     setMessage(null);
 
-    // Pre-cargar sponsors asignados al partido
+    // Inicializar form sincrónicamente con los datos del juego
+    const baseForm = emptyForm(game);
+    setForm(baseForm);
+    setDrawerOpen(true);
+
+    // Luego cargar los sponsors asignados (actualización asíncrona)
     void fetch(`${API}/games/${game.id}/metadata`)
       .then((r) => r.json() as Promise<{ result?: string; payload?: Partial<MatchMetadata> }>)
       .then((body) => {
         const meta = body.result === 'ok' ? body.payload : null;
-        setForm({ ...emptyForm(game), sponsors: meta?.sponsors ?? [] });
+        setForm((current) => ({ ...current, sponsors: meta?.sponsors ?? [] }));
       })
-      .catch(() => setForm(emptyForm(game)));
-
-    setDrawerOpen(true);
+      .catch(() => { /* sponsors queda vacío, no es crítico */ });
   }
 
   function closeDrawer() {

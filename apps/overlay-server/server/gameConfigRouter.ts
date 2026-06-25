@@ -320,8 +320,11 @@ function normalizeGameDetail(gameRow: MysqlGameRow, lineupRows: MysqlLineupRow[]
   };
 }
 
-async function getGamesFromMySQL(): Promise<GameConfigDetail[]> {
+async function getGamesFromMySQL(allStatuses = false): Promise<GameConfigDetail[]> {
   const databasePool = getDatabasePool();
+  const statusFilter = allStatuses
+    ? ''
+    : `WHERE g.status IN ('scheduled', 'pre_game', 'live', 'paused', 'between_innings')`;
   const [gameRows] = await databasePool.query<MysqlGameQueryRow[]>(`
     SELECT
       g.id,
@@ -351,8 +354,8 @@ async function getGamesFromMySQL(): Promise<GameConfigDetail[]> {
     FROM games g
     LEFT JOIN teams ht ON g.home_team_id = ht.id
     LEFT JOIN teams at ON g.away_team_id = at.id
-    WHERE g.status IN ('scheduled', 'pre_game', 'live', 'paused', 'between_innings')
-    ORDER BY g.scheduled_at ASC
+    ${statusFilter}
+    ORDER BY g.scheduled_at DESC
   `);
 
   const mappedGameRows = gameRows.map(mapGameRow);
@@ -396,14 +399,14 @@ async function getLineupsFromMySQL(gameId: string): Promise<MysqlLineupRow[]> {
   return lineupRows.map(mapLineupRow);
 }
 
-async function getAvailableGames(): Promise<{ games: GameConfigDetail[]; source: GameConfigSource; usingDemo: boolean }> {
+async function getAvailableGames(allStatuses = false): Promise<{ games: GameConfigDetail[]; source: GameConfigSource; usingDemo: boolean }> {
   if (!hasDatabaseConfigured()) {
     return { games: [DEMO_GAME_DETAIL], source: 'demo', usingDemo: true };
   }
 
   try {
-    const games = await getGamesFromMySQL();
-    if (games.length === 0) {
+    const games = await getGamesFromMySQL(allStatuses);
+    if (games.length === 0 && !allStatuses) {
       return { games: [DEMO_GAME_DETAIL], source: 'demo', usingDemo: true };
     }
 
@@ -431,9 +434,10 @@ async function getGameDetail(gameId: string): Promise<{ game: GameConfigDetail; 
 
 export const gameConfigRouter = Router();
 
-gameConfigRouter.get('/games', async (_request: Request, response: Response) => {
+gameConfigRouter.get('/games', async (request: Request, response: Response) => {
   try {
-    const result = await getAvailableGames();
+    const allStatuses = request.query.all === 'true';
+    const result = await getAvailableGames(allStatuses);
     sendSuccess(response, {
       games: result.games.map((game) => buildGameSummary(game, result.source)),
       source: result.source,
