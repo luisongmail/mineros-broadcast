@@ -18,6 +18,7 @@ import { SubstitutionOverlay } from '@mineros/overlay-substitution';
 import { DEMO_GAME_DETAIL, createDemoGameState, findPlayerById } from '../gameConfig';
 import { useBroadcastWS } from '../hooks/useBroadcastWS';
 import { createScoreboardOverlayData } from '../scoreboardData';
+import type { MatchMetadata } from '../matchMetadata';
 import './BroadcastPage.css';
 
 interface LivePlayerStats {
@@ -495,6 +496,7 @@ export function BroadcastPage() {
   const [livePitcherStats, setLivePitcherStats] = useState<Record<string, LivePitcherStats>>({});
   const [halfInningSeq, setHalfInningSeq] = useState<HalfInningSequenceData>({ phase: null });
   const [layoutZones, setLayoutZones] = useState<Record<string, LayoutZone>>({});
+  const [matchMetadata, setMatchMetadata] = useState<MatchMetadata | undefined>(undefined);
   const seqBattersRef = useRef<HalfInningSequenceData['batters']>(undefined);
   const [canvasScale, setCanvasScale] = useState(1);
 
@@ -716,9 +718,22 @@ export function BroadcastPage() {
 
   const basesLabel = useMemo(() => toBasesLabel(resolvedGameState), [resolvedGameState]);
   const scoreboardData = useMemo(
-    () => createScoreboardOverlayData(DEMO_GAME_DETAIL, resolvedGameState, { liveStats, livePitcherStats }),
-    [livePitcherStats, liveStats, resolvedGameState],
+    () => createScoreboardOverlayData(DEMO_GAME_DETAIL, resolvedGameState, { liveStats, livePitcherStats, metadata: matchMetadata }),
+    [livePitcherStats, liveStats, matchMetadata, resolvedGameState],
   );
+
+  // Recargar metadata del partido cuando cambie el gameId o cuando se haya guardado
+  useEffect(() => {
+    const gameId = resolvedGameState.gameId;
+    if (!gameId) return;
+    const base = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+    fetch(`${base}/games/${encodeURIComponent(gameId)}/metadata`)
+      .then((r) => r.json())
+      .then((body: { result: string; payload: MatchMetadata }) => {
+        if (body.result === 'ok') setMatchMetadata(body.payload);
+      })
+      .catch(() => undefined);
+  }, [resolvedGameState.gameId]);
 
   const getZoneAnim = useCallback(
     (id: string): { animIn: OverlayAnimIn; animOut: OverlayAnimOut } => ({

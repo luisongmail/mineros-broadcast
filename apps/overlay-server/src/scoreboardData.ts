@@ -2,6 +2,7 @@ import type { GameState, InningHalf, TeamRole } from '@mineros/game-engine';
 import type { ScoreboardLineScore, ScoreboardOverlayData, ScoreboardPitcherLine } from '@mineros/overlay-scoreboard';
 
 import { DEMO_SCOREBOARD_DATA, type GameConfigDetail, type GameConfigPlayer } from './gameConfig';
+import type { MatchMetadata } from './matchMetadata';
 
 interface LiveBatterStats {
   ab?: number;
@@ -149,9 +150,15 @@ export function createScoreboardOverlayData(
   options?: {
     liveStats?: Record<string, LiveBatterStats>;
     livePitcherStats?: Record<string, LivePitcherStats>;
+    metadata?: MatchMetadata;
   },
 ): ScoreboardOverlayData {
-  const configuredInnings = gameState.rules.inningsCount ?? DEMO_SCOREBOARD_DATA.game.configuredInnings ?? 7;
+  const meta = options?.metadata;
+  const configuredInnings =
+    meta?.game?.configuredInnings ??
+    gameState.rules.inningsCount ??
+    DEMO_SCOREBOARD_DATA.game.configuredInnings ??
+    7;
   const role = battingRole(gameState.inningHalf);
   const battingTeam = role === 'home' ? gameState.homeTeam : gameState.awayTeam;
   const { date, startTime } = parseScheduledAt(detail.scheduledAt);
@@ -159,6 +166,18 @@ export function createScoreboardOverlayData(
   return {
     ...DEMO_SCOREBOARD_DATA,
     correlationId: `${gameState.gameId}-scoreboard`,
+    branding: {
+      brandName: meta?.branding?.brandName ?? DEMO_SCOREBOARD_DATA.branding.brandName,
+      brandLogoAssetId: meta?.branding?.brandLogoAssetId ?? DEMO_SCOREBOARD_DATA.branding.brandLogoAssetId,
+    },
+    competition: {
+      name: meta?.competition?.name ?? DEMO_SCOREBOARD_DATA.competition.name,
+      tournament: meta?.competition?.tournament ?? detail.season ?? DEMO_SCOREBOARD_DATA.competition.tournament,
+      category: meta?.competition?.category ?? DEMO_SCOREBOARD_DATA.competition.category,
+    },
+    venue: {
+      name: meta?.venue?.name ?? (detail.venue as string | undefined) ?? DEMO_SCOREBOARD_DATA.venue?.name,
+    },
     game: {
       ...DEMO_SCOREBOARD_DATA.game,
       gameId: gameState.gameId,
@@ -166,14 +185,10 @@ export function createScoreboardOverlayData(
       status: gameState.status,
       date: date ?? DEMO_SCOREBOARD_DATA.game.date,
       startTime: startTime ?? DEMO_SCOREBOARD_DATA.game.startTime,
+      gameType: meta?.game?.gameType ?? DEMO_SCOREBOARD_DATA.game.gameType,
+      remainingTime: meta?.game?.remainingTime ?? DEMO_SCOREBOARD_DATA.game.remainingTime,
     },
-    // venue from game definition (string field) or demo fallback
-    venue: { name: (detail.venue as string | undefined) ?? DEMO_SCOREBOARD_DATA.venue?.name },
-    // competition: season from detail, rest from demo data
-    competition: {
-      ...DEMO_SCOREBOARD_DATA.competition,
-      tournament: detail.season ?? DEMO_SCOREBOARD_DATA.competition.tournament,
-    },
+    sponsors: meta?.sponsors?.length ? meta.sponsors : DEMO_SCOREBOARD_DATA.sponsors,
     teams: {
       away: {
         teamId: gameState.awayTeam.id,

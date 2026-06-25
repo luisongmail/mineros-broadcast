@@ -10,6 +10,7 @@ import express, { type Request, type Response } from 'express';
 import { handleCommand, parseCommandRequest } from './commandHandler';
 import { gameConfigRouter } from './gameConfigRouter';
 import { layoutRouter } from './layoutRouter';
+import { matchMetadataRouter } from './matchMetadataRouter';
 import { scorerRouter } from './scorerRouter';
 import { stateStore } from './stateStore';
 import { attachWebSocketServer } from './wsServer';
@@ -113,6 +114,7 @@ app.use((_request, response, next) => {
 });
 app.use('/api', gameConfigRouter);
 app.use('/api', layoutRouter);
+app.use('/api', matchMetadataRouter);
 app.use('/api', scorerRouter);
 
 // Assets locales: storage/assets/ → /assets/*
