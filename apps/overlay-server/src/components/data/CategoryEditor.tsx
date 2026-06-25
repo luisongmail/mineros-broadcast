@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { generateId, request, toErrorMessage } from './api';
 import { mockCategories } from './mockData';
@@ -26,17 +26,20 @@ export function CategoryEditor() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const anchorRef = useRef<HTMLTableRowElement | null>(null);
 
   const sportName = (id: string) => sports.find((s) => s.id === id)?.name ?? id;
 
   const openNew = () => {
+    anchorRef.current = null;
     setForm(emptyCategory());
     setMessage(null);
     setError(null);
     setDrawerOpen(true);
   };
 
-  const openEdit = (category: Category) => {
+  const openEdit = (category: Category, rowEl: HTMLTableRowElement) => {
+    anchorRef.current = rowEl;
     setForm(category);
     setMessage(null);
     setError(null);
@@ -148,7 +151,7 @@ export function CategoryEditor() {
   }
 
   return (
-    <div className="relative space-y-3">
+    <div className="space-y-3">
       {error && <Feedback tone="error" message={error} />}
       {message && <Feedback tone="success" message={message} />}
 
@@ -187,7 +190,11 @@ export function CategoryEditor() {
                     </td>
                     <td className={tableCellClass}>
                       <div className="flex gap-2">
-                        <button type="button" className={secondaryButtonClass} onClick={() => { openEdit(category); }}>
+                        <button
+                          type="button"
+                          className={secondaryButtonClass}
+                          onClick={(e) => { openEdit(category, e.currentTarget.closest('tr') as HTMLTableRowElement); }}
+                        >
                           Editar
                         </button>
                         <button type="button" className={dangerButtonClass} onClick={() => { void handleDelete(category.id); }}>
@@ -208,6 +215,7 @@ export function CategoryEditor() {
         open={drawerOpen}
         title={form.id ? `Editar: ${form.name}` : 'Nueva categoría'}
         onClose={closeDrawer}
+        anchorRef={anchorRef}
       >
         <form className="space-y-4" onSubmit={(event) => { void handleSubmit(event); }}>
           <Field label="Nombre">
