@@ -1229,7 +1229,7 @@ function OperatorControlPanel() {
 
                 {/* SPONSORS */}
                 {rightTab === 'sponsors' && (
-                  <SponsorsTab currentGameId={game.gameId} />
+                  <SponsorsTab />
                 )}
 
                 {/* DATOS */}

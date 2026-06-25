@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import type { MatchMetadata, SponsorEntry } from '../matchMetadata';
 import { SearchSelect } from './data/SearchSelect';
 import { normalizeSponsor, type Sponsor } from './data/types';
 import { SlideDrawer } from './data/SlideDrawer';
@@ -224,117 +223,12 @@ function SponsorCrudSection() {
   );
 }
 
-// ── Sección: asignación de sponsors al partido activo ─────────────────────
-
-function GameSponsorsSection({ gameId }: { gameId: string }) {
-  const [allSponsors, setAllSponsors] = useState<Sponsor[]>([]);
-  const [assigned, setAssigned] = useState<SponsorEntry[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  // Cargar todos los sponsors disponibles y los asignados al partido
-  useEffect(() => {
-    void apiFetch<unknown[]>('/sponsors')
-      .then((list) => setAllSponsors(list.map(normalizeSponsor)))
-      .catch(() => setAllSponsors([]));
-
-    void apiFetch<{ sponsors?: SponsorEntry[] }>(`/games/${gameId}/metadata`)
-      .then((meta) => setAssigned(meta.sponsors ?? []))
-      .catch(() => setAssigned([]));
-  }, [gameId]);
-
-  function isAssigned(id: string) {
-    return assigned.some((a) => a.sponsorId === id);
-  }
-
-  function toggle(s: Sponsor) {
-    if (isAssigned(s.id)) {
-      setAssigned((prev) => prev.filter((a) => a.sponsorId !== s.id));
-    } else {
-      setAssigned((prev) => [...prev, {
-        sponsorId: s.id,
-        displayName: s.name,
-        logoAssetId: s.logoAssetId || undefined,
-        priority: s.priority,
-        active: true,
-      }]);
-    }
-    setSaved(false);
-  }
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      const metaRes = await fetch(`${API}/games/${gameId}/metadata`);
-      const metaBody = await metaRes.json() as { result?: string; payload?: Partial<MatchMetadata> };
-      const current: MatchMetadata = (metaBody.result === 'ok' && metaBody.payload)
-        ? (metaBody.payload as MatchMetadata)
-        : { gameId, branding: { brandName: '', brandLogoAssetId: '' }, competition: { name: '', tournament: '', category: '' }, venue: { name: '' }, game: { gameType: '', remainingTime: '', configuredInnings: 7 }, sponsors: [] };
-
-      const updated: MatchMetadata = { ...current, sponsors: assigned };
-      await fetch(`${API}/games/${gameId}/metadata`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch { /* ignore */ } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!gameId) return <p className="text-xs text-white/30">Carga un partido primero.</p>;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35">📎 Sponsors del partido</h3>
-        <button
-          type="button"
-          onClick={() => { void handleSave(); }}
-          disabled={saving}
-          className="rounded bg-mineros-navy border border-white/15 px-3 py-1 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-50 transition"
-        >
-          {saved ? '✅ Guardado' : saving ? 'Guardando…' : 'Guardar asignación'}
-        </button>
-      </div>
-      {allSponsors.length === 0 ? (
-        <p className="text-xs text-white/30">Sin sponsors disponibles. Créalos en la sección de arriba.</p>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          {allSponsors.map((s) => {
-            const on = isAssigned(s.id);
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => toggle(s)}
-                className={`flex items-center gap-2 rounded border px-3 py-2 text-left text-xs transition ${on ? 'border-mineros-gold bg-mineros-gold/10 text-mineros-gold' : 'border-white/15 bg-white/5 text-white/60 hover:border-white/30'}`}
-              >
-                <span className="text-base">{on ? '✅' : '☐'}</span>
-                <span>
-                  <p className="font-semibold">{s.name}</p>
-                  {s.brand && <p className="text-[10px] opacity-60">{s.brand}</p>}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Tab principal ─────────────────────────────────────────────────────────
 
-export function SponsorsTab({ currentGameId }: { currentGameId: string }) {
+export function SponsorsTab() {
   return (
-    <div className="p-4 space-y-8">
+    <div className="p-4">
       <SponsorCrudSection />
-      <div className="border-t border-white/10 pt-6">
-        <GameSponsorsSection gameId={currentGameId} />
-      </div>
     </div>
   );
 }
