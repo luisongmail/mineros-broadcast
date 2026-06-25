@@ -5,15 +5,17 @@ import { LeagueTournamentEditor } from './LeagueTournamentEditor';
 import { RosterEditor } from './RosterEditor';
 import { SponsorEditor } from './SponsorEditor';
 import { TeamEditor } from './TeamEditor';
+import { VenuesTab } from '../VenuesTab';
 
-type Section = 'teams' | 'roster' | 'categories' | 'leagues' | 'sponsors';
+type Section = 'teams' | 'roster' | 'categories' | 'leagues' | 'sponsors' | 'venues';
 
 const TOOLS: { id: Section; icon: string; label: string; tooltip: string }[] = [
-  { id: 'teams',      icon: '🏟️', label: 'Equipos',      tooltip: 'Crear y editar equipos'              },
+  { id: 'teams',      icon: '👕', label: 'Equipos',      tooltip: 'Crear y editar equipos'              },
   { id: 'roster',     icon: '👥', label: 'Roster',        tooltip: 'Jugadores y cuerpo técnico'          },
   { id: 'categories', icon: '🏷️', label: 'Categorías',   tooltip: 'Categorías deportivas'               },
   { id: 'leagues',    icon: '🏆', label: 'Ligas/Torneos', tooltip: 'Ligas, torneos, grupos y calendario' },
-  { id: 'sponsors',   icon: '💼', label: 'Sponsors',      tooltip: 'Patrocinadores del broadcast'        },
+  { id: 'sponsors',   icon: '🤝', label: 'Sponsors',      tooltip: 'Patrocinadores del broadcast'        },
+  { id: 'venues',     icon: '🏟️', label: 'Estadios',     tooltip: 'Estadios y sedes'                    },
 ];
 
 function ToolbarButton({
@@ -66,6 +68,7 @@ export function DataPanel() {
         {active === 'categories' && <CategoryEditor />}
         {active === 'leagues'    && <LeagueTournamentEditor />}
         {active === 'sponsors'   && <SponsorEditor />}
+        {active === 'venues'     && <VenuesTab embedded />}
       </div>
     </div>
   );

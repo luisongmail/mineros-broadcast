@@ -20,8 +20,6 @@ import { GameConfigPanel } from './components/GameConfigPanel';
 import { GamePanel } from './components/GamePanel';
 import { LayoutEditor } from './components/LayoutEditor';
 import { DataPanel } from './components/data/DataPanel';
-import { SponsorsTab } from './components/SponsorsTab';
-import { VenuesTab } from './components/VenuesTab';
 import { useBroadcastWS } from './hooks/useBroadcastWS';
 import {
   DEMO_GAME_DETAIL,
@@ -484,7 +482,7 @@ function OperatorControlPanel() {
 
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [rightTab, setRightTab] = useState<'config' | 'history' | 'layout' | 'obs' | 'metadata' | 'data' | 'sponsors' | 'venues'>('config');
+  const [rightTab, setRightTab] = useState<'config' | 'history' | 'layout' | 'obs' | 'metadata' | 'data'>('metadata');
   const handleResetGame = useCallback(async () => {
     setResetting(true);
     try {
@@ -1188,14 +1186,12 @@ function OperatorControlPanel() {
               <div className="flex shrink-0 border-b border-white/10 bg-broadcast-black/60">
                 {(
                   [
-                    { key: 'config', label: '⚙️ Config' },
                     { key: 'metadata', label: '⚾ Partido' },
-                    { key: 'sponsors', label: '🤝 Sponsors' },
-                    { key: 'venues',   label: '🏟️ Estadios' },
-                    { key: 'data', label: '🗃️ Datos' },
-                    { key: 'history', label: '📋 Historial' },
-                    { key: 'layout', label: '🖼️ Layout' },
-                    { key: 'obs', label: '📡 OBS' },
+                    { key: 'config',   label: '⚙️ Config' },
+                    { key: 'data',     label: '🗃️ Catálogo' },
+                    { key: 'history',  label: '📋 Historial' },
+                    { key: 'layout',   label: '🖼️ Layout' },
+                    { key: 'obs',      label: '📡 OBS' },
                   ] as const
                 ).map((tab) => (
                   <button
@@ -1229,17 +1225,11 @@ function OperatorControlPanel() {
                   <GamePanel currentGameId={game.gameId} />
                 )}
 
-                {/* SPONSORS */}
-                {rightTab === 'sponsors' && (
-                  <SponsorsTab />
-                )}
+                {/* SPONSORS eliminado del top-level — ahora en Catálogo */}
 
-                {/* ESTADIOS */}
-                {rightTab === 'venues' && (
-                  <VenuesTab />
-                )}
+                {/* ESTADIOS eliminado del top-level — ahora en Catálogo */}
 
-                {/* DATOS */}
+                {/* CATÁLOGO */}
                 {rightTab === 'data' && (
                   <div className="p-4">
                     <DataPanel />

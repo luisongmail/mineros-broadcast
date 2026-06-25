@@ -124,7 +124,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 // ── Componente principal ───────────────────────────────────────────────────
 
-export function VenuesTab() {
+export function VenuesTab({ embedded = false }: { embedded?: boolean }) {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -240,10 +240,15 @@ export function VenuesTab() {
   // Calcula posición del drawer anclada a la fila seleccionada
 
   return (
-    <div className="p-4">
+    <div className={embedded ? '' : 'p-4'}>
       {/* Cabecera */}
+      {!embedded && (
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35">🏟️ Estadios registrados</h3>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35">🏟️ Estadios registrados</h3>
+        <span />
         <button type="button" onClick={openNew} className={primaryButtonClass}>
           + Nuevo estadio
         </button>

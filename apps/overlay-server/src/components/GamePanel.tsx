@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { MatchMetadata, SponsorEntry } from '../matchMetadata';
 import { SearchSelect } from './data/SearchSelect';
 import { SlideDrawer } from './data/SlideDrawer';
-import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableHeaderClass, tableCellClass } from './data/shared';
+import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableHeaderClass, tableCellClass, tableClass, tableBodyClass, tableHeadRowClass } from './data/shared';
 import { normalizeSponsor, type Sponsor } from './data/types';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
@@ -328,9 +328,9 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
           <EmptyState message="No hay partidos disponibles." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700 text-left">
+            <table className={tableClass}>
               <thead>
-                <tr>
+                <tr className={tableHeadRowClass}>
                   <th className={tableHeaderClass}>Nombre</th>
                   <th className={tableHeaderClass}>Fecha</th>
                   <th className={tableHeaderClass}>Sede</th>
@@ -340,11 +340,12 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
                   <th className={tableHeaderClass}></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-700">
+              <tbody className={tableBodyClass}>
                 {games.map((game) => (
                   <tr
                     key={game.id}
-                    className={`hover:bg-white/5 transition ${game.id === currentGameId ? 'bg-mineros-gold/5 border-l-2 border-l-mineros-gold' : ''}`}
+                    className={`transition cursor-pointer hover:bg-white/[0.04] active:bg-white/[0.07] ${game.id === currentGameId ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
+                    onClick={(e) => openEdit(game, e.currentTarget as HTMLTableRowElement)}
                   >
                     <td className={tableCellClass}>
                       <p className="font-semibold text-white/90">{game.gameName ?? game.label}</p>
@@ -355,7 +356,7 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
                     <td className={`${tableCellClass} text-white/70`}>{game.homeTeamName ?? '—'}</td>
                     <td className={`${tableCellClass} text-white/70`}>{game.awayTeamName ?? '—'}</td>
                     <td className={tableCellClass}>{statusBadge(game.status)}</td>
-                    <td className={`${tableCellClass} text-right`}>
+                    <td className={`${tableCellClass} text-right`} onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         onClick={(e) => openEdit(game, (e.currentTarget.closest('tr') as HTMLTableRowElement))}
