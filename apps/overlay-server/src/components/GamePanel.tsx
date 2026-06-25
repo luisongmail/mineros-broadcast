@@ -15,7 +15,9 @@ interface GameSummary {
   label: string;
   status: string;
   gameName?: string;
+  homeTeamId?: string;
   homeTeamName?: string;
+  awayTeamId?: string;
   awayTeamName?: string;
   scheduledAt?: string;
   venue?: string;
@@ -139,11 +141,13 @@ function SponsorPicker({ allSponsors, assigned, onChange }: SponsorPickerProps) 
 
 function emptyForm(game?: GameSummary) {
   return {
-    gameName:     game?.gameName     ?? '',
-    venue:        game?.venue        ?? '',
-    scheduledAt:  game?.scheduledAt  ? game.scheduledAt.slice(0, 10) : '',
-    status:       game?.status       ?? 'scheduled',
-    sponsors:     [] as SponsorEntry[],
+    gameName:    game?.gameName    ?? '',
+    venue:       game?.venue       ?? '',
+    scheduledAt: game?.scheduledAt ? game.scheduledAt.slice(0, 10) : '',
+    status:      game?.status      ?? 'scheduled',
+    homeTeamId:  game?.homeTeamId  ?? '',
+    awayTeamId:  game?.awayTeamId  ?? '',
+    sponsors:    [] as SponsorEntry[],
   };
 }
 
@@ -159,6 +163,7 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
   const [editingId, setEditingId]           = useState<string | null>(null);
   const [form, setForm]                     = useState(emptyForm());
   const [allSponsors, setAllSponsors]       = useState<Sponsor[]>([]);
+  const [allTeams, setAllTeams]             = useState<{ id: string; name: string; shortName: string }[]>([]);
   const [saving, setSaving]                 = useState(false);
   const anchorRef = useRef<HTMLTableRowElement | null>(null);
 
@@ -178,7 +183,9 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
             label:        String(raw.label ?? raw.id ?? ''),
             status:       String(raw.status ?? 'scheduled'),
             gameName:     raw.gameName ? String(raw.gameName) : undefined,
+            homeTeamId:   ht ? String(ht.id ?? '') : undefined,
             homeTeamName: ht ? String(ht.name ?? '') : undefined,
+            awayTeamId:   at ? String(at.id ?? '') : undefined,
             awayTeamName: at ? String(at.name ?? '') : undefined,
             scheduledAt:  raw.scheduledAt ? String(raw.scheduledAt) : undefined,
             venue:        raw.venue       ? String(raw.venue)       : undefined,
@@ -198,6 +205,20 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
         setAllSponsors(list.map(normalizeSponsor));
       })
       .catch(() => setAllSponsors([]));
+  }, []);
+
+  // Cargar equipos disponibles una vez
+  useEffect(() => {
+    fetch(`${API}/teams`)
+      .then((r) => r.json() as Promise<{ result?: string; payload?: unknown[] }>)
+      .then((body) => {
+        const list = body.result === 'ok' && Array.isArray(body.payload) ? body.payload : [];
+        setAllTeams(list.map((t) => {
+          const raw = t as Record<string, unknown>;
+          return { id: String(raw.id ?? ''), name: String(raw.fullName ?? raw.name ?? ''), shortName: String(raw.shortName ?? '') };
+        }));
+      })
+      .catch(() => setAllTeams([]));
   }, []);
 
   function openEdit(game: GameSummary, rowEl: HTMLTableRowElement) {
@@ -228,7 +249,7 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
     setSaving(true);
     setError(null);
     try {
-      // 1. Actualizar nombre, venue y status en games
+      // 1. Actualizar nombre, venue, status y equipos en games
       await fetch(`${API}/games/${editingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -236,6 +257,8 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
           gameName:    form.gameName    || null,
           venue:       form.venue       || null,
           scheduledAt: form.scheduledAt || null,
+          homeTeamId:  form.homeTeamId  || null,
+          awayTeamId:  form.awayTeamId  || null,
         }),
       });
 
@@ -253,8 +276,19 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
       });
 
       // Actualizar lista local
+      const homeTeam = allTeams.find((t) => t.id === form.homeTeamId);
+      const awayTeam = allTeams.find((t) => t.id === form.awayTeamId);
       setGames((prev) => prev.map((g) => g.id === editingId
-        ? { ...g, gameName: form.gameName || undefined, venue: form.venue || undefined, scheduledAt: form.scheduledAt || g.scheduledAt }
+        ? {
+            ...g,
+            gameName:     form.gameName    || undefined,
+            venue:        form.venue       || undefined,
+            scheduledAt:  form.scheduledAt || g.scheduledAt,
+            homeTeamId:   form.homeTeamId  || g.homeTeamId,
+            homeTeamName: homeTeam?.name   ?? g.homeTeamName,
+            awayTeamId:   form.awayTeamId  || g.awayTeamId,
+            awayTeamName: awayTeam?.name   ?? g.awayTeamName,
+          }
         : g,
       ));
       setMessage('Partido actualizado.');
@@ -375,6 +409,24 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
               options={STATUS_OPTIONS}
               value={form.status}
               onChange={(v) => setForm((f) => ({ ...f, status: v }))}
+            />
+          </Field>
+
+          <Field label="Equipo local">
+            <SearchSelect
+              options={allTeams.map((t) => ({ value: t.id, label: t.name, sublabel: t.shortName }))}
+              value={form.homeTeamId}
+              onChange={(v) => setForm((f) => ({ ...f, homeTeamId: v }))}
+              placeholder="Seleccionar equipo local…"
+            />
+          </Field>
+
+          <Field label="Equipo visitante">
+            <SearchSelect
+              options={allTeams.map((t) => ({ value: t.id, label: t.name, sublabel: t.shortName }))}
+              value={form.awayTeamId}
+              onChange={(v) => setForm((f) => ({ ...f, awayTeamId: v }))}
+              placeholder="Seleccionar equipo visitante…"
             />
           </Field>
 

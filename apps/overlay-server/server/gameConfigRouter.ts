@@ -524,13 +524,15 @@ gameConfigRouter.post('/games/:id/reset', async (request: Request, response: Res
   }
 });
 
-// PUT /games/:id — actualizar campos editables del partido (nombre, venue, scheduled_at)
+// PUT /games/:id — actualizar campos editables del partido
 gameConfigRouter.put('/games/:id', async (request: Request, response: Response) => {
   const { id } = request.params;
-  const { gameName, venue, scheduledAt } = request.body as {
+  const { gameName, venue, scheduledAt, homeTeamId, awayTeamId } = request.body as {
     gameName?: string | null;
     venue?: string | null;
     scheduledAt?: string | null;
+    homeTeamId?: string | null;
+    awayTeamId?: string | null;
   };
 
   try {
@@ -550,6 +552,14 @@ gameConfigRouter.put('/games/:id', async (request: Request, response: Response) 
     if (scheduledAt !== undefined) {
       updates.push('scheduled_at = ?');
       values.push(scheduledAt);
+    }
+    if (homeTeamId !== undefined) {
+      updates.push('home_team_id = ?');
+      values.push(homeTeamId?.trim() || null);
+    }
+    if (awayTeamId !== undefined) {
+      updates.push('away_team_id = ?');
+      values.push(awayTeamId?.trim() || null);
     }
 
     if (updates.length === 0) {
