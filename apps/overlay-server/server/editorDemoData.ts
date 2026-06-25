@@ -225,12 +225,47 @@ export const demoTeams: DemoTeam[] = [
     created_at: '2026-01-10T12:15:00.000Z',
     updated_at: '2026-01-10T12:15:00.000Z',
   },
+  // Equipos del juego demo activo (deben coincidir con gameConfig.ts DEMO_HOME_TEAM / DEMO_AWAY_TEAM)
+  {
+    id: 'team-chile',
+    name: 'Team Chile',
+    short_name: 'CHI',
+    logo_asset_id: 'teams/teamchile-logo',
+    logo_wordmark_asset_id: null,
+    logo_alternate_asset_id: null,
+    city: 'Santiago',
+    country: 'CL',
+    primary_color: '#C8102E',
+    secondary_color: '#003580',
+    founded_year: null,
+    active: 1,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'team-guerreras',
+    name: 'Las Guerreras',
+    short_name: 'GUE',
+    logo_asset_id: 'teams/guerreras-logo',
+    logo_wordmark_asset_id: null,
+    logo_alternate_asset_id: null,
+    city: 'Santiago',
+    country: 'DO',
+    primary_color: '#D71920',
+    secondary_color: '#1B2F5B',
+    founded_year: null,
+    active: 1,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  },
 ];
 
 export const demoTeamCategories = [
   { team_id: 'team-mineros', category_id: 'cat-juvenil' },
   { team_id: 'team-mineros', category_id: 'cat-mayor' },
   { team_id: 'team-aguilas-cibao-demo', category_id: 'cat-mayor' },
+  { team_id: 'team-chile', category_id: 'cat-mayor' },
+  { team_id: 'team-guerreras', category_id: 'cat-mayor' },
 ];
 
 export const demoPlayers: DemoPlayer[] = [
@@ -276,6 +311,19 @@ export const demoPlayers: DemoPlayer[] = [
     created_at: '2026-01-10T12:21:00.000Z',
     updated_at: '2026-01-10T12:21:00.000Z',
   },
+  // Jugadoras del juego demo activo — Team Chile
+  { id: 'player-chi-01', first_name: 'Constanza', last_name: 'Aguilera', nickname: null, name: 'Constanza Aguilera', team_id: 'team-chile', number: '3', position: '1B', bats: 'R', throws: 'R', photo_asset_id: 'players/chi-p-01-constanza-aguilera', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'CL', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'player-chi-02', first_name: 'Florencia', last_name: 'Honorato', nickname: null, name: 'Florencia Honorato', team_id: 'team-chile', number: '5', position: 'DP', bats: 'R', throws: 'R', photo_asset_id: 'players/chi-p-02-florencia-honorato', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'CL', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'player-chi-03', first_name: 'Daniela', last_name: 'De Oliveira', nickname: null, name: 'Daniela De Oliveira', team_id: 'team-chile', number: '6', position: 'SS', bats: 'R', throws: 'R', photo_asset_id: 'players/chi-p-03-daniela-deoliveira', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'CL', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'player-chi-06', first_name: 'Martina', last_name: 'Pellizaris', nickname: null, name: 'Martina Pellizaris', team_id: 'team-chile', number: '16', position: '3B', bats: 'R', throws: 'R', photo_asset_id: 'players/chi-p-07-martina-pellizaris', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'CL', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'player-chi-09', first_name: 'Catalina', last_name: 'Guerra', nickname: null, name: 'Catalina Guerra', team_id: 'team-chile', number: '24', position: 'P', bats: 'R', throws: 'R', photo_asset_id: 'players/chi-p-10-catalina-guerra', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'CL', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'player-chi-12', first_name: 'Barbara', last_name: 'Carrasco', nickname: null, name: 'Barbara Carrasco', team_id: 'team-chile', number: '14', position: 'C', bats: 'R', throws: 'R', photo_asset_id: 'players/chi-p-06-barbara-carrasco', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'CL', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  // Jugadoras del juego demo activo — Las Guerreras
+  { id: 'player-gue-01', first_name: 'Angélica', last_name: 'González', nickname: null, name: 'Angélica González', team_id: 'team-guerreras', number: '20', position: 'LF', bats: 'R', throws: 'R', photo_asset_id: 'players/gue-p-01-angelica', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'DO', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'player-gue-02', first_name: 'Mariela', last_name: 'Diaz', nickname: null, name: 'Mariela Diaz', team_id: 'team-guerreras', number: '21', position: '1B', bats: 'R', throws: 'R', photo_asset_id: 'players/gue-p-02-mariela-diaz', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'DO', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'player-gue-03', first_name: 'María', last_name: 'Gabriela', nickname: null, name: 'María Gabriela', team_id: 'team-guerreras', number: '22', position: '3B', bats: 'R', throws: 'R', photo_asset_id: 'players/gue-p-03-maria-gabriela', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'DO', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'player-gue-05', first_name: 'Merly', last_name: 'Rodríguez', nickname: null, name: 'Merly Rodríguez', team_id: 'team-guerreras', number: '25', position: 'CF', bats: 'R', throws: 'R', photo_asset_id: 'players/gue-p-05-merly', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'DO', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'player-gue-08', first_name: 'Mariant', last_name: 'Reyes', nickname: null, name: 'Mariant Reyes', team_id: 'team-guerreras', number: '28', position: '2B', bats: 'R', throws: 'R', photo_asset_id: 'players/gue-p-08-mariant-reyes', photo_action_asset_id: null, stats: {}, status: 'active', date_of_birth: null, nationality: 'DO', gender: 'female', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
 ];
 
 export const demoRosters = [

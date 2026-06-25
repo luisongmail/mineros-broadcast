@@ -1,3 +1,5 @@
+// Con el proxy de Vite, '/api' se redirige automáticamente a Express (localhost:3001).
+// En producción, '/api' va directo al servidor. VITE_API_URL permite override manual.
 export const API = import.meta.env.VITE_API_URL ?? '';
 
 type ApiEnvelope<T> =
