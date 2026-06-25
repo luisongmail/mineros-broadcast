@@ -2,7 +2,7 @@
   "gameId": "game-gue-vs-chi-20260611",
   "sponsors": [
     {
-      "sponsorId": "017b9a1d-31f8-4a7f-b0dd-66dd6af66bce",
+      "sponsorId": "sponsor-merchise",
       "displayName": "Merchise",
       "logoAssetId": "brands/merchise-logo",
       "text": "Innovación y Tecnología",
@@ -10,7 +10,7 @@
       "active": true
     },
     {
-      "sponsorId": "f12e37a7-dfd9-4901-82a8-be99bdd9e209",
+      "sponsorId": "sponsor-merchise-online",
       "displayName": "Merchise Online Services",
       "logoAssetId": "brands/mols-logo",
       "text": "Tecnología con sentido para digitalizar tu negocio",
@@ -18,7 +18,7 @@
       "active": true
     },
     {
-      "sponsorId": "6624d844-0cbb-46de-be32-02f616a619ae",
+      "sponsorId": "sponsor-storeware",
       "displayName": "Storeware",
       "logoAssetId": "brands/storeware-logo",
       "text": "Tus pedidos directo a la cocina",
