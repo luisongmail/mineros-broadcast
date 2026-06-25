@@ -7,6 +7,12 @@ import {
   Feedback,
   primaryButtonClass,
   secondaryButtonClass,
+  tableBodyClass,
+  tableClass,
+  tableHeadRowClass,
+  tableHeaderClass,
+  tableRowClass,
+  tableCellClass,
   type DialogState,
 } from './data/shared';
 
@@ -250,35 +256,35 @@ export function VenuesTab() {
       )}
       {!loading && venues.length > 0 && (
         <div className="rounded border border-white/10 overflow-hidden">
-          <table className="w-full text-xs">
+          <table className={tableClass}>
             <thead>
-              <tr className="bg-white/5 text-white/40 uppercase text-[9px] tracking-wider">
-                <th className="px-3 py-2 text-left">Nombre</th>
-                <th className="px-3 py-2 text-left">Ciudad</th>
-                <th className="px-3 py-2 text-left">País</th>
-                <th className="px-3 py-2 text-left">Coords</th>
-                <th className="px-2 py-2 text-left">Cómo llegar</th>
-                <th className="px-2 py-2"></th>
+              <tr className={tableHeadRowClass}>
+                <th className={tableHeaderClass}>Nombre</th>
+                <th className={tableHeaderClass}>Ciudad</th>
+                <th className={tableHeaderClass}>País</th>
+                <th className={tableHeaderClass}>Coords</th>
+                <th className={tableHeaderClass}>Cómo llegar</th>
+                <th className={tableHeaderClass + ' w-8'}></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className={tableBodyClass}>
               {venues.map((v) => {
                 const url = mapsUrl(v);
                 return (
                   <tr
                     key={v.id}
-                    className="hover:bg-white/5 transition cursor-pointer"
+                    className={tableRowClass}
                     onClick={(e) => openEdit(v, e.currentTarget as HTMLTableRowElement)}
                   >
-                    <td className="px-3 py-2 text-white/85 font-medium">{v.name}</td>
-                    <td className="px-3 py-2 text-white/50">{v.address.city || '—'}</td>
-                    <td className="px-3 py-2 text-white/50">{v.address.countryCode || v.address.country || '—'}</td>
-                    <td className="px-3 py-2 text-white/40 font-mono text-[10px]">
+                    <td className={tableCellClass + ' font-medium'}>{v.name}</td>
+                    <td className={tableCellClass + ' text-white/50'}>{v.address.city || '—'}</td>
+                    <td className={tableCellClass + ' text-white/50'}>{v.address.countryCode || v.address.country || '—'}</td>
+                    <td className={tableCellClass + ' text-white/40 font-mono text-[10px]'}>
                       {v.google.latitude && v.google.longitude
                         ? `${Number(v.google.latitude).toFixed(5)}, ${Number(v.google.longitude).toFixed(5)}`
                         : '—'}
                     </td>
-                    <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                    <td className={tableCellClass} onClick={(e) => e.stopPropagation()}>
                       {url ? (
                         <a
                           href={url}
@@ -293,7 +299,7 @@ export function VenuesTab() {
                         <span className="text-white/20 text-[10px]">—</span>
                       )}
                     </td>
-                    <td className="px-2 py-2 flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <td className={tableCellClass + ' flex gap-1'} onClick={(e) => e.stopPropagation()}>
                       <button type="button" onClick={() => handleDelete(v)} className="text-white/40 hover:text-red-400 transition text-xs" title="Eliminar">🗑️</button>
                     </td>
                   </tr>

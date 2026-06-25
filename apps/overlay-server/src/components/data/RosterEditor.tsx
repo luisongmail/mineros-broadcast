@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { generateId, request, toErrorMessage } from './api';
 import { mockPlayersByTeam, mockStaffByTeam, mockTeams } from './mockData';
 import { SearchSelect } from './SearchSelect';
-import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
+import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass, tableClass, tableBodyClass, tableHeadRowClass, tableRowClass } from './shared';
 import { normalizePlayer, normalizeStaffMember, normalizeTeam, type Player, type StaffMember, type StaffRole, type Team } from './types';
 
 const positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'UT', 'DH'] as const;
@@ -226,9 +226,9 @@ export function RosterEditor() {
               <EmptyState message="No hay jugadores cargados." />
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-700">
+                <table className={tableClass}>
                   <thead>
-                    <tr>
+                    <tr className={tableHeadRowClass}>
                       <th className={tableHeaderClass}>#</th>
                       <th className={tableHeaderClass}>Nombre</th>
                       <th className={tableHeaderClass}>Pos</th>
@@ -237,15 +237,19 @@ export function RosterEditor() {
                       <th className={tableHeaderClass}>Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800">
+                  <tbody className={tableBodyClass}>
                     {players.map((player) => (
-                      <tr key={player.id}>
-                        <td className={tableCellClass}>{player.number || '—'}</td>
+                      <tr key={player.id} className={tableRowClass}>
+                        <td className={`${tableCellClass} text-white/40 font-mono`}>{player.number || '—'}</td>
                         <td className={tableCellClass}>{player.fullName}</td>
-                        <td className={tableCellClass}>{player.position}</td>
-                        <td className={tableCellClass}>{player.bats}/{player.throws}</td>
-                        <td className={tableCellClass}>{player.status}</td>
+                        <td className={`${tableCellClass} text-white/50`}>{player.position}</td>
+                        <td className={`${tableCellClass} text-white/40 font-mono`}>{player.bats}/{player.throws}</td>
                         <td className={tableCellClass}>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${player.status === 'active' ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/40'}`}>
+                            {player.status === 'active' ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </td>
+                        <td className={tableCellClass} onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-2">
                             <button type="button" className={secondaryButtonClass} onClick={() => setPlayerForm(player)}>Editar</button>
                             <button type="button" className={dangerButtonClass} onClick={() => { void deletePlayer(player.id); }}>Eliminar</button>
@@ -285,20 +289,20 @@ export function RosterEditor() {
               <EmptyState message="No hay cuerpo técnico registrado." />
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-700">
+                <table className={tableClass}>
                   <thead>
-                    <tr>
+                    <tr className={tableHeadRowClass}>
                       <th className={tableHeaderClass}>Nombre</th>
                       <th className={tableHeaderClass}>Rol</th>
                       <th className={tableHeaderClass}>Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800">
+                  <tbody className={tableBodyClass}>
                     {staff.map((member) => (
-                      <tr key={member.id}>
+                      <tr key={member.id} className={tableRowClass}>
                         <td className={tableCellClass}>{member.name}</td>
-                        <td className={tableCellClass}>{member.role}</td>
-                        <td className={tableCellClass}>
+                        <td className={`${tableCellClass} text-white/50`}>{member.role}</td>
+                        <td className={tableCellClass} onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-2">
                             <button type="button" className={secondaryButtonClass} onClick={() => setStaffForm(member)}>Editar</button>
                             <button type="button" className={dangerButtonClass} onClick={() => { void deleteStaff(member.id); }}>Eliminar</button>

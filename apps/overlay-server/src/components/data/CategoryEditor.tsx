@@ -4,7 +4,7 @@ import { generateId, request, toErrorMessage } from './api';
 import { mockCategories } from './mockData';
 import { SearchSelect } from './SearchSelect';
 import { SlideDrawer } from './SlideDrawer';
-import { EmptyState, Feedback, Field, LoadingState, SectionCard, fieldClass, primaryButtonClass, dangerButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
+import { EmptyState, Feedback, Field, LoadingState, SectionCard, fieldClass, primaryButtonClass, dangerButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass, tableClass, tableBodyClass, tableHeadRowClass, tableRowClass } from './shared';
 import { normalizeCategory, type Category } from './types';
 
 type Sport = { id: string; name: string; gender: string };
@@ -168,9 +168,9 @@ export function CategoryEditor() {
           <EmptyState message="No hay categorías todavía." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700 text-left">
+            <table className={tableClass}>
               <thead>
-                <tr>
+                <tr className={tableHeadRowClass}>
                   <th className={tableHeaderClass}>Nombre</th>
                   <th className={tableHeaderClass}>Deporte</th>
                   <th className={tableHeaderClass}>Edad</th>
@@ -178,18 +178,18 @@ export function CategoryEditor() {
                   <th className={tableHeaderClass}>Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800">
+              <tbody className={tableBodyClass}>
                 {categories.map((category) => (
-                  <tr key={category.id} className="hover:bg-gray-800/40">
+                  <tr key={category.id} className={tableRowClass} onClick={(e) => openEdit(category, e.currentTarget)}>
                     <td className={tableCellClass}>{category.name}</td>
-                    <td className={tableCellClass}>{sportName(category.sportId)}</td>
-                    <td className={`${tableCellClass} text-gray-400`}>{ageLabel(category.ageMin, category.ageMax)}</td>
+                    <td className={`${tableCellClass} text-white/50`}>{sportName(category.sportId)}</td>
+                    <td className={`${tableCellClass} text-white/40`}>{ageLabel(category.ageMin, category.ageMax)}</td>
                     <td className={tableCellClass}>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${category.active ? 'bg-green-900/40 text-green-400' : 'bg-gray-700 text-gray-400'}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${category.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/40'}`}>
                         {category.active ? 'Activa' : 'Inactiva'}
                       </span>
                     </td>
-                    <td className={tableCellClass}>
+                    <td className={tableCellClass} onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-2">
                         <button
                           type="button"

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { generateId, request, toErrorMessage } from './api';
 import { mockCategories, mockLeagues, mockTeams, mockTournaments } from './mockData';
 import { SearchSelect } from './SearchSelect';
-import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
+import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass, tableClass, tableBodyClass, tableHeadRowClass, tableRowClass } from './shared';
 import { normalizeCategory, normalizeLeague, normalizeTeam, normalizeTournament, type Category, type League, type Team, type Tournament, type TournamentGroup } from './types';
 
 const emptyLeague = (): League => ({ id: '', name: '', shortName: '', country: '', logoAssetId: '', active: true });
@@ -306,9 +306,9 @@ export function LeagueTournamentEditor() {
               <EmptyState message="No hay torneos para la liga seleccionada." />
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-700">
+                <table className={tableClass}>
                   <thead>
-                    <tr>
+                    <tr className={tableHeadRowClass}>
                       <th className={tableHeaderClass}>Nombre</th>
                       <th className={tableHeaderClass}>Categoría</th>
                       <th className={tableHeaderClass}>Tipo</th>
@@ -316,14 +316,14 @@ export function LeagueTournamentEditor() {
                       <th className={tableHeaderClass}>Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800">
+                  <tbody className={tableBodyClass}>
                     {tournamentsForLeague.map((tournament) => (
-                      <tr key={tournament.id}>
+                      <tr key={tournament.id} className={tableRowClass}>
                         <td className={tableCellClass}>{tournament.name}</td>
-                        <td className={tableCellClass}>{categoryMap.get(tournament.categoryId) ?? '—'}</td>
-                        <td className={tableCellClass}>{tournament.structureType}</td>
+                        <td className={`${tableCellClass} text-white/50`}>{categoryMap.get(tournament.categoryId) ?? '—'}</td>
+                        <td className={`${tableCellClass} text-white/40`}>{tournament.structureType}</td>
                         <td className={tableCellClass}>{tournament.status}</td>
-                        <td className={tableCellClass}>
+                        <td className={tableCellClass} onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-2">
                             <button type="button" className={secondaryButtonClass} onClick={() => { setSelectedTournamentId(tournament.id); setTournamentForm(tournament); }}>Editar</button>
                             <button type="button" className={dangerButtonClass} onClick={() => { void deleteTournament(tournament.id); }}>Eliminar</button>
@@ -407,26 +407,26 @@ export function LeagueTournamentEditor() {
                 <EmptyState message="No hay tabla de posiciones disponible todavía." />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-700">
+                  <table className={tableClass}>
                     <thead>
-                      <tr>
+                      <tr className={tableHeadRowClass}>
                         {['Pos', 'Equipo', 'JG', 'JP', 'JE', 'PCT', 'RA', 'RC', 'Dif'].map((label) => <th key={label} className={tableHeaderClass}>{label}</th>)}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-800">
+                    <tbody className={tableBodyClass}>
                       {[...selectedTournament.standings]
                         .sort((a, b) => (b.pct - a.pct) || (b.runDiff - a.runDiff))
                         .map((row, index) => (
-                          <tr key={row.teamId}>
-                            <td className={tableCellClass}>{index + 1}</td>
+                          <tr key={row.teamId} className={tableRowClass}>
+                            <td className={`${tableCellClass} text-white/40 font-mono text-center`}>{index + 1}</td>
                             <td className={tableCellClass}>{teamMap.get(row.teamId) ?? row.teamId}</td>
-                            <td className={tableCellClass}>{row.wins}</td>
-                            <td className={tableCellClass}>{row.losses}</td>
-                            <td className={tableCellClass}>{row.ties}</td>
-                            <td className={tableCellClass}>{row.pct.toFixed(3)}</td>
-                            <td className={tableCellClass}>{row.runsAllowed}</td>
-                            <td className={tableCellClass}>{row.runsScored}</td>
-                            <td className={tableCellClass}>{row.runDiff}</td>
+                            <td className={`${tableCellClass} text-white/50 tabular-nums`}>{row.wins}</td>
+                            <td className={`${tableCellClass} text-white/50 tabular-nums`}>{row.losses}</td>
+                            <td className={`${tableCellClass} text-white/50 tabular-nums`}>{row.ties}</td>
+                            <td className={`${tableCellClass} font-mono tabular-nums`}>{row.pct.toFixed(3)}</td>
+                            <td className={`${tableCellClass} text-white/50 tabular-nums`}>{row.runsAllowed}</td>
+                            <td className={`${tableCellClass} text-white/50 tabular-nums`}>{row.runsScored}</td>
+                            <td className={`${tableCellClass} font-mono tabular-nums ${row.runDiff > 0 ? 'text-emerald-300' : row.runDiff < 0 ? 'text-red-400' : 'text-white/40'}`}>{row.runDiff > 0 ? `+${row.runDiff}` : row.runDiff}</td>
                           </tr>
                         ))}
                     </tbody>

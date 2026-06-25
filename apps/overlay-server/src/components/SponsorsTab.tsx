@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { SearchSelect } from './data/SearchSelect';
 import { normalizeSponsor, type Sponsor } from './data/types';
 import { SlideDrawer } from './data/SlideDrawer';
-import { ConfirmDialog, type DialogState } from './data/shared';
+import { ConfirmDialog, tableClass, tableHeadRowClass, tableHeaderClass, tableBodyClass, tableRowClass, tableCellClass, type DialogState } from './data/shared';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
@@ -119,28 +119,28 @@ function SponsorCrudSection() {
 
       {!loading && sponsors.length > 0 && (
         <div className="rounded border border-white/10 overflow-hidden">
-          <table className="w-full text-xs">
+          <table className={tableClass}>
             <thead>
-              <tr className="bg-white/5 text-white/40 uppercase text-[9px] tracking-wider">
-                <th className="px-3 py-2 text-left">Nombre</th>
-                <th className="px-3 py-2 text-left">Marca</th>
-                <th className="px-3 py-2 text-left">Estado</th>
-                <th className="px-3 py-2 text-left">Prioridad</th>
-                <th className="px-2 py-2"></th>
+              <tr className={tableHeadRowClass}>
+                <th className={tableHeaderClass}>Nombre</th>
+                <th className={tableHeaderClass}>Marca</th>
+                <th className={tableHeaderClass}>Estado</th>
+                <th className={tableHeaderClass}>Prioridad</th>
+                <th className={tableHeaderClass + ' w-16'}></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className={tableBodyClass}>
               {sponsors.map((s) => (
-                <tr key={s.id} className="hover:bg-white/5 transition">
-                  <td className="px-3 py-2 text-white/85 font-medium">{s.name}</td>
-                  <td className="px-3 py-2 text-white/50">{s.brand}</td>
-                  <td className="px-3 py-2">
+                <tr key={s.id} className={tableRowClass} onClick={() => openEdit(s)}>
+                  <td className={tableCellClass + ' font-medium'}>{s.name}</td>
+                  <td className={tableCellClass + ' text-white/50'}>{s.brand}</td>
+                  <td className={tableCellClass}>
                     <span className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${s.status === 'active' ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/40'}`}>
                       {s.status}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-white/50">{s.priority}</td>
-                  <td className="px-2 py-2 flex gap-1">
+                  <td className={tableCellClass + ' text-white/50 tabular-nums'}>{s.priority}</td>
+                  <td className={tableCellClass + ' flex gap-1'} onClick={(e) => e.stopPropagation()}>
                     <button type="button" onClick={() => openEdit(s)} className="text-white/40 hover:text-mineros-gold transition text-xs">✏️</button>
                     <button type="button" onClick={() => handleDelete(s.id, s.name)} className="text-white/40 hover:text-red-400 transition text-xs">🗑️</button>
                   </td>

@@ -11,6 +11,12 @@ import {
   Field,
   primaryButtonClass,
   secondaryButtonClass,
+  tableBodyClass,
+  tableClass,
+  tableHeadRowClass,
+  tableHeaderClass,
+  tableRowClass,
+  tableCellClass,
   type DialogState,
 } from './shared';
 import { normalizeCategory, normalizeTeam, type Category, type Team } from './types';
@@ -232,43 +238,43 @@ export function TeamEditor() {
         <p className="text-xs text-white/30">{teams.length === 0 ? 'Sin equipos registrados.' : 'Sin resultados para el filtro aplicado.'}</p>
       ) : (
         <div className="rounded border border-white/10 overflow-hidden">
-          <table className="w-full text-xs">
+          <table className={tableClass}>
             <thead>
-              <tr className="bg-white/5 text-white/40 uppercase text-[9px] tracking-wider">
-                <th className="px-3 py-2 text-left w-8"></th>
-                <th className="px-3 py-2 text-left">Nombre</th>
-                <th className="px-3 py-2 text-left">Categorías</th>
-                <th className="px-3 py-2 text-left">Club</th>
-                <th className="px-3 py-2 text-left">Federado</th>
-                <th className="px-3 py-2 text-left">Asociación</th>
+              <tr className={tableHeadRowClass}>
+                <th className={tableHeaderClass + ' w-8'}></th>
+                <th className={tableHeaderClass}>Nombre</th>
+                <th className={tableHeaderClass}>Categoría</th>
+                <th className={tableHeaderClass}>Club</th>
+                <th className={tableHeaderClass}>Federado</th>
+                <th className={tableHeaderClass}>Asociación</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className={tableBodyClass}>
               {filtered.map((team) => (
                 <tr
                   key={team.id}
-                  className="hover:bg-white/5 transition cursor-pointer"
+                  className={tableRowClass}
                   onClick={(e) => openEdit(team, e.currentTarget as HTMLTableRowElement)}
                 >
-                  <td className="px-3 py-2"><TeamBadge team={team} /></td>
-                  <td className="px-3 py-2">
-                    <p className="font-medium text-white/85">{team.fullName}</p>
+                  <td className={tableCellClass}><TeamBadge team={team} /></td>
+                  <td className={tableCellClass}>
+                    <p className="font-medium">{team.fullName}</p>
                     {team.shortName && <p className="text-[10px] text-white/40">{team.shortName}</p>}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className={tableCellClass}>
                     {team.categoryId
                       ? <span className="rounded-full border border-white/15 px-2 py-0.5 text-[9px] text-white/50">{categoryMap.get(team.categoryId)?.name ?? team.categoryId}</span>
                       : <span className="text-white/25">—</span>}
                   </td>
-                  <td className="px-3 py-2 text-white/60">{team.clubName || '—'}</td>
-                  <td className="px-3 py-2">
+                  <td className={tableCellClass + ' text-white/50'}>{team.clubName || '—'}</td>
+                  <td className={tableCellClass}>
                     {team.clubId ? (
                       <span className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${team.clubFederated ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/40'}`}>
                         {team.clubFederated ? 'Sí' : 'No'}
                       </span>
                     ) : <span className="text-white/20">—</span>}
                   </td>
-                  <td className="px-3 py-2 text-white/50">{team.clubAssociationName || '—'}</td>
+                  <td className={tableCellClass + ' text-white/50'}>{team.clubAssociationName || '—'}</td>
                 </tr>
               ))}
             </tbody>
