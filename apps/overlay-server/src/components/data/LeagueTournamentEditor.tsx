@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { generateId, request, toErrorMessage } from './api';
 import { mockCategories, mockLeagues, mockTeams, mockTournaments } from './mockData';
+import { SearchSelect } from './SearchSelect';
 import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
 import { normalizeCategory, normalizeLeague, normalizeTeam, normalizeTournament, type Category, type League, type Team, type Tournament, type TournamentGroup } from './types';
 
@@ -341,17 +342,17 @@ export function LeagueTournamentEditor() {
               <div className="grid gap-3 md:grid-cols-2">
                 <Field label="Nombre"><input required className={fieldClass} value={tournamentForm.name} onChange={(event) => setTournamentForm((current) => ({ ...current, name: event.target.value }))} /></Field>
                 <Field label="Nombre corto"><input className={fieldClass} value={tournamentForm.shortName} onChange={(event) => setTournamentForm((current) => ({ ...current, shortName: event.target.value }))} /></Field>
-                <Field label="Liga"><select className={fieldClass} value={tournamentForm.leagueId} onChange={(event) => setTournamentForm((current) => ({ ...current, leagueId: event.target.value }))}>{leagues.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}</select></Field>
-                <Field label="Categoría"><select className={fieldClass} value={tournamentForm.categoryId} onChange={(event) => setTournamentForm((current) => ({ ...current, categoryId: event.target.value }))}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field>
-                <Field label="Tipo de torneo"><select className={fieldClass} value={tournamentForm.type} onChange={(event) => setTournamentForm((current) => ({ ...current, type: event.target.value }))}><option value="league">Liga</option><option value="tournament">Torneo</option><option value="exhibition">Exhibición</option><option value="playoff">Playoff</option></select></Field>
+                <Field label="Liga"><SearchSelect options={leagues.map((l) => ({ value: l.id, label: l.name }))} value={tournamentForm.leagueId} onChange={(v) => setTournamentForm((c) => ({ ...c, leagueId: v }))} placeholder="Seleccionar liga…" /></Field>
+                <Field label="Categoría"><SearchSelect options={categories.map((c) => ({ value: c.id, label: c.name }))} value={tournamentForm.categoryId} onChange={(v) => setTournamentForm((c) => ({ ...c, categoryId: v }))} placeholder="Seleccionar categoría…" /></Field>
+                <Field label="Tipo de torneo"><SearchSelect options={[{ value: 'league', label: 'Liga' }, { value: 'tournament', label: 'Torneo' }, { value: 'exhibition', label: 'Exhibición' }, { value: 'playoff', label: 'Playoff' }]} value={tournamentForm.type} onChange={(v) => setTournamentForm((c) => ({ ...c, type: v }))} /></Field>
                 <Field label="Temporada"><input className={fieldClass} placeholder="ej: 2025" value={tournamentForm.season} onChange={(event) => setTournamentForm((current) => ({ ...current, season: event.target.value }))} /></Field>
-                <Field label="Estructura"><select className={fieldClass} value={tournamentForm.structureType} onChange={(event) => setTournamentForm((current) => ({ ...current, structureType: event.target.value as Tournament['structureType'] }))}><option value="round_robin">round_robin</option><option value="single_elimination">single_elimination</option><option value="group_stage">group_stage</option><option value="exhibition">exhibition</option></select></Field>
+                <Field label="Estructura"><SearchSelect options={[{ value: 'round_robin', label: 'Round Robin' }, { value: 'single_elimination', label: 'Eliminación directa' }, { value: 'group_stage', label: 'Fase de grupos' }, { value: 'exhibition', label: 'Exhibición' }]} value={tournamentForm.structureType} onChange={(v) => setTournamentForm((c) => ({ ...c, structureType: v as Tournament['structureType'] }))} /></Field>
                 {tournamentForm.structureType === 'round_robin' && <Field label="Número de vueltas"><input className={fieldClass} type="number" min={1} value={tournamentForm.roundRobinRounds} onChange={(event) => setTournamentForm((current) => ({ ...current, roundRobinRounds: Number(event.target.value) || 1 }))} /></Field>}
                 <label className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"><input type="checkbox" checked={tournamentForm.hasPlayoffs} onChange={(event) => setTournamentForm((current) => ({ ...current, hasPlayoffs: event.target.checked, playoffFormat: event.target.checked ? current.playoffFormat || 'semifinal_final' : '' }))} />Tiene playoffs</label>
-                {tournamentForm.hasPlayoffs && <Field label="Formato"><select className={fieldClass} value={tournamentForm.playoffFormat} onChange={(event) => setTournamentForm((current) => ({ ...current, playoffFormat: event.target.value as Tournament['playoffFormat'] }))}><option value="semifinal_final">semifinal_final</option><option value="quarterfinal_semi_final">quarterfinal_semi_final</option></select></Field>}
+                {tournamentForm.hasPlayoffs && <Field label="Formato playoff"><SearchSelect options={[{ value: 'semifinal_final', label: 'Semifinal + Final' }, { value: 'quarterfinal_semi_final', label: 'Cuartos + Semi + Final' }]} value={tournamentForm.playoffFormat} onChange={(v) => setTournamentForm((c) => ({ ...c, playoffFormat: v as Tournament['playoffFormat'] }))} /></Field>}
                 <Field label="Fecha inicio"><input className={fieldClass} type="date" value={tournamentForm.startDate} onChange={(event) => setTournamentForm((current) => ({ ...current, startDate: event.target.value }))} /></Field>
                 <Field label="Fecha fin"><input className={fieldClass} type="date" value={tournamentForm.endDate} onChange={(event) => setTournamentForm((current) => ({ ...current, endDate: event.target.value }))} /></Field>
-                <Field label="Status"><select className={fieldClass} value={tournamentForm.status} onChange={(event) => setTournamentForm((current) => ({ ...current, status: event.target.value as Tournament['status'] }))}><option value="upcoming">upcoming</option><option value="active">active</option><option value="finished">finished</option></select></Field>
+                <Field label="Status"><SearchSelect options={[{ value: 'upcoming', label: 'Próximo' }, { value: 'active', label: 'Activo' }, { value: 'finished', label: 'Finalizado' }]} value={tournamentForm.status} onChange={(v) => setTournamentForm((c) => ({ ...c, status: v as Tournament['status'] }))} /></Field>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="submit" disabled={saving} className={primaryButtonClass}>{saving ? 'Guardando...' : 'Guardar'}</button>
@@ -384,10 +385,12 @@ export function LeagueTournamentEditor() {
                         ))}
                       </div>
                       <div className="flex gap-2">
-                        <select className={fieldClass} value={pendingTeamsByGroup[group.id] ?? ''} onChange={(event) => setPendingTeamsByGroup((current) => ({ ...current, [group.id]: event.target.value }))}>
-                          <option value="">Agregar equipo...</option>
-                          {availableTeams.map((team) => <option key={team.id} value={team.id}>{team.fullName}</option>)}
-                        </select>
+                        <SearchSelect
+                          options={[{ value: '', label: 'Agregar equipo…' }, ...availableTeams.map((t) => ({ value: t.id, label: t.fullName }))]}
+                          value={pendingTeamsByGroup[group.id] ?? ''}
+                          onChange={(v) => setPendingTeamsByGroup((c) => ({ ...c, [group.id]: v }))}
+                          placeholder="Agregar equipo…"
+                        />
                         <button type="button" className={secondaryButtonClass} onClick={() => { void addTeamToGroup(group.id); }} disabled={!pendingTeamsByGroup[group.id]}>Agregar</button>
                       </div>
                     </div>

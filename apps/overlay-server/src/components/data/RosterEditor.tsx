@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { generateId, request, toErrorMessage } from './api';
 import { mockPlayersByTeam, mockStaffByTeam, mockTeams } from './mockData';
+import { SearchSelect } from './SearchSelect';
 import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
 import { normalizePlayer, normalizeStaffMember, normalizeTeam, type Player, type StaffMember, type StaffRole, type Team } from './types';
 
 const positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'UT', 'DH'] as const;
-const handedness = ['L', 'R', 'S'] as const;
 const staffRoles: StaffRole[] = ['manager', 'coach_bateo', 'coach_bases', 'pitcher_coach', 'utilero', 'otro'];
 
 const emptyPlayer = (): Player => ({ id: '', fullName: '', nickname: '', number: '', position: 'UT', bats: 'R', throws: 'R', photoAssetId: '', birthDate: '', nationality: '', status: 'active' });
@@ -210,11 +210,12 @@ export function RosterEditor() {
 
       <SectionCard title="Equipo">
         <Field label="Selector de equipo">
-          <select className={fieldClass} value={selectedTeamId} onChange={(event) => setSelectedTeamId(event.target.value)}>
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>{team.fullName}</option>
-            ))}
-          </select>
+          <SearchSelect
+            options={teams.map((t) => ({ value: t.id, label: t.fullName, sublabel: t.shortName }))}
+            value={selectedTeamId}
+            onChange={setSelectedTeamId}
+            placeholder="Seleccionar equipo…"
+          />
         </Field>
       </SectionCard>
 
@@ -264,13 +265,13 @@ export function RosterEditor() {
                 <Field label="Nombre completo"><input required className={fieldClass} value={playerForm.fullName} onChange={(event) => setPlayerForm((current) => ({ ...current, fullName: event.target.value }))} /></Field>
                 <Field label="Apodo"><input className={fieldClass} value={playerForm.nickname} onChange={(event) => setPlayerForm((current) => ({ ...current, nickname: event.target.value }))} /></Field>
                 <Field label="Número"><input required className={fieldClass} value={playerForm.number} onChange={(event) => setPlayerForm((current) => ({ ...current, number: event.target.value }))} /></Field>
-                <Field label="Posición"><select className={fieldClass} value={playerForm.position} onChange={(event) => setPlayerForm((current) => ({ ...current, position: event.target.value }))}>{positions.map((position) => <option key={position} value={position}>{position}</option>)}</select></Field>
-                <Field label="Bats"><select className={fieldClass} value={playerForm.bats} onChange={(event) => setPlayerForm((current) => ({ ...current, bats: event.target.value as Player['bats'] }))}>{handedness.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
-                <Field label="Throws"><select className={fieldClass} value={playerForm.throws} onChange={(event) => setPlayerForm((current) => ({ ...current, throws: event.target.value as Player['throws'] }))}>{handedness.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
+                <Field label="Posición"><SearchSelect options={positions.map((p) => ({ value: p, label: p }))} value={playerForm.position} onChange={(v) => setPlayerForm((c) => ({ ...c, position: v }))} /></Field>
+                <Field label="Bats"><SearchSelect options={[{ value: 'L', label: 'L – Zurdo' }, { value: 'R', label: 'R – Derecho' }, { value: 'S', label: 'S – Switch' }]} value={playerForm.bats ?? ''} onChange={(v) => setPlayerForm((c) => ({ ...c, bats: v as Player['bats'] }))} placeholder="—" /></Field>
+                <Field label="Throws"><SearchSelect options={[{ value: 'L', label: 'L – Zurdo' }, { value: 'R', label: 'R – Derecho' }, { value: 'S', label: 'S – Switch' }]} value={playerForm.throws ?? ''} onChange={(v) => setPlayerForm((c) => ({ ...c, throws: v as Player['throws'] }))} placeholder="—" /></Field>
                 <Field label="Foto asset ID"><input className={fieldClass} placeholder="ej: teams/logo-mineros" value={playerForm.photoAssetId} onChange={(event) => setPlayerForm((current) => ({ ...current, photoAssetId: event.target.value }))} /></Field>
                 <Field label="Fecha de nacimiento"><input className={fieldClass} type="date" value={playerForm.birthDate} onChange={(event) => setPlayerForm((current) => ({ ...current, birthDate: event.target.value }))} /></Field>
                 <Field label="Nacionalidad"><input className={fieldClass} value={playerForm.nationality} onChange={(event) => setPlayerForm((current) => ({ ...current, nationality: event.target.value }))} /></Field>
-                <Field label="Status"><select className={fieldClass} value={playerForm.status} onChange={(event) => setPlayerForm((current) => ({ ...current, status: event.target.value as Player['status'] }))}><option value="active">active</option><option value="inactive">inactive</option></select></Field>
+                <Field label="Status"><SearchSelect options={[{ value: 'active', label: 'Activo' }, { value: 'inactive', label: 'Inactivo' }]} value={playerForm.status ?? 'active'} onChange={(v) => setPlayerForm((c) => ({ ...c, status: v as Player['status'] }))} /></Field>
               </div>
               <div className="flex gap-2">
                 <button type="submit" disabled={saving || !selectedTeamId} className={primaryButtonClass}>{saving ? 'Guardando...' : 'Guardar'}</button>
@@ -315,7 +316,7 @@ export function RosterEditor() {
             <form className="space-y-3" onSubmit={(event) => { void saveStaff(event); }}>
               <div className="grid gap-3 md:grid-cols-2">
                 <Field label="Nombre"><input required className={fieldClass} value={staffForm.name} onChange={(event) => setStaffForm((current) => ({ ...current, name: event.target.value }))} /></Field>
-                <Field label="Rol"><select className={fieldClass} value={staffForm.role} onChange={(event) => setStaffForm((current) => ({ ...current, role: event.target.value as StaffRole }))}>{staffRoles.map((role) => <option key={role} value={role}>{role}</option>)}</select></Field>
+                <Field label="Rol"><SearchSelect options={staffRoles.map((r) => ({ value: r, label: r }))} value={staffForm.role} onChange={(v) => setStaffForm((c) => ({ ...c, role: v as StaffRole }))} /></Field>
                 <Field label="Foto asset ID"><input className={fieldClass} placeholder="ej: teams/logo-mineros" value={staffForm.photoAssetId} onChange={(event) => setStaffForm((current) => ({ ...current, photoAssetId: event.target.value }))} /></Field>
               </div>
               <div className="flex gap-2">

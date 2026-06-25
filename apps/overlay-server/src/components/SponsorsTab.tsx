@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { MatchMetadata, SponsorEntry } from '../matchMetadata';
+import { SearchSelect } from './data/SearchSelect';
 import { normalizeSponsor, type Sponsor } from './data/types';
 import { SlideDrawer } from './data/SlideDrawer';
 
@@ -173,15 +174,15 @@ function SponsorCrudSection() {
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Estado</span>
-              <select
-                className="block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white focus:border-amber-400 focus:outline-none"
+              <SearchSelect
+                options={[
+                  { value: 'draft', label: 'Draft' },
+                  { value: 'active', label: 'Activo' },
+                  { value: 'inactive', label: 'Inactivo' },
+                ]}
                 value={form.status}
-                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as Sponsor['status'] }))}
-              >
-                <option value="draft">Draft</option>
-                <option value="active">Activo</option>
-                <option value="inactive">Inactivo</option>
-              </select>
+                onChange={(v) => setForm((f) => ({ ...f, status: v as Sponsor['status'] }))}
+              />
             </label>
           </div>
           <div className="grid grid-cols-2 gap-3">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { generateId, request, toErrorMessage } from './api';
 import { mockSponsors } from './mockData';
+import { SearchSelect } from './SearchSelect';
 import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
 import { normalizeSponsor, type Sponsor } from './types';
 
@@ -172,12 +173,16 @@ export function SponsorEditor() {
               <input className={fieldClass} type="number" min={1} max={100} value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: Number(event.target.value) || 1 }))} />
             </Field>
             <Field label="Status">
-              <select className={fieldClass} value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as Sponsor['status'] }))}>
-                <option value="draft">draft</option>
-                <option value="active">active</option>
-                <option value="paused">paused</option>
-                <option value="ended">ended</option>
-              </select>
+              <SearchSelect
+                options={[
+                  { value: 'draft', label: 'Draft' },
+                  { value: 'active', label: 'Activo' },
+                  { value: 'paused', label: 'Pausado' },
+                  { value: 'ended', label: 'Finalizado' },
+                ]}
+                value={form.status}
+                onChange={(v) => setForm((c) => ({ ...c, status: v as Sponsor['status'] }))}
+              />
             </Field>
             <label className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200">
               <input type="checkbox" checked={form.active} onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))} />

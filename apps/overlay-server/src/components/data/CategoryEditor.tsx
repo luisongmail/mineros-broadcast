@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { generateId, request, toErrorMessage } from './api';
 import { mockCategories } from './mockData';
+import { SearchSelect } from './SearchSelect';
 import { SlideDrawer } from './SlideDrawer';
 import { EmptyState, Feedback, Field, LoadingState, SectionCard, fieldClass, primaryButtonClass, dangerButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
 import { normalizeCategory, type Category } from './types';
@@ -222,12 +223,14 @@ export function CategoryEditor() {
             <input required className={fieldClass} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
           </Field>
           <Field label="Deporte">
-            <select className={fieldClass} value={form.sportId} onChange={(event) => setForm((current) => ({ ...current, sportId: event.target.value }))}>
-              {sports.length === 0
-                ? <option value={form.sportId}>{form.sportId}</option>
-                : sports.map((sport) => <option key={sport.id} value={sport.id}>{sport.name}</option>)
-              }
-            </select>
+            <SearchSelect
+              options={sports.length === 0
+                ? [{ value: form.sportId, label: form.sportId }]
+                : sports.map((sport) => ({ value: sport.id, label: sport.name }))}
+              value={form.sportId}
+              onChange={(v) => setForm((c) => ({ ...c, sportId: v }))}
+              placeholder="Seleccionar deporte…"
+            />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Edad mínima">
