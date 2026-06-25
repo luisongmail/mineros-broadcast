@@ -261,7 +261,7 @@ export function normalizeSponsor(value: unknown): Sponsor {
     id: asString(raw.id, asString(raw.sponsor_id, '')),
     name: asString(raw.name),
     brand: asString(raw.brand),
-    logoAssetId: asString(raw.logoAssetId, asString(raw.assetId, asString(raw.logo_asset_id, ''))),
+    logoAssetId: asString(raw.logoAssetId, asString(raw.assetId, asString(raw.asset_id, asString(raw.logo_asset_id, '')))),
     priority: asNumber(raw.priority, 1),
     status: asString(raw.status, 'draft') as Sponsor['status'],
     startDate: asString(raw.startDate, asString(raw.start_date, '')),

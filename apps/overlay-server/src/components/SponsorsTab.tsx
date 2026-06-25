@@ -57,12 +57,11 @@ function SponsorCrudSection() {
       const payload = {
         name: form.name,
         brand: form.brand,
-        logo_asset_id: form.logoAssetId,
+        asset_id: form.logoAssetId,
         priority: form.priority,
         status: form.status,
         start_date: form.startDate || null,
         end_date: form.endDate || null,
-        active: form.active,
       };
       if (form.id) {
         await apiFetch(`/sponsors/${form.id}`, { method: 'PUT', body: JSON.stringify(payload) });
