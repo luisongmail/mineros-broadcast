@@ -10,11 +10,11 @@ import type { ScoreboardOverlayProps } from './types';
 export function ScoreboardOverlay({ data, assetBaseUrl, isPaused = false }: ScoreboardOverlayProps) {
   return (
     <BroadcastShell>
-      <div className="absolute inset-[60px] overflow-hidden rounded-[8px] border-2 border-[#D4AF37] bg-[#0D0D0D]/96 px-8 py-8 shadow-[0px_18px_40px_rgba(0,0,0,.42)]">
-        <div className="flex h-full flex-col gap-4">
+      <div className="absolute inset-[60px] overflow-hidden rounded-[8px] border-2 border-[#D4AF37] bg-[#0D0D0D]/96 px-5 py-4 shadow-[0px_18px_40px_rgba(0,0,0,.42)]">
+        <div className="flex h-full flex-col gap-2">
           <Zone1Header assetBaseUrl={assetBaseUrl} data={data} />
           <Zone2LineScore assetBaseUrl={assetBaseUrl} data={data} />
-          <div className="grid flex-1 grid-cols-[1.65fr_1fr] gap-4">
+          <div className="grid min-h-0 flex-1 grid-cols-[1.65fr_1fr] gap-2">
             <Zone3BattingTeam assetBaseUrl={assetBaseUrl} data={data} />
             <Zone4Pitchers assetBaseUrl={assetBaseUrl} data={data} />
           </div>

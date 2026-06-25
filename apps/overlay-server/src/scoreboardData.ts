@@ -130,6 +130,19 @@ function buildNextBatters(
   });
 }
 
+function parseScheduledAt(scheduledAt: string | undefined): { date?: string; startTime?: string } {
+  if (!scheduledAt) return {};
+  try {
+    const d = new Date(scheduledAt);
+    if (Number.isNaN(d.getTime())) return {};
+    const date = d.toISOString().slice(0, 10);
+    const startTime = d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return { date, startTime };
+  } catch {
+    return {};
+  }
+}
+
 export function createScoreboardOverlayData(
   detail: GameConfigDetail,
   gameState: GameState,
@@ -138,9 +151,10 @@ export function createScoreboardOverlayData(
     livePitcherStats?: Record<string, LivePitcherStats>;
   },
 ): ScoreboardOverlayData {
-  const configuredInnings = gameState.rules.inningsCount ?? detail.inning ?? DEMO_SCOREBOARD_DATA.game.configuredInnings ?? 7;
+  const configuredInnings = gameState.rules.inningsCount ?? DEMO_SCOREBOARD_DATA.game.configuredInnings ?? 7;
   const role = battingRole(gameState.inningHalf);
   const battingTeam = role === 'home' ? gameState.homeTeam : gameState.awayTeam;
+  const { date, startTime } = parseScheduledAt(detail.scheduledAt);
 
   return {
     ...DEMO_SCOREBOARD_DATA,
@@ -150,6 +164,15 @@ export function createScoreboardOverlayData(
       gameId: gameState.gameId,
       configuredInnings,
       status: gameState.status,
+      date: date ?? DEMO_SCOREBOARD_DATA.game.date,
+      startTime: startTime ?? DEMO_SCOREBOARD_DATA.game.startTime,
+    },
+    // venue from game definition (string field) or demo fallback
+    venue: { name: (detail.venue as string | undefined) ?? DEMO_SCOREBOARD_DATA.venue?.name },
+    // competition: season from detail, rest from demo data
+    competition: {
+      ...DEMO_SCOREBOARD_DATA.competition,
+      tournament: detail.season ?? DEMO_SCOREBOARD_DATA.competition.tournament,
     },
     teams: {
       away: {

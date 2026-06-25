@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { resolveAssetUrl } from './TeamBadge';
 import type { ScoreboardSponsor, ScoreboardSponsorGridConfig } from '../types';
@@ -57,33 +57,46 @@ export function Zone5Sponsors({
   assetBaseUrl?: string;
   isPaused?: boolean;
 }) {
-  const activeSponsors = useMemo(() => sponsors.filter((item) => item.active !== false).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999)), [sponsors]);
+  const activeSponsors = useMemo(
+    () => sponsors.filter((item) => item.active !== false).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999)),
+    [sponsors],
+  );
   const visibleCards = Math.max(1, sponsorGrid?.visibleCards ?? 3);
   const transitionMs = sponsorGrid?.transitionMs ?? DEFAULT_TRANSITION_MS;
   const holdMs = sponsorGrid?.holdMs ?? DEFAULT_HOLD_MS;
-  const cardGapPx = sponsorGrid?.cardGapPx ?? 22;
+  const cardGapPx = sponsorGrid?.cardGapPx ?? 16;
   const showPartialNextCard = sponsorGrid?.showPartialNextCard ?? true;
-  const viewportWidth = 1440;
-  const partialWidth = showPartialNextCard ? 170 : 0;
-  const cardWidth = Math.floor((viewportWidth - visibleCards * cardGapPx - partialWidth) / visibleCards);
   const totalCards = Math.max(activeSponsors.length, 1);
+
+  // Measure container width to avoid hardcoded values
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    setContainerWidth(el.offsetWidth);
+    const ro = new ResizeObserver(() => setContainerWidth(el.offsetWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const partialWidth = showPartialNextCard && activeSponsors.length > visibleCards ? 140 : 0;
+  const totalGaps = (visibleCards - 1) * cardGapPx;
+  const cardWidth = containerWidth > 0
+    ? Math.floor((containerWidth - totalGaps - partialWidth) / visibleCards)
+    : 400; // fallback while measuring
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
-    if (isPaused || totalCards <= visibleCards) {
-      return undefined;
-    }
-
+    if (isPaused || totalCards <= visibleCards) return undefined;
     const timer = window.setTimeout(() => setIsAnimating(true), holdMs);
     return () => window.clearTimeout(timer);
   }, [currentIndex, holdMs, isPaused, totalCards, visibleCards]);
 
   useEffect(() => {
-    if (!isAnimating) {
-      return undefined;
-    }
-
+    if (!isAnimating) return undefined;
     const timer = window.setTimeout(() => {
       setCurrentIndex((index) => (index + 1) % totalCards);
       setIsAnimating(false);
@@ -92,40 +105,39 @@ export function Zone5Sponsors({
   }, [isAnimating, totalCards, transitionMs]);
 
   const cardsToRender = useMemo(() => {
-    if (activeSponsors.length === 0) {
-      return [] as ScoreboardSponsor[];
-    }
-
+    if (activeSponsors.length === 0) return [] as ScoreboardSponsor[];
     const count = totalCards <= visibleCards
-      ? totalCards + (showPartialNextCard ? 1 : 0)
-      : visibleCards + 1;
+      ? totalCards
+      : visibleCards + (showPartialNextCard ? 1 : 0) + 1;
     return Array.from({ length: count }, (_, index) => activeSponsors[(currentIndex + index) % activeSponsors.length]);
   }, [activeSponsors, currentIndex, showPartialNextCard, totalCards, visibleCards]);
 
   const shift = isAnimating ? cardWidth + cardGapPx : 0;
 
+  if (sponsorGrid?.enabled === false) return null;
+
   return (
-    <section className="rounded-[6px] border border-white/8 bg-[#111111] px-8 py-5 shadow-[0px_2px_8px_rgba(0,0,0,.25)]">
-      <div className="mb-4 flex items-end justify-between gap-4">
+    <section className="rounded-[6px] border border-white/8 bg-[#111111] px-5 py-3 shadow-[0px_2px_8px_rgba(0,0,0,.25)]">
+      <div className="mb-2 flex items-center justify-between gap-4">
         <div>
-          <div className="text-[12px] font-bold uppercase tracking-[0.24em] text-[#D4AF37]">Auspiciadores</div>
-          <div className="mt-1 text-[13px] text-[#9CA3AF]">Grilla rotativa de campañas activas del broadcast.</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#D4AF37]">Auspiciadores</div>
+          <div className="text-[11px] text-[#9CA3AF]">Grilla configurable · {visibleCards} tarjetas visibles por defecto · animación ←</div>
         </div>
-        <div className="flex items-center gap-2">
-          {Array.from({ length: totalCards }, (_, index) => (
-            <span key={`dot-${index}`} className={`h-2.5 w-2.5 rounded-full ${index === currentIndex ? 'bg-[#D4AF37]' : 'bg-white/15'}`} />
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: Math.min(totalCards, 8) }, (_, index) => (
+            <span key={`dot-${index}`} className={`h-2 w-2 rounded-full ${index === currentIndex % Math.min(totalCards, 8) ? 'bg-[#D4AF37]' : 'bg-white/15'}`} />
           ))}
         </div>
       </div>
 
-      {sponsorGrid?.enabled === false ? null : (
-        <div className="overflow-hidden" style={{ width: viewportWidth }}>
+      <div ref={containerRef} className="overflow-hidden w-full">
+        {containerWidth > 0 && (
           <div
-            className={`scoreboard-sponsor-track flex ${isAnimating ? 'scoreboard-sponsor-track--animated' : ''}`}
+            className={`flex ${isAnimating ? 'scoreboard-sponsor-track--animated' : ''}`}
             style={{
               gap: `${cardGapPx}px`,
               transform: `translateX(-${shift}px)`,
-              ['--scoreboard-transition-ms' as string]: `${transitionMs}ms`,
+              transition: isAnimating ? `transform ${transitionMs}ms ease-in-out` : 'none',
             }}
           >
             {activeSponsors.length > 0 ? (
@@ -141,8 +153,8 @@ export function Zone5Sponsors({
               <PlaceholderCard width={cardWidth} />
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 }
