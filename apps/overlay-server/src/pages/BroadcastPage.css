@@ -1,0 +1,50 @@
+html,
+body {
+  background: transparent !important;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.broadcast-canvas {
+  width: 1920px;
+  height: 1080px;
+  position: relative;
+  background: transparent;
+  overflow: hidden;
+}
+
+/* ── Overlay animations ─────────────────────────────────────────── */
+:root { --ov-dur: 600ms; }
+
+/* Entrance keyframes */
+@keyframes ovFadeIn      { from { opacity: 0; }                              to { opacity: 1; } }
+@keyframes ovSlideUp     { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ovSlideDown   { from { opacity: 0; transform: translateY(-20px);} to { opacity: 1; transform: translateY(0); } }
+@keyframes ovSlideLeft   { from { opacity: 0; transform: translateX(-20px);} to { opacity: 1; transform: translateX(0); } }
+@keyframes ovSlideRight  { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ovZoomIn      { from { opacity: 0; transform: scale(0.92); }      to { opacity: 1; transform: scale(1); } }
+
+/* Exit keyframes */
+@keyframes ovFadeOut     { from { opacity: 1; }                              to { opacity: 0; } }
+@keyframes ovSlideUpOut  { from { opacity: 1; transform: translateY(0); }    to { opacity: 0; transform: translateY(-20px); } }
+@keyframes ovSlideDownOut{ from { opacity: 1; transform: translateY(0); }    to { opacity: 0; transform: translateY(20px); } }
+@keyframes ovSlideLeftOut{ from { opacity: 1; transform: translateX(0); }    to { opacity: 0; transform: translateX(-20px); } }
+@keyframes ovSlideRightOut{from { opacity: 1; transform: translateX(0); }    to { opacity: 0; transform: translateX(20px); } }
+@keyframes ovZoomOut     { from { opacity: 1; transform: scale(1); }         to { opacity: 0; transform: scale(0.92); } }
+
+/* Entrance classes */
+.ov-enter.ov-anim-fade_in    { animation: ovFadeIn     600ms ease-out forwards; }
+.ov-enter.ov-anim-slide_up   { animation: ovSlideUp    600ms ease-out forwards; }
+.ov-enter.ov-anim-slide_down { animation: ovSlideDown  600ms ease-out forwards; }
+.ov-enter.ov-anim-slide_left { animation: ovSlideLeft  600ms ease-out forwards; }
+.ov-enter.ov-anim-slide_right{ animation: ovSlideRight 600ms ease-out forwards; }
+.ov-enter.ov-anim-zoom_in    { animation: ovZoomIn     600ms ease-out forwards; }
+
+/* Exit classes */
+.ov-leave.ov-anim-fade_out      { animation: ovFadeOut      600ms ease-in forwards; }
+.ov-leave.ov-anim-slide_up_out  { animation: ovSlideUpOut   600ms ease-in forwards; }
+.ov-leave.ov-anim-slide_down_out{ animation: ovSlideDownOut 600ms ease-in forwards; }
+.ov-leave.ov-anim-slide_left_out{ animation: ovSlideLeftOut 600ms ease-in forwards; }
+.ov-leave.ov-anim-slide_right_out{animation: ovSlideRightOut 600ms ease-in forwards; }
+.ov-leave.ov-anim-zoom_out      { animation: ovZoomOut      600ms ease-in forwards; }

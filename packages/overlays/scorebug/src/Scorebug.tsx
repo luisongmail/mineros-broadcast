@@ -1,24 +1,36 @@
 import type { ScorebugProps } from './types';
 
-const baseDiamondClass =
-  'absolute h-[14px] w-[14px] rotate-45 rounded-[2px] border border-white/35 bg-white/10';
+const baseDiamondActiveClass =
+  'absolute h-[14px] w-[14px] rotate-45 rounded-[2px] border';
+const baseDiamondInactiveClass = 'border-white/55 bg-white/20';
+const baseDiamondLiveClass = 'border-mineros-gold bg-mineros-gold shadow-[0_0_12px_rgba(212,175,55,0.45)]';
 
 function BaseDiamond({ active, position }: { active: boolean; position: string }) {
   return (
     <span
       aria-hidden="true"
-      className={[
-        baseDiamondClass,
-        position,
-        active && 'border-mineros-gold bg-mineros-gold shadow-[0_0_12px_rgba(212,175,55,0.45)]',
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className={[baseDiamondActiveClass, position, active ? baseDiamondLiveClass : baseDiamondInactiveClass].join(' ')}
     />
   );
 }
 
-export function Scorebug({ game }: ScorebugProps) {
+function TeamLogo({ logoAssetId, shortName, assetBaseUrl }: { logoAssetId?: string; shortName: string; assetBaseUrl?: string }) {
+  if (logoAssetId && assetBaseUrl) {
+    return (
+      <img
+        src={`${assetBaseUrl}/${logoAssetId}`}
+        alt={shortName}
+        className="h-[36px] w-[36px] object-contain"
+        onError={(event) => {
+          (event.target as HTMLImageElement).style.display = 'none';
+        }}
+      />
+    );
+  }
+  return null;
+}
+
+export function Scorebug({ game, assetBaseUrl }: ScorebugProps) {
   const { homeTeam, awayTeam, score, inning, inningHalf, outs, bases, count } = game;
   const safeOuts = outs >= 0 && outs <= 2 ? outs : null;
   const inningMarker = inningHalf === 'bottom' ? '▼' : '▲';
@@ -30,6 +42,7 @@ export function Scorebug({ game }: ScorebugProps) {
 
         <div className="flex items-center gap-[18px] bg-gradient-to-r from-mineros-dark to-mineros-navy px-[18px] py-4">
           <div className="flex items-center gap-3">
+            <TeamLogo logoAssetId={awayTeam.logoAssetId} shortName={awayTeam.shortName} assetBaseUrl={assetBaseUrl} />
             <span className="text-[22px] font-extrabold uppercase leading-none tracking-[0.08em]">{awayTeam.shortName}</span>
             <span className="text-[34px] font-black leading-none">{score.away}</span>
           </div>
@@ -41,6 +54,7 @@ export function Scorebug({ game }: ScorebugProps) {
             <span className="text-[22px] font-extrabold uppercase leading-none tracking-[0.08em] text-mineros-gold">
               {homeTeam.shortName}
             </span>
+            <TeamLogo logoAssetId={homeTeam.logoAssetId} shortName={homeTeam.shortName} assetBaseUrl={assetBaseUrl} />
           </div>
         </div>
 
@@ -64,10 +78,11 @@ export function Scorebug({ game }: ScorebugProps) {
                 <span
                   key={index}
                   className={[
-                    'h-[11px] w-[11px] rounded-full border border-white/30 bg-white/15',
-                    safeOuts !== null && index < safeOuts && 'bg-mineros-red shadow-[0_0_10px_rgba(215,25,32,0.45)]',
+                    'h-[11px] w-[11px] rounded-full border',
+                    safeOuts !== null && index < safeOuts
+                      ? 'border-mineros-red bg-mineros-red shadow-[0_0_10px_rgba(215,25,32,0.55)]'
+                      : 'border-white/50 bg-white/20',
                   ]
-                    .filter(Boolean)
                     .join(' ')}
                 />
               ))}

@@ -1,0 +1,11 @@
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.svg
+*.webp
+*.mp4
+*.mp3
+# Excepto placeholders
+!placeholder.*
+

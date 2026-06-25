@@ -1,0 +1,47 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: broadcast-db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: broadcast_db
+      MYSQL_USER: broadcast_app
+      MYSQL_PASSWORD: dev_password
+    volumes:
+      - db_dev_data:/var/lib/mysql
+      - ./infra/mysql/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "broadcast_app", "-pdev_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  broadcast:
+    build:
+      context: .
+      dockerfile: apps/overlay-server/Dockerfile
+    image: broadcast-server:latest
+    container_name: broadcast-server
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: mysql://broadcast_app:dev_password@db:3306/broadcast_db
+      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/info"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  db_dev_data:

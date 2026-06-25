@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { OverlayLifecycle } from './OverlayLifecycle';
 import { OverlayManager } from './OverlayManager';
 
 describe('@mineros/overlay-manager', () => {
@@ -63,5 +64,150 @@ describe('@mineros/overlay-manager', () => {
     manager.register('scorebug', '');
 
     expect(() => manager.show('scorebug', { score: '5-0' })).toThrow(/zoneId/i);
+  });
+});
+
+describe('OverlayLifecycle', () => {
+  it('register() crea entrada en estado ready', () => {
+    const lifecycle = new OverlayLifecycle();
+
+    lifecycle.register('scorebug', 90, 'A');
+
+    expect(lifecycle.getEntry('scorebug')).toMatchObject({
+      overlayId: 'scorebug',
+      state: 'ready',
+      priority: 90,
+      zone: 'A',
+      history: [],
+    });
+  });
+
+  it('request() avanza ready → validated con payload', () => {
+    const lifecycle = new OverlayLifecycle();
+
+    lifecycle.register('scorebug', 90, 'A');
+
+    const entry = lifecycle.request('scorebug', { score: '1-0' });
+
+    expect(entry.state).toBe('validated');
+    expect(entry.payload).toEqual({ score: '1-0' });
+    expect(entry.requestedAt).toEqual(expect.any(String));
+    expect(entry.history.map((item) => item.to)).toEqual(['requested', 'validated']);
+  });
+
+  it('request() lanza error si payload vacío', () => {
+    const lifecycle = new OverlayLifecycle();
+
+    lifecycle.register('scorebug', 90, 'A');
+
+    expect(() => lifecycle.request('scorebug', {})).toThrow(/payload válido/i);
+  });
+
+  it('toPreview() avanza validated → preview', () => {
+    const lifecycle = new OverlayLifecycle();
+
+    lifecycle.register('scorebug', 90, 'A');
+    lifecycle.request('scorebug', { score: '1-0' });
+
+    const entry = lifecycle.toPreview('scorebug');
+
+    expect(entry.state).toBe('preview');
+    expect(entry.previewAt).toEqual(expect.any(String));
+  });
+
+  it('toProgram() avanza preview → program', () => {
+    const lifecycle = new OverlayLifecycle();
+
+    lifecycle.register('scorebug', 90, 'A');
+    lifecycle.request('scorebug', { score: '1-0' });
+    lifecycle.toPreview('scorebug');
+
+    const entry = lifecycle.toProgram('scorebug');
+
+    expect(entry.state).toBe('program');
+    expect(entry.programAt).toEqual(expect.any(String));
+  });
+
+  it('toProgram() permite salto rápido desde validated', () => {
+    const lifecycle = new OverlayLifecycle();
+
+    lifecycle.register('alerta', 100, 'A');
+    lifecycle.request('alerta', { message: 'Urgente' });
+
+    const entry = lifecycle.toProgram('alerta');
+
+    expect(entry.state).toBe('program');
+    expect(entry.history.map((item) => item.to)).toEqual([
+      'requested',
+      'validated',
+      'program',
+    ]);
+  });
+
+  it('hide() desde program → hidden', () => {
+    const lifecycle = new OverlayLifecycle();
+
+    lifecycle.register('scorebug', 90, 'A');
+    lifecycle.request('scorebug', { score: '1-0' });
+    lifecycle.toPreview('scorebug');
+    lifecycle.toProgram('scorebug');
+
+    const entry = lifecycle.hide('scorebug');
+
+    expect(entry.state).toBe('hidden');
+    expect(entry.hiddenAt).toEqual(expect.any(String));
+    expect(entry.history.slice(-2).map((item) => item.to)).toEqual(['hiding', 'hidden']);
+  });
+
+  it('archive() desde hidden → archived', () => {
+    const lifecycle = new OverlayLifecycle();
+
+    lifecycle.register('scorebug', 90, 'A');
+    lifecycle.request('scorebug', { score: '1-0' });
+    lifecycle.toPreview('scorebug');
+    lifecycle.hide('scorebug');
+
+    const entry = lifecycle.archive('scorebug');
+
+    expect(entry.state).toBe('archived');
+    expect(entry.archivedAt).toEqual(expect.any(String));
+  });
+
+  it('resolveZoneConflict() retorna overlay a desplazar si hay conflicto de zona', () => {
+    const lifecycle = new OverlayLifecycle();
+
+    lifecycle.register('lineup', 70, 'A');
+    lifecycle.register('alerta', 100, 'A');
+
+    lifecycle.request('lineup', { player: '42' });
+    lifecycle.toPreview('lineup');
+    lifecycle.toProgram('lineup');
+    lifecycle.request('alerta', { message: 'Urgente' });
+
+    expect(lifecycle.resolveZoneConflict('alerta')).toBe('lineup');
+  });
+
+  it('listener es notificado en cada transición', () => {
+    const lifecycle = new OverlayLifecycle();
+    const states: string[] = [];
+
+    lifecycle.on((entry) => {
+      states.push(entry.state);
+    });
+
+    lifecycle.register('scorebug', 90, 'A');
+    lifecycle.request('scorebug', { score: '1-0' });
+    lifecycle.toPreview('scorebug');
+    lifecycle.toProgram('scorebug');
+    lifecycle.hide('scorebug');
+
+    expect(states).toEqual([
+      'requested',
+      'validated',
+      'preview',
+      'program',
+      'hiding',
+      'hidden',
+    ]);
   });
 });

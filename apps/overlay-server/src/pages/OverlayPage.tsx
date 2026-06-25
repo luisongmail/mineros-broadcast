@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { type GameState, type GameTeam } from '@mineros/game-engine';
+import { DEFAULT_BASEBALL_RULES, type GameState, type GameTeam } from '@mineros/game-engine';
 import { BatterOverlay } from '@mineros/overlay-batter';
 import { FinalScoreOverlay } from '@mineros/overlay-final-score';
 import { InningTransitionOverlay } from '@mineros/overlay-inning-transition';
+import { LineupOverlay } from '@mineros/overlay-lineup';
 import { NextBattersOverlay } from '@mineros/overlay-next-batters';
+import { PitcherOverlay } from '@mineros/overlay-pitcher';
 import { Scorebug } from '@mineros/overlay-scorebug';
 import { SponsorBreakOverlay } from '@mineros/overlay-sponsor-break';
 import { AnnouncementOverlay } from '@mineros/overlay-announcement';
@@ -16,11 +18,14 @@ import { GameEventOverlay } from '@mineros/overlay-game-event';
 type OverlayId =
   | 'scorebug'
   | 'batter'
+  | 'pitcher'
+  | 'lineup'
   | 'next-batters'
   | 'inning-transition'
   | 'final-score'
   | 'announcement'
   | 'social'
+  | 'social-lower-third'
   | 'countdown'
   | 'sponsor-break'
   | 'substitution'
@@ -36,16 +41,25 @@ type OverlaySocketMessage = {
   overlay?: string;
 };
 
-const WEBSOCKET_URL = 'ws://localhost:3001';
+// En Docker/producción el server sirve todo desde el mismo origen.
+// En dev apunta a localhost:3001 (puerto del servidor Node separado).
+const WEBSOCKET_URL =
+  import.meta.env.VITE_WS_URL ??
+  (import.meta.env.DEV
+    ? 'ws://localhost:3001'
+    : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`);
 const MAX_RECONNECT_ATTEMPTS = 3;
 
 const OVERLAYS: Record<Exclude<OverlayId, 'scorebug'>, OverlayDefinition> = {
   batter: { defaultVariant: 'lower_third' },
+  pitcher: { defaultVariant: 'lower_third' },
+  lineup: { defaultVariant: 'full' },
   'next-batters': { defaultVariant: 'horizontal_compact' },
   'inning-transition': { defaultVariant: 'lower_third_compact' },
   'final-score': { defaultVariant: 'lower_third_compact' },
   announcement: { defaultVariant: 'lower_third_compact' },
   social: { defaultVariant: 'lower_third_compact' },
+  'social-lower-third': { defaultVariant: 'lower_third_compact' },
   countdown: { defaultVariant: 'lower_third_compact' },
   'sponsor-break': { defaultVariant: 'lower_third_compact' },
   substitution: { defaultVariant: 'lower_third_compact' },
@@ -81,6 +95,27 @@ const DEMO_NEXT_BATTERS = [
   { state: 'in_the_hole', order: 3, playerId: 'p3', name: 'V. Rios', number: '08', position: 'SS', avg: '.278' },
 ] as const;
 
+const DEMO_PITCHER = {
+  playerId: 'p10',
+  number: '34',
+  name: 'Roberto Fuentes',
+  teamId: 'team-mineros',
+  throws: 'R' as const,
+  stats: { ip: '4.2', pitches: 78, strikeouts: 6, walks: 2, era: '2.45', lastPitch: 'Recta', lastPitchSpeed: '145 km/h' },
+};
+
+const DEMO_LINEUP_PLAYERS = [
+  { order: 1, playerId: 'p1', name: 'Carolina Jara', number: '12', position: '2B', avg: '.385', status: 'active' as const, isCurrentBatter: true },
+  { order: 2, playerId: 'p2', name: 'Martina Pellizaris', number: '15', position: '3B', avg: '.300', status: 'active' as const },
+  { order: 3, playerId: 'p3', name: 'Valentina Rios', number: '08', position: 'SS', avg: '.278', status: 'active' as const },
+  { order: 4, playerId: 'p4', name: 'Sofía Mendoza', number: '07', position: 'CF', avg: '.340', status: 'active' as const },
+  { order: 5, playerId: 'p5', name: 'Andrea Torres', number: '23', position: '1B', avg: '.290', status: 'active' as const },
+  { order: 6, playerId: 'p6', name: 'Camila Rojas', number: '11', position: 'LF', avg: '.265', status: 'active' as const },
+  { order: 7, playerId: 'p7', name: 'Paula Vega', number: '18', position: 'RF', avg: '.255', status: 'active' as const },
+  { order: 8, playerId: 'p8', name: 'Daniela Soto', number: '04', position: 'C', avg: '.230', status: 'active' as const },
+  { order: 9, playerId: 'p9', name: 'Isidora Muñoz', number: '27', position: 'P', avg: '.100', status: 'active' as const },
+];
+
 function createDefaultGameState(): GameState {
   return {
     gameId: 'demo-game-001',
@@ -103,6 +138,11 @@ function createDefaultGameState(): GameState {
       home: 3,
       away: 2,
     },
+    rules: {
+      ...DEFAULT_BASEBALL_RULES,
+      mercyRule: [...DEFAULT_BASEBALL_RULES.mercyRule],
+      extraInnings: { ...DEFAULT_BASEBALL_RULES.extraInnings },
+    },
     currentBatterId: DEMO_BATTERS[0].playerId,
     currentPitcherId: 'p-031',
     lineup: {
@@ -117,7 +157,8 @@ function createDefaultGameState(): GameState {
 }
 
 function isOverlayId(value: string | undefined): value is OverlayId {
-  return value === 'scorebug' || value === 'batter' || value === 'next-batters' || value === 'inning-transition' || value === 'final-score' || value === 'announcement' || value === 'social' || value === 'countdown' || value === 'sponsor-break' || value === 'substitution' || value === 'game-event';
+  const valid: OverlayId[] = ['scorebug', 'batter', 'pitcher', 'lineup', 'next-batters', 'inning-transition', 'final-score', 'announcement', 'social', 'social-lower-third', 'countdown', 'sponsor-break', 'substitution', 'game-event'];
+  return valid.includes(value as OverlayId);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -283,6 +324,16 @@ function renderOverlay(overlayId: OverlayId, gameState: GameState, variant?: str
       return <Scorebug game={gameState} />;
     case 'batter':
       return <BatterOverlay batter={DEMO_BATTERS[0]} variant={resolvedVariant as never} />;
+    case 'pitcher':
+      return <PitcherOverlay pitcher={DEMO_PITCHER} />;
+    case 'lineup':
+      return (
+        <LineupOverlay
+          team={{ teamId: gameState.homeTeam.id, name: gameState.homeTeam.name, shortName: gameState.homeTeam.shortName, logoAssetId: gameState.homeTeam.logoAssetId }}
+          players={DEMO_LINEUP_PLAYERS}
+          pitcher={DEMO_PITCHER}
+        />
+      );
     case 'next-batters':
       return (
         <NextBattersOverlay
@@ -304,6 +355,7 @@ function renderOverlay(overlayId: OverlayId, gameState: GameState, variant?: str
     case 'announcement':
       return <AnnouncementOverlay data={announcementData} variant={resolvedVariant as never} />;
     case 'social':
+    case 'social-lower-third':
       return <SocialLowerThirdOverlay data={socialData} variant={resolvedVariant as never} />;
     case 'countdown':
       return <CountdownOverlay data={countdownData} variant={resolvedVariant as never} />;

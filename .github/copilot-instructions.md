@@ -16,8 +16,7 @@ packages/scene-engine/      → Gestión de escenas de transmisión (fuente: 07-
 packages/overlay-manager/   → Orquestador de renders (fuente: 08-overlay-manager.md)
 packages/layout-manager/    → Orquestador visual — zonas, Preview/Program (fuente: 01-layout-manager.md)
 packages/overlays/{name}/   → Overlays individuales (fuentes: 10-22)
-apps/control-panel/         → Panel del operador, SPA React, PC + móvil (fuente: 24)
-apps/overlay-server/        → Páginas HTML para Browser Source en OBS/Meld Studio
+apps/overlay-server/        → Browser Source + panel del operador real en `/control` (fuente: 24)
 infra/supabase/             → Migraciones PostgreSQL + seed
 docs/requirements/          → Especificaciones originales (NO modificar — 26 documentos aprobados)
 ```

@@ -1,5 +1,6 @@
 import { createAuditEntry } from './audit';
 import type {
+  GameRules,
   GameBases,
   GameCount,
   GameEvent,
@@ -9,6 +10,7 @@ import type {
   GameState,
   GameTeam,
 } from './types';
+import { DEFAULT_BASEBALL_RULES } from './types';
 import { validateBases, validateCount, validateIdentifier, validateLineup, validateOuts, validateScore, validateTeam } from './validators';
 
 const EMPTY_BASES: GameBases = { first: false, second: false, third: false };
@@ -22,7 +24,7 @@ export class GameEngine {
   private auditSequence = 0;
   private listeners: Partial<Record<GameEngineEventName, Set<GameEngineListener>>> = {};
 
-  constructor(gameId: string, homeTeam: GameTeam, awayTeam: GameTeam) {
+  constructor(gameId: string, homeTeam: GameTeam, awayTeam: GameTeam, rules?: Partial<GameRules>) {
     validateIdentifier(gameId, 'gameId');
 
     const normalizedHomeTeam: GameTeam = { ...homeTeam, role: 'home' };
@@ -44,6 +46,14 @@ export class GameEngine {
       bases: this.clone(EMPTY_BASES),
       count: this.clone(EMPTY_COUNT),
       score: { home: 0, away: 0 },
+      rules: this.clone({
+        ...DEFAULT_BASEBALL_RULES,
+        ...rules,
+        extraInnings: {
+          ...DEFAULT_BASEBALL_RULES.extraInnings,
+          ...rules?.extraInnings,
+        },
+      }),
       lineup: { home: [], away: [] },
       eventLog: [],
       auditLog: [],
@@ -54,6 +64,10 @@ export class GameEngine {
 
   getState(): Readonly<GameState> {
     return this.clone(this.state);
+  }
+
+  getRules(): Readonly<GameRules> {
+    return this.clone(this.state.rules);
   }
 
   on(eventType: GameEngineEventName, listener: GameEngineListener): this {
@@ -156,7 +170,7 @@ export class GameEngine {
   addOut(): void {
     const nextOuts = this.state.outs + 1;
 
-    if (nextOuts < 3) {
+    if (nextOuts < this.state.rules.maxOuts) {
       const previousOuts = this.state.outs;
       const previousCount = this.clone(this.state.count);
       this.state.outs = nextOuts;
@@ -174,7 +188,7 @@ export class GameEngine {
       return;
     }
 
-    this.advanceHalfInningInternal(3);
+    this.advanceHalfInningInternal(this.state.rules.maxOuts);
   }
 
   setOuts(outs: number, operatorId: string, reason?: string): void {
@@ -215,15 +229,21 @@ export class GameEngine {
     validateCount(count);
 
     const merged = { ...this.state.count, ...count };
+    const { batterAttempts, maxBalls, maxStrikes } = this.state.rules;
+
+    if (batterAttempts === 1 && merged.strikes > this.state.count.strikes) {
+      this.addOut();
+      return;
+    }
 
     // 3er strike → strikeout: addOut() maneja reset de conteo y batter_changed
-    if (merged.strikes >= 3) {
+    if (merged.strikes >= maxStrikes) {
       this.addOut();
       return;
     }
 
     // 4ª bola → base por bolas: avance forzado de corredores
-    if (merged.balls >= 4) {
+    if (maxBalls !== null && merged.balls >= maxBalls) {
       const previousBases = this.clone(this.state.bases);
       const previousScore = this.clone(this.state.score);
       const b = this.state.bases;
@@ -330,8 +350,6 @@ export class GameEngine {
   private advanceHalfInningInternal(recordedOuts: number): void {
     const endedInning = this.state.inning;
     const endedHalf = this.state.inningHalf;
-    const nextHalf = this.state.inningHalf === 'top' ? 'bottom' : 'top';
-    const nextInning = this.state.inningHalf === 'top' ? this.state.inning : this.state.inning + 1;
 
     this.emitEvent('inning_ended', {
       inning: endedInning,
@@ -339,6 +357,17 @@ export class GameEngine {
       outs: recordedOuts,
       score: this.clone(this.state.score),
     });
+
+    if (this.shouldEndGameAfterHalfInning(endedInning, endedHalf)) {
+      this.state.outs = 0;
+      this.state.bases = this.clone(EMPTY_BASES);
+      this.state.count = this.clone(EMPTY_COUNT);
+      this.endGame();
+      return;
+    }
+
+    const nextHalf = this.state.inningHalf === 'top' ? 'bottom' : 'top';
+    const nextInning = this.state.inningHalf === 'top' ? this.state.inning : this.state.inning + 1;
 
     this.state.outs = 0;
     this.state.bases = this.clone(EMPTY_BASES);
@@ -401,6 +430,20 @@ export class GameEngine {
 
   private now(): string {
     return new Date().toISOString();
+  }
+
+  private shouldEndGameAfterHalfInning(inning: number, inningHalf: GameState['inningHalf']): boolean {
+    const regulationComplete = inning >= this.state.rules.inningsCount;
+
+    if (!regulationComplete) {
+      return false;
+    }
+
+    if (inningHalf === 'top') {
+      return this.state.score.home > this.state.score.away;
+    }
+
+    return this.state.score.home !== this.state.score.away;
   }
 
   private clone<T>(value: T): T {

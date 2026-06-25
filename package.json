@@ -2,7 +2,7 @@
   "name": "mineros-broadcast",
   "private": true,
   "version": "0.0.0",
-  "description": "Sistema de overlays para transmisión de béisbol — Club Mineros de Santiago",
+  "description": "Sistema de overlays para transmisi\u00f3n de b\u00e9isbol \u2014 Club Mineros de Santiago",
   "scripts": {
     "build": "turbo build",
     "test": "turbo test",
@@ -11,11 +11,15 @@
     "dev": "turbo dev",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "changeset publish"
+    "release": "changeset publish",
+    "test:e2e": "playwright test",
+    "download-assets": "tsx scripts/download-assets.ts"
   },
   "devDependencies": {
+    "tsx": "^4.22.4",
     "@changesets/cli": "^2.27.1",
     "@eslint/js": "^9.30.0",
+    "@playwright/test": "^1.61.1",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "eslint": "^9.30.0",
