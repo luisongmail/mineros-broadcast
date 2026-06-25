@@ -62,6 +62,110 @@ function fieldCls() {
   return 'block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none';
 }
 
+// ── SponsorPicker — selector con búsqueda + pills ─────────────────────────
+
+interface SponsorPickerProps {
+  allSponsors: Sponsor[];
+  assigned: SponsorEntry[];
+  onChange: (next: SponsorEntry[]) => void;
+}
+
+function SponsorPicker({ allSponsors, assigned, onChange }: SponsorPickerProps) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const assignedIds = new Set(assigned.map((a) => a.sponsorId));
+
+  const suggestions = allSponsors.filter((s) => {
+    if (assignedIds.has(s.id)) return false;
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return s.name.toLowerCase().includes(q) || s.brand.toLowerCase().includes(q);
+  }).slice(0, 8);
+
+  function add(s: Sponsor) {
+    onChange([...assigned, { sponsorId: s.id, displayName: s.name, logoAssetId: s.logoAssetId || undefined, priority: s.priority, active: true }]);
+    setQuery('');
+    inputRef.current?.focus();
+  }
+
+  function remove(id: string) {
+    onChange(assigned.filter((a) => a.sponsorId !== id));
+  }
+
+  if (allSponsors.length === 0) {
+    return (
+      <div>
+        <span className="block text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-1">Sponsors</span>
+        <p className="text-[10px] text-white/30">Sin sponsors registrados. Créalos en el tab 🤝 Sponsors.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <span className="block text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-2">Sponsors</span>
+
+      {/* Pills de sponsors asignados */}
+      {assigned.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {assigned.map((a) => (
+            <span
+              key={a.sponsorId}
+              className="inline-flex items-center gap-1 rounded-full bg-mineros-gold/15 border border-mineros-gold/30 px-2.5 py-1 text-xs text-mineros-gold"
+            >
+              {a.displayName}
+              <button
+                type="button"
+                onClick={() => remove(a.sponsorId)}
+                className="ml-0.5 text-mineros-gold/60 hover:text-mineros-gold transition leading-none"
+                aria-label="Quitar sponsor"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Input de búsqueda */}
+      <div className="relative">
+        <input
+          ref={inputRef}
+          className="block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+          placeholder="Buscar y agregar sponsor…"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+        />
+        {open && suggestions.length > 0 && (
+          <ul className="absolute z-50 left-0 right-0 mt-1 rounded border border-zinc-700 bg-zinc-900 shadow-lg max-h-48 overflow-y-auto">
+            {suggestions.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onMouseDown={() => add(s)}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-white/10 transition"
+                >
+                  <span className="font-medium text-white/90">{s.name}</span>
+                  {s.brand && <span className="ml-2 text-white/40">{s.brand}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {open && query.length > 0 && suggestions.length === 0 && (
+          <div className="absolute z-50 left-0 right-0 mt-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-white/30">
+            Sin resultados para «{query}»
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function GamePanel({ currentGameId }: { currentGameId: string }) {
   const [games, setGames] = useState<GameSummary[]>([]);
   const [loadingGames, setLoadingGames] = useState(true);
@@ -146,14 +250,6 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
       })
       .catch(() => setAssignedSponsors([]));
   }, []);
-
-  function toggleSponsor(s: Sponsor) {
-    setAssignedSponsors((prev) => {
-      const already = prev.some((a) => a.sponsorId === s.id);
-      if (already) return prev.filter((a) => a.sponsorId !== s.id);
-      return [...prev, { sponsorId: s.id, displayName: s.name, logoAssetId: s.logoAssetId || undefined, priority: s.priority, active: true }];
-    });
-  }
 
   const saveGameEdit = useCallback(async () => {
     if (!editGameId) return;
@@ -290,39 +386,12 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
             />
           </label>
 
-          {/* Sponsors del partido */}
-          <div>
-            <span className="block text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-2">
-              Sponsors asignados
-            </span>
-            {allSponsors.length === 0 ? (
-              <p className="text-[10px] text-white/30">Sin sponsors registrados. Créalos en el tab 🤝 Sponsors.</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-1.5">
-                {allSponsors.map((s) => {
-                  const on = assignedSponsors.some((a) => a.sponsorId === s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => toggleSponsor(s)}
-                      className={`flex items-center gap-2 rounded border px-3 py-2 text-left text-xs transition ${
-                        on
-                          ? 'border-mineros-gold bg-mineros-gold/10 text-mineros-gold'
-                          : 'border-white/15 bg-white/5 text-white/60 hover:border-white/30'
-                      }`}
-                    >
-                      <span>{on ? '✅' : '☐'}</span>
-                      <span>
-                        <span className="font-semibold">{s.name}</span>
-                        {s.brand && <span className="ml-1.5 opacity-50 text-[10px]">{s.brand}</span>}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {/* Sponsors del partido — picker con búsqueda */}
+          <SponsorPicker
+            allSponsors={allSponsors}
+            assigned={assignedSponsors}
+            onChange={setAssignedSponsors}
+          />
 
           <div className="flex gap-2 pt-1">
             <button
