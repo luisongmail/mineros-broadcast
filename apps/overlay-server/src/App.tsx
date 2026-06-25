@@ -17,7 +17,7 @@ import { LineupOverlay } from '@mineros/overlay-lineup';
 import { PitcherOverlay } from '@mineros/overlay-pitcher';
 
 import { GameConfigPanel } from './components/GameConfigPanel';
-import { MatchMetadataEditor } from './components/MatchMetadataEditor';
+import { GamePanel } from './components/GamePanel';
 import { LayoutEditor } from './components/LayoutEditor';
 import { DataPanel } from './components/data/DataPanel';
 import { useBroadcastWS } from './hooks/useBroadcastWS';
@@ -1222,12 +1222,7 @@ function OperatorControlPanel() {
 
                 {/* DATOS DEL PARTIDO */}
                 {rightTab === 'metadata' && (
-                  <div className="p-4">
-                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-white/35">
-                      Datos del partido · Competencia · Sponsors
-                    </p>
-                    <MatchMetadataEditor gameId={game.gameId} />
-                  </div>
+                  <GamePanel currentGameId={game.gameId} />
                 )}
 
                 {/* DATOS */}

@@ -31,13 +31,20 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(typeof body === 'string' && body ? body : response.statusText || `HTTP ${response.status}`);
   }
 
-  if (body && typeof body === 'object' && 'result' in body) {
+  if (body != null && typeof body === 'object' && 'result' in body) {
     const envelope = body as ApiEnvelope<T>;
     if (envelope.result === 'error') {
       throw new Error(envelope.payload?.message ?? envelope.message ?? 'La solicitud falló.');
     }
-
+    if (!('payload' in envelope) || envelope.payload === undefined) {
+      throw new Error('Respuesta del servidor vacía.');
+    }
     return envelope.payload;
+  }
+
+  // Si el cuerpo no tiene el envelope esperado (ej: HTML de error Vite), lanzar error
+  if (typeof body === 'string' && body.trim().startsWith('<!')) {
+    throw new Error('El servidor de API no está disponible.');
   }
 
   return body as T;
