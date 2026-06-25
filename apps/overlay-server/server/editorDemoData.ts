@@ -175,9 +175,10 @@ export interface DemoGameEvent {
 
 export const demoCategories: DemoCategory[] = [
   // Pequeñas Ligas
-  { id: 'cat-pb-tball',    sport_id: 'baseball_m', name: 'T-Ball',         description: 'Iniciación, 4-6 años',           active: 1, created_at: '2026-01-10T12:00:00.000Z' },
-  { id: 'cat-pb-novato',   sport_id: 'baseball_m', name: 'Novato',         description: 'División Novato, 6-8 años',       active: 1, created_at: '2026-01-10T12:00:00.000Z' },
-  { id: 'cat-pb-menor',    sport_id: 'baseball_m', name: 'Pequeñas Ligas', description: 'División principal, 9-12 años',   active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pb-tball',        sport_id: 'baseball_m', name: 'T-Ball',           description: 'Iniciación, 4-6 años',                              active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pb-novato',       sport_id: 'baseball_m', name: 'Pitoco',           description: 'División Pitoco (Novato), 7-8 años',                  active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pb-rookies',      sport_id: 'baseball_m', name: 'Pre-Infantil',     description: 'División Pre-Infantil (Rookies), 9-10 años',          active: 1, created_at: '2026-01-10T12:00:00.000Z' },
+  { id: 'cat-pb-menor',        sport_id: 'baseball_m', name: 'Infantil',         description: 'División Infantil (Pequeñas Ligas), 11-12 años',      active: 1, created_at: '2026-01-10T12:00:00.000Z' },
   { id: 'cat-pb-junior',   sport_id: 'baseball_m', name: 'Junior',         description: 'División Junior, 13-14 años',     active: 1, created_at: '2026-01-10T12:00:00.000Z' },
   { id: 'cat-pb-senior',   sport_id: 'baseball_m', name: 'Senior',         description: 'División Senior, 15-16 años',     active: 1, created_at: '2026-01-10T12:00:00.000Z' },
   { id: 'cat-pb-biglearn', sport_id: 'baseball_m', name: 'Big League',     description: 'División Big League, 16-18 años', active: 1, created_at: '2026-01-10T12:00:00.000Z' },

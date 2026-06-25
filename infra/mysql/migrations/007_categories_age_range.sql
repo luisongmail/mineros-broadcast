@@ -9,8 +9,9 @@ ALTER TABLE categories
 
 -- Pequeñas Ligas
 UPDATE categories SET age_min = 4,  age_max = 6  WHERE id = 'cat-pb-tball';
-UPDATE categories SET age_min = 6,  age_max = 8  WHERE id = 'cat-pb-novato';
-UPDATE categories SET age_min = 9,  age_max = 12 WHERE id = 'cat-pb-menor';
+UPDATE categories SET name = 'Pitoco',       age_min = 7,  age_max = 8  WHERE id = 'cat-pb-novato';
+UPDATE categories SET name = 'Pre-Infantil', age_min = 9,  age_max = 10 WHERE id = 'cat-pb-rookies';
+UPDATE categories SET name = 'Infantil',     age_min = 11, age_max = 12 WHERE id = 'cat-pb-menor';
 UPDATE categories SET age_min = 13, age_max = 14 WHERE id = 'cat-pb-junior';
 UPDATE categories SET age_min = 15, age_max = 16 WHERE id = 'cat-pb-senior';
 UPDATE categories SET age_min = 16, age_max = 18 WHERE id = 'cat-pb-biglearn';
