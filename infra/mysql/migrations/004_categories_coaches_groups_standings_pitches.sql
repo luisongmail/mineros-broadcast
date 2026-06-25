@@ -109,14 +109,14 @@ CREATE TABLE IF NOT EXISTS game_events (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE tournaments
-  ADD COLUMN IF NOT EXISTS category_id VARCHAR(100) NULL AFTER league_id,
-  ADD COLUMN IF NOT EXISTS structure_type VARCHAR(50) NULL DEFAULT 'round_robin' COMMENT 'round_robin|single_elimination|double_elimination|group_stage|exhibition',
-  ADD COLUMN IF NOT EXISTS num_rounds INT NULL DEFAULT 1 COMMENT 'a cuantas vueltas',
-  ADD COLUMN IF NOT EXISTS has_playoffs TINYINT(1) NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS playoff_format VARCHAR(50) NULL COMMENT 'semifinal_final|quarterfinal_semi_final';
+  ADD COLUMN category_id VARCHAR(100) NULL AFTER league_id,
+  ADD COLUMN structure_type VARCHAR(50) NULL DEFAULT 'round_robin' COMMENT 'round_robin|single_elimination|double_elimination|group_stage|exhibition',
+  ADD COLUMN num_rounds INT NULL DEFAULT 1 COMMENT 'a cuantas vueltas',
+  ADD COLUMN has_playoffs TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN playoff_format VARCHAR(50) NULL COMMENT 'semifinal_final|quarterfinal_semi_final';
 
 ALTER TABLE games
-  ADD COLUMN IF NOT EXISTS category_id VARCHAR(100) NULL AFTER tournament_id;
+  ADD COLUMN category_id VARCHAR(100) NULL AFTER tournament_id;
 
 ALTER TABLE teams
-  ADD COLUMN IF NOT EXISTS active TINYINT(1) NOT NULL DEFAULT 1 AFTER founded_year;
+  ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1 AFTER founded_year;
