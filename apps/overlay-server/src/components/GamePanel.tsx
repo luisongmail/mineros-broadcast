@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { MatchMetadata } from '../matchMetadata';
+import { SlideDrawer } from './data/SlideDrawer';
 import { MatchMetadataEditor } from './MatchMetadataEditor';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
@@ -11,6 +12,7 @@ interface GameSummary {
   id: string;
   label: string;
   status: string;
+  gameName?: string;
   homeTeam?: string;
   awayTeam?: string;
   scheduledAt?: string;
@@ -66,6 +68,14 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
   const [defaults, setDefaults] = useState<BroadcastDefaults>(loadDefaults);
   const [defaultsSaved, setDefaultsSaved] = useState(false);
 
+  // Drawer para editar nombre / venue del partido
+  const [editGameId, setEditGameId] = useState<string | null>(null);
+  const [editGameName, setEditGameName] = useState('');
+  const [editVenue, setEditVenue] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editSaved, setEditSaved] = useState(false);
+  const editAnchorRef = useRef<HTMLElement | null>(null);
+
   // Cargar lista de juegos
   useEffect(() => {
     setLoadingGames(true);
@@ -81,6 +91,7 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
                 id: String(raw.id ?? ''),
                 label: String(raw.label ?? raw.id ?? ''),
                 status: String(raw.status ?? 'scheduled'),
+                gameName: raw.gameName ? String(raw.gameName) : undefined,
                 homeTeam: raw.homeTeam ? String(raw.homeTeam) : undefined,
                 awayTeam: raw.awayTeam ? String(raw.awayTeam) : undefined,
                 scheduledAt: raw.scheduledAt ? String(raw.scheduledAt) : undefined,
@@ -104,6 +115,34 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
     setDefaultsSaved(true);
     setTimeout(() => setDefaultsSaved(false), 2000);
   }, [defaults]);
+
+  const openEditGame = useCallback((g: GameSummary, rowEl: HTMLElement) => {
+    setEditGameId(g.id);
+    setEditGameName(g.gameName ?? '');
+    setEditVenue(g.venue ?? '');
+    setEditSaved(false);
+    editAnchorRef.current = rowEl;
+  }, []);
+
+  const saveGameEdit = useCallback(async () => {
+    if (!editGameId) return;
+    setEditSaving(true);
+    try {
+      await fetch(`${API}/games/${editGameId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameName: editGameName || null, venue: editVenue || null }),
+      });
+      setGames((prev) => prev.map((g) => g.id === editGameId
+        ? { ...g, gameName: editGameName || undefined, venue: editVenue || undefined, label: editGameName || g.label }
+        : g,
+      ));
+      setEditSaved(true);
+      setTimeout(() => { setEditSaved(false); setEditGameId(null); }, 1200);
+    } catch { /* ignore */ } finally {
+      setEditSaving(false);
+    }
+  }, [editGameId, editGameName, editVenue]);
 
   const applyDefaultsToMetadata = useCallback(async () => {
     if (!selectedId) return;
@@ -132,36 +171,97 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
   return (
     <div className="flex h-full gap-0 min-h-0">
       {/* ── Lista de partidos ── */}
-      <div className="w-60 shrink-0 border-r border-white/10 flex flex-col">
+      <div className="w-64 shrink-0 border-r border-white/10 flex flex-col">
         <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-white/35 border-b border-white/10 shrink-0">
           {loadingGames ? 'Cargando...' : `${games.length} partido${games.length !== 1 ? 's' : ''}`}
         </p>
         <div className="flex-1 overflow-y-auto">
           {games.map((g) => (
-            <button
+            <div
               key={g.id}
-              type="button"
-              onClick={() => setSelectedId(g.id)}
-              className={`w-full text-left px-3 py-2.5 border-b border-white/5 transition ${
+              className={`group flex items-start gap-0 border-b border-white/5 transition ${
                 selectedId === g.id
                   ? 'bg-mineros-gold/15 border-l-2 border-l-mineros-gold'
                   : 'hover:bg-white/5'
               }`}
             >
-              <div className="flex items-start justify-between gap-1 mb-0.5">
-                <p className={`text-xs font-semibold truncate ${selectedId === g.id ? 'text-mineros-gold' : 'text-white/90'}`}>
-                  {g.label}
-                </p>
-                {statusBadge(g.status)}
-              </div>
-              {g.venue && <p className="text-[10px] text-white/35 truncate">{g.venue}</p>}
-            </button>
+              <button
+                type="button"
+                onClick={() => setSelectedId(g.id)}
+                className="flex-1 text-left px-3 py-2.5 min-w-0"
+              >
+                <div className="flex items-start justify-between gap-1 mb-0.5">
+                  <p className={`text-xs font-semibold truncate ${selectedId === g.id ? 'text-mineros-gold' : 'text-white/90'}`}>
+                    {g.gameName ?? g.label}
+                  </p>
+                  {statusBadge(g.status)}
+                </div>
+                {!g.gameName && <p className="text-[10px] text-white/35 truncate">{g.label}</p>}
+                {g.venue && <p className="text-[10px] text-white/35 truncate">{g.venue}</p>}
+              </button>
+              {/* Botón editar nombre */}
+              <button
+                type="button"
+                title="Editar nombre y sede"
+                onClick={(e) => openEditGame(g, (e.currentTarget.closest('div[class*=group]') as HTMLElement) ?? e.currentTarget)}
+                className="shrink-0 px-2 py-2.5 text-white/25 hover:text-mineros-gold opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                ✏️
+              </button>
+            </div>
           ))}
           {!loadingGames && games.length === 0 && (
             <p className="px-3 py-4 text-xs text-white/35">Sin partidos disponibles.</p>
           )}
         </div>
       </div>
+
+      {/* Drawer de edición del nombre del partido */}
+      <SlideDrawer
+        open={editGameId !== null}
+        title="Editar partido"
+        onClose={() => setEditGameId(null)}
+        anchorRef={editAnchorRef}
+      >
+        <div className="space-y-3 p-1">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Nombre del partido</span>
+            <input
+              className="block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+              value={editGameName}
+              onChange={(e) => setEditGameName(e.target.value)}
+              placeholder="Nombre personalizado (opcional)"
+            />
+            <span className="text-[10px] text-white/30">Si se omite, se usa el nombre automático (equipo local vs visitante)</span>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Sede</span>
+            <input
+              className="block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+              value={editVenue}
+              onChange={(e) => setEditVenue(e.target.value)}
+              placeholder="Estadio Mineros"
+            />
+          </label>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => { void saveGameEdit(); }}
+              disabled={editSaving}
+              className="rounded bg-mineros-gold px-4 py-1.5 text-sm font-semibold text-black hover:bg-mineros-gold/80 disabled:opacity-50 transition"
+            >
+              {editSaved ? '✅ Guardado' : editSaving ? 'Guardando…' : 'Guardar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditGameId(null)}
+              className="rounded border border-white/20 px-4 py-1.5 text-sm text-white/70 hover:bg-white/10 transition"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </SlideDrawer>
 
       {/* ── Panel derecho: defaults + metadata del partido ── */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 min-w-0">

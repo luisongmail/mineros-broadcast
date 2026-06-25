@@ -22,6 +22,7 @@ type MysqlGameRow = {
   venue?: string | null;
   season?: string | null;
   game_number?: number | null;
+  game_name?: string | null;
   game_state?: Record<string, unknown> | null;
   home_team: MysqlTeamRow | null;
   away_team: MysqlTeamRow | null;
@@ -64,6 +65,7 @@ type MysqlGameQueryRow = RowDataPacket & {
   venue: string | null;
   season: string | null;
   game_number: number | null;
+  game_name: string | null;
   game_state: Record<string, unknown> | null;
   ht_id: string | null;
   ht_name: string | null;
@@ -222,6 +224,7 @@ function mapGameRow(row: MysqlGameQueryRow): MysqlGameRow {
     venue: row.venue,
     season: row.season,
     game_number: row.game_number,
+    game_name: row.game_name,
     game_state: row.game_state,
     home_team: mapTeamRow(row, 'ht'),
     away_team: mapTeamRow(row, 'at'),
@@ -290,7 +293,8 @@ function normalizeGameDetail(gameRow: MysqlGameRow, lineupRows: MysqlLineupRow[]
     awayTeam,
     source: 'mysql',
     isDemo: false,
-    label: formatGameLabel(homeTeam, awayTeam),
+    label: gameRow.game_name ?? formatGameLabel(homeTeam, awayTeam),
+    gameName: gameRow.game_name ?? undefined,
     inning: parseNumber(extractGameStateValue(rawState, 'inning'), 1),
     inningHalf: parseString(extractGameStateValue(rawState, 'inningHalf'), ['top', 'bottom'] as const, 'top'),
     outs: parseNumber(extractGameStateValue(rawState, 'outs'), 0),
@@ -326,6 +330,7 @@ async function getGamesFromMySQL(): Promise<GameConfigDetail[]> {
       g.venue,
       g.season,
       g.game_number,
+      g.game_name,
       g.game_state,
       ht.id AS ht_id,
       ht.name AS ht_name,
@@ -514,6 +519,48 @@ gameConfigRouter.post('/games/:id/reset', async (request: Request, response: Res
       usingDemo: result.usingDemo,
       message: `Partido reiniciado: ${formatGameLabel(game.homeTeam, game.awayTeam)}`,
     });
+  } catch (error) {
+    sendError(response, error);
+  }
+});
+
+// PUT /games/:id — actualizar campos editables del partido (nombre, venue, scheduled_at)
+gameConfigRouter.put('/games/:id', async (request: Request, response: Response) => {
+  const { id } = request.params;
+  const { gameName, venue, scheduledAt } = request.body as {
+    gameName?: string | null;
+    venue?: string | null;
+    scheduledAt?: string | null;
+  };
+
+  try {
+    const pool = getDatabasePool();
+
+    const updates: string[] = [];
+    const values: (string | null)[] = [];
+
+    if (gameName !== undefined) {
+      updates.push('game_name = ?');
+      values.push(gameName?.trim() || null);
+    }
+    if (venue !== undefined) {
+      updates.push('venue = ?');
+      values.push(venue?.trim() || null);
+    }
+    if (scheduledAt !== undefined) {
+      updates.push('scheduled_at = ?');
+      values.push(scheduledAt);
+    }
+
+    if (updates.length === 0) {
+      sendSuccess(response, { message: 'Sin cambios' });
+      return;
+    }
+
+    values.push(id);
+    await pool.query(`UPDATE games SET ${updates.join(', ')} WHERE id = ?`, values);
+
+    sendSuccess(response, { id, message: 'Partido actualizado' });
   } catch (error) {
     sendError(response, error);
   }

@@ -49,6 +49,7 @@ export interface GameConfigSummary {
   venue?: string;
   season?: string;
   gameNumber?: number;
+  gameName?: string;
   homeTeam: GameConfigTeam;
   awayTeam: GameConfigTeam;
   source: GameConfigSource;
