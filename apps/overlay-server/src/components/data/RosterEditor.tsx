@@ -110,10 +110,25 @@ export function RosterEditor() {
     try {
       const method = playerForm.id ? 'PUT' : 'POST';
       const path = playerForm.id ? `/api/teams/${selectedTeamId}/players/${playerForm.id}` : `/api/teams/${selectedTeamId}/players`;
+      // Mapear camelCase → snake_case para el backend
+      const playerPayload = {
+        name:           playerForm.fullName,
+        first_name:     playerForm.fullName.split(' ')[0] ?? '',
+        last_name:      playerForm.fullName.split(' ').slice(1).join(' ') || null,
+        nickname:       playerForm.nickname || null,
+        number:         playerForm.number,
+        position:       playerForm.position,
+        bats:           playerForm.bats,
+        throws:         playerForm.throws,
+        photo_asset_id: playerForm.photoAssetId || null,
+        date_of_birth:  playerForm.birthDate || null,
+        nationality:    playerForm.nationality || 'DO',
+        status:         playerForm.status,
+      };
       const payload = normalizePlayer(await request(path, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(playerForm),
+        body: JSON.stringify(playerPayload),
       }));
       upsertPlayer(payload);
       setMessage(`Jugador ${playerForm.id ? 'actualizado' : 'creado'} en ${selectedTeamName}.`);
@@ -139,10 +154,17 @@ export function RosterEditor() {
     try {
       const method = staffForm.id ? 'PUT' : 'POST';
       const path = staffForm.id ? `/api/teams/${selectedTeamId}/staff/${staffForm.id}` : `/api/teams/${selectedTeamId}/staff`;
+      // Mapear camelCase → snake_case para el backend
+      const staffPayload = {
+        name:           staffForm.name,
+        role:           staffForm.role,
+        photo_asset_id: staffForm.photoAssetId || null,
+        active:         true,
+      };
       const payload = normalizeStaffMember(await request(path, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(staffForm),
+        body: JSON.stringify(staffPayload),
       }));
       upsertStaff(payload);
       setMessage(`Miembro del staff ${staffForm.id ? 'actualizado' : 'creado'}.`);

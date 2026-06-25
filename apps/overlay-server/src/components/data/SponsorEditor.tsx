@@ -57,12 +57,24 @@ export function SponsorEditor() {
     setError(null);
     setMessage(null);
 
+    // El backend espera snake_case
+    const payload = {
+      name:       form.name,
+      brand:      form.brand,
+      asset_id:   form.logoAssetId || null,
+      status:     form.status,
+      priority:   form.priority,
+      start_date: form.startDate || null,
+      end_date:   form.endDate   || null,
+      active:     form.active,
+    };
+
     try {
       if (form.id) {
         const updated = normalizeSponsor(await request(`/api/sponsors/${form.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         }));
         setSponsors((current) => current.map((item) => (item.id === updated.id ? updated : item)));
         setMessage('Sponsor actualizado.');
@@ -70,7 +82,7 @@ export function SponsorEditor() {
         const created = normalizeSponsor(await request('/api/sponsors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         }));
         setSponsors((current) => [created, ...current]);
         setMessage('Sponsor creado.');

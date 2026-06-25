@@ -114,10 +114,22 @@ export function TeamEditor() {
     setError(null);
     setMessage(null);
     try {
-      const payload = { ...form, category_ids: form.categoryIds };
+      // El backend espera snake_case — mapear desde el form camelCase
+      const payload = {
+        name:               form.fullName,
+        short_name:         form.shortName,
+        logo_asset_id:      form.logoAssetId || null,
+        city:               form.city || null,
+        country:            form.country || null,
+        primary_color:      form.primaryColor || null,
+        secondary_color:    form.secondaryColor || null,
+        category_ids:       form.categoryIds,
+      };
       if (form.id) {
         const updated = normalizeTeam(await request(`/api/teams/${form.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }));
         setTeams((ts) => ts.map((t) => (t.id === updated.id ? updated : t)));
+        setSelected(updated);
+        setForm(updated);
         setMessage('✅ Equipo actualizado.');
       } else {
         const created = normalizeTeam(await request('/api/teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }));

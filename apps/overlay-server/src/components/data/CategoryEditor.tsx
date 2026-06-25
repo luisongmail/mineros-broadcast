@@ -53,9 +53,12 @@ export function CategoryEditor() {
     setError(null);
     setMessage(null);
 
+    // El backend espera snake_case — limpiar camelCase del spread
     const payload = {
-      ...form,
-      sport_id: form.sportId,
+      sport_id:    form.sportId,
+      name:        form.name,
+      description: form.description || null,
+      active:      form.active,
     };
 
     try {
