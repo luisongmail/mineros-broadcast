@@ -34,7 +34,34 @@ function mapCategory(row: CategoryRow | DemoCategory): CategoryPayload {
   };
 }
 
+const DEMO_SPORTS = [
+  { id: 'softball_fast_f', name: 'Softball Femenino',  gender: 'female', has_pitcher: true  },
+  { id: 'softball_fast_m', name: 'Softball Masculino', gender: 'male',   has_pitcher: true  },
+  { id: 'baseball_f',      name: 'Béisbol Femenino',   gender: 'female', has_pitcher: true  },
+  { id: 'baseball_m',      name: 'Béisbol Masculino',  gender: 'male',   has_pitcher: true  },
+  { id: 'baseball5',       name: 'Béisbol5',           gender: 'mixed',  has_pitcher: false },
+  { id: 'baseball',        name: 'Béisbol',            gender: 'mixed',  has_pitcher: true  },
+  { id: 'baseball_amateur',name: 'Béisbol Amateur',    gender: 'mixed',  has_pitcher: true  },
+  { id: 'softball_fast',   name: 'Softball Rápido',    gender: 'mixed',  has_pitcher: true  },
+  { id: 'softball_slow',   name: 'Softball Lento',     gender: 'mixed',  has_pitcher: true  },
+];
+
 const router = Router();
+
+router.get('/sports', async (_request: Request, response: Response) => {
+  try {
+    if (!pool) {
+      sendOk(response, DEMO_SPORTS);
+      return;
+    }
+    const [rows] = await pool.query<RowDataPacket[]>(
+      'SELECT id, name, gender, has_pitcher FROM sports ORDER BY name ASC',
+    );
+    sendOk(response, rows);
+  } catch (error) {
+    sendCaughtError(response, error, 'No se pudieron listar los deportes');
+  }
+});
 
 router.get('/categories', async (request: Request, response: Response) => {
   try {

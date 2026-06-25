@@ -5,10 +5,13 @@ import { mockCategories } from './mockData';
 import { EmptyState, Feedback, Field, LoadingState, SectionCard, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
 import { normalizeCategory, type Category } from './types';
 
-const emptyCategory = (): Category => ({ id: '', name: '', description: '', sportId: 'baseball', active: true });
+type Sport = { id: string; name: string; gender: string };
+
+const emptyCategory = (): Category => ({ id: '', name: '', description: '', sportId: 'softball_fast_f', active: true });
 
 export function CategoryEditor() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [sports, setSports] = useState<Sport[]>([]);
   const [form, setForm] = useState<Category>(emptyCategory());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,9 +27,13 @@ export function CategoryEditor() {
       setMessage(null);
 
       try {
-        const payload = await request<unknown[]>('/api/categories');
+        const [categoriesPayload, sportsPayload] = await Promise.all([
+          request<unknown[]>('/api/categories'),
+          request<Sport[]>('/api/sports').catch(() => [] as Sport[]),
+        ]);
         if (!cancelled) {
-          setCategories(payload.map(normalizeCategory));
+          setCategories(categoriesPayload.map(normalizeCategory));
+          setSports(sportsPayload);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -164,8 +171,13 @@ export function CategoryEditor() {
             <Field label="Nombre">
               <input required className={fieldClass} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
             </Field>
-            <Field label="Sport ID">
-              <input className={fieldClass} value={form.sportId} onChange={(event) => setForm((current) => ({ ...current, sportId: event.target.value }))} />
+            <Field label="Deporte">
+              <select className={fieldClass} value={form.sportId} onChange={(event) => setForm((current) => ({ ...current, sportId: event.target.value }))}>
+                {sports.length === 0
+                  ? <option value={form.sportId}>{form.sportId}</option>
+                  : sports.map((sport) => <option key={sport.id} value={sport.id}>{sport.name}</option>)
+                }
+              </select>
             </Field>
             <div className="md:col-span-2">
               <Field label="Descripción">
