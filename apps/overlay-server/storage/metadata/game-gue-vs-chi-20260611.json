@@ -4,25 +4,7 @@
     {
       "sponsorId": "sponsor-merchise",
       "displayName": "Merchise",
-      "logoAssetId": "brands/merchise-logo",
-      "text": "Innovación y Tecnología",
       "priority": 1,
-      "active": true
-    },
-    {
-      "sponsorId": "sponsor-merchise-online",
-      "displayName": "Merchise Online Services",
-      "logoAssetId": "brands/mols-logo",
-      "text": "Tecnología con sentido para digitalizar tu negocio",
-      "priority": 2,
-      "active": true
-    },
-    {
-      "sponsorId": "sponsor-storeware",
-      "displayName": "Storeware",
-      "logoAssetId": "brands/storeware-logo",
-      "text": "Tus pedidos directo a la cocina",
-      "priority": 3,
       "active": true
     }
   ],

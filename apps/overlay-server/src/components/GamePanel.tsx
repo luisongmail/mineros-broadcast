@@ -128,8 +128,9 @@ function SponsorPicker({ allSponsors, assigned, onChange }: SponsorPickerProps) 
           </ul>
         )}
         {open && query.length > 0 && suggestions.length === 0 && (
-          <div className="absolute z-50 left-0 right-0 mt-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-white/30">
-            Sin resultados para «{query}»
+          <div className="absolute z-50 left-0 right-0 mt-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-white/40">
+            <p>Sin resultados para «{query}»</p>
+            <p className="mt-0.5 text-white/30">Para asignarlo, regístralo primero en el tab <span className="text-mineros-gold/70">🤝 Sponsors</span>.</p>
           </div>
         )}
       </div>
