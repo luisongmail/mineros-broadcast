@@ -21,6 +21,7 @@ import { GamePanel } from './components/GamePanel';
 import { LayoutEditor } from './components/LayoutEditor';
 import { DataPanel } from './components/data/DataPanel';
 import { SponsorsTab } from './components/SponsorsTab';
+import { VenuesTab } from './components/VenuesTab';
 import { useBroadcastWS } from './hooks/useBroadcastWS';
 import {
   DEMO_GAME_DETAIL,
@@ -483,7 +484,7 @@ function OperatorControlPanel() {
 
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [rightTab, setRightTab] = useState<'config' | 'history' | 'layout' | 'obs' | 'metadata' | 'data' | 'sponsors'>('config');
+  const [rightTab, setRightTab] = useState<'config' | 'history' | 'layout' | 'obs' | 'metadata' | 'data' | 'sponsors' | 'venues'>('config');
   const handleResetGame = useCallback(async () => {
     setResetting(true);
     try {
@@ -1190,6 +1191,7 @@ function OperatorControlPanel() {
                     { key: 'config', label: '⚙️ Config' },
                     { key: 'metadata', label: '⚾ Partido' },
                     { key: 'sponsors', label: '🤝 Sponsors' },
+                    { key: 'venues',   label: '🏟️ Estadios' },
                     { key: 'data', label: '🗃️ Datos' },
                     { key: 'history', label: '📋 Historial' },
                     { key: 'layout', label: '🖼️ Layout' },
@@ -1230,6 +1232,11 @@ function OperatorControlPanel() {
                 {/* SPONSORS */}
                 {rightTab === 'sponsors' && (
                   <SponsorsTab />
+                )}
+
+                {/* ESTADIOS */}
+                {rightTab === 'venues' && (
+                  <VenuesTab />
                 )}
 
                 {/* DATOS */}

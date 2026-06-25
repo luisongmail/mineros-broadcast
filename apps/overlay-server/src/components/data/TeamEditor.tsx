@@ -1,104 +1,134 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { generateId, request, toErrorMessage } from './api';
-import { MasterDetail } from './MasterDetail';
-import { mockCategories, mockTeams } from './mockData';
-import { Feedback, Field, fieldClass, primaryButtonClass, secondaryButtonClass, dangerButtonClass, LoadingState } from './shared';
+import { request } from './api';
+import { SearchSelect } from './SearchSelect';
+import { SlideDrawer } from './SlideDrawer';
+import {
+  ConfirmDialog,
+  dangerButtonClass,
+  Feedback,
+  fieldClass,
+  Field,
+  labelClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+  type DialogState,
+} from './shared';
 import { normalizeCategory, normalizeTeam, type Category, type Team } from './types';
 
-const emptyTeam = (): Team => ({
-  id: '',
-  fullName: '',
-  shortName: '',
-  abbreviation: '',
-  city: '',
-  country: 'DO',
-  primaryColor: '#D71920',
-  secondaryColor: '#1B2F5B',
-  logoAssetId: '',
-  categoryIds: [],
-});
+const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
-function TeamListItem({ team, selected, onClick }: { team: Team; selected: boolean; onClick: () => void }) {
+// ── Tipos de Club/Asociación ──────────────────────────────────────────────
+
+interface Club {
+  id: string;
+  name: string;
+  shortName: string;
+  federated: boolean;
+  associationId: string;
+  associationName: string;
+}
+
+function normalizeClub(raw: unknown): Club {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  return {
+    id: String(r.id ?? ''),
+    name: String(r.name ?? ''),
+    shortName: String(r.shortName ?? r.short_name ?? ''),
+    federated: Boolean(r.federated),
+    associationId: String(r.associationId ?? r.association_id ?? ''),
+    associationName: String(r.associationName ?? r.association_name ?? ''),
+  };
+}
+
+// ── Form vacío ────────────────────────────────────────────────────────────
+
+function emptyTeam(): Team {
+  return {
+    id: '', fullName: '', shortName: '', abbreviation: '',
+    city: '', country: 'DO',
+    clubId: '', clubName: '', clubFederated: false,
+    clubAssociationId: '', clubAssociationName: '',
+    primaryColor: '#D71920', secondaryColor: '#1B2F5B',
+    logoAssetId: '', categoryIds: [],
+  };
+}
+
+// ── Badge de equipo ───────────────────────────────────────────────────────
+
+function TeamBadge({ team, size = 'sm' }: { team: Team; size?: 'sm' | 'lg' }) {
+  const dim = size === 'lg' ? 'h-10 w-10 text-sm' : 'h-7 w-7 text-[10px]';
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b border-white/5 transition ${
-        selected ? 'bg-mineros-gold/15 border-l-2 border-l-mineros-gold' : 'hover:bg-white/5'
-      }`}
-    >
-      <div
-        className="h-7 w-7 shrink-0 rounded flex items-center justify-center text-[10px] font-bold text-white"
-        style={{ backgroundColor: team.primaryColor || '#1B2F5B' }}
-      >
-        {team.abbreviation || team.fullName.slice(0, 2).toUpperCase()}
-      </div>
-      <div className="min-w-0">
-        <p className={`truncate text-xs font-semibold ${selected ? 'text-mineros-gold' : 'text-white/90'}`}>
-          {team.fullName}
-        </p>
-        <p className="truncate text-[10px] text-white/40">{team.city || '—'}</p>
-      </div>
-    </button>
+    <div className={`${dim} shrink-0 rounded flex items-center justify-center font-bold text-white`} style={{ backgroundColor: team.primaryColor || '#1B2F5B' }}>
+      {team.abbreviation || team.fullName.slice(0, 2).toUpperCase() || '?'}
+    </div>
   );
 }
+
+// ── Editor principal ──────────────────────────────────────────────────────
 
 export function TeamEditor() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selected, setSelected] = useState<Team | null>(null);
-  const [form, setForm] = useState<Team>(emptyTeam());
+  const [clubs, setClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [form, setForm] = useState<Team>(emptyTeam());
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+
+  // Filtros
+  const [filterName, setFilterName] = useState('');
+  const [filterCat, setFilterCat] = useState('');
+
+  const anchorRef = useRef<HTMLElement | null>(null);
+  const editingId = useRef<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
     setLoading(true);
-    setError(null);
-
     Promise.all([
-      request<unknown[]>('/api/teams'),
-      request<unknown[]>('/api/categories'),
+      fetch(`${API}/teams`).then((r) => r.json() as Promise<{ payload?: unknown[] }>),
+      fetch(`${API}/categories`).then((r) => r.json() as Promise<{ payload?: unknown[] }>),
+      fetch(`${API}/clubs`).then((r) => r.json() as Promise<{ payload?: unknown[] }>),
     ])
-      .then(([teamPayload, categoryPayload]) => {
-        if (cancelled) return;
-        const teamsArr = Array.isArray(teamPayload) ? teamPayload : [];
-        const catsArr = Array.isArray(categoryPayload) ? categoryPayload : [];
-        setTeams(teamsArr.map(normalizeTeam));
-        setCategories(catsArr.map(normalizeCategory));
+      .then(([t, c, cl]) => {
+        setTeams((t.payload ?? []).map(normalizeTeam));
+        setCategories((c.payload ?? []).map(normalizeCategory));
+        setClubs((cl.payload ?? []).map(normalizeClub));
       })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setTeams(mockTeams);
-        setCategories(mockCategories);
-        setError(`${toErrorMessage(err, 'Servidor no disponible.')} Mostrando datos de ejemplo.`);
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-
-    return () => { cancelled = true; };
+      .catch(() => { setTeams([]); setCategories([]); setClubs([]); })
+      .finally(() => setLoading(false));
   }, []);
 
-  const categoryMap = useMemo(
-    () => new Map(categories.map((c) => [c.id, c.name])),
-    [categories],
-  );
+  const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
-  const selectTeam = (team: Team) => {
-    setSelected(team);
-    setForm({ ...team });
-    setMessage(null);
-    setError(null);
-  };
+  // Filtrado
+  const filtered = useMemo(() => teams.filter((t) => {
+    const q = filterName.toLowerCase();
+    if (q && !t.fullName.toLowerCase().includes(q) && !t.shortName.toLowerCase().includes(q)) return false;
+    if (filterCat && !t.categoryIds.includes(filterCat)) return false;
+    return true;
+  }), [teams, filterName, filterCat]);
 
-  const startNew = () => {
-    setSelected(null);
+  function openNew() {
+    editingId.current = null;
+    anchorRef.current = null;
     setForm(emptyTeam());
-    setMessage(null);
+    setSaved(false);
     setError(null);
-  };
+    setDrawerOpen(true);
+  }
+
+  function openEdit(team: Team, row: HTMLTableRowElement) {
+    editingId.current = team.id;
+    anchorRef.current = row as HTMLElement;
+    setForm({ ...team });
+    setSaved(false);
+    setError(null);
+    setDrawerOpen(true);
+  }
 
   const toggleCategory = (id: string) =>
     setForm((f) => ({
@@ -108,169 +138,296 @@ export function TeamEditor() {
         : [...f.categoryIds, id],
     }));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Al seleccionar un club, propaga su estado de federación y asociación
+  function selectClub(clubId: string) {
+    const club = clubs.find((c) => c.id === clubId);
+    setForm((f) => ({
+      ...f,
+      clubId,
+      clubName:            club?.name            ?? '',
+      clubFederated:       club?.federated        ?? false,
+      clubAssociationId:   club?.associationId    ?? '',
+      clubAssociationName: club?.associationName  ?? '',
+    }));
+  }
+
+  async function handleSave() {
+    if (!form.fullName.trim()) { setError('El nombre completo es obligatorio.'); return; }
     setSaving(true);
     setError(null);
-    setMessage(null);
     try {
-      // El backend espera snake_case — mapear desde el form camelCase
       const payload = {
-        name:               form.fullName,
-        short_name:         form.shortName,
-        logo_asset_id:      form.logoAssetId || null,
-        city:               form.city || null,
-        country:            form.country || null,
-        primary_color:      form.primaryColor || null,
-        secondary_color:    form.secondaryColor || null,
-        category_ids:       form.categoryIds,
+        name:            form.fullName,
+        short_name:      form.shortName,
+        logo_asset_id:   form.logoAssetId  || null,
+        city:            form.city         || null,
+        country:         form.country      || null,
+        club_id:         form.clubId       || null,
+        primary_color:   form.primaryColor || null,
+        secondary_color: form.secondaryColor || null,
+        category_ids:    form.categoryIds,
       };
-      if (form.id) {
-        const updated = normalizeTeam(await request(`/api/teams/${form.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }));
-        setTeams((ts) => ts.map((t) => (t.id === updated.id ? updated : t)));
-        setSelected(updated);
-        setForm(updated);
-        setMessage('✅ Equipo actualizado.');
+      let saved_: Team;
+      if (editingId.current) {
+        const res = await request(`/api/teams/${editingId.current}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        saved_ = normalizeTeam(res);
+        setTeams((prev) => prev.map((t) => t.id === saved_.id ? saved_ : t));
       } else {
-        const created = normalizeTeam(await request('/api/teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }));
-        setTeams((ts) => [created, ...ts]);
-        setMessage('✅ Equipo creado.');
-        setSelected(created);
-        setForm(created);
+        const res = await request('/api/teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        saved_ = normalizeTeam(res);
+        setTeams((prev) => [...prev, saved_]);
       }
-    } catch (err) {
-      const localTeam = { ...form, id: form.id || generateId('team') };
-      setTeams((ts) => (form.id ? ts.map((t) => (t.id === localTeam.id ? localTeam : t)) : [localTeam, ...ts]));
-      setError(toErrorMessage(err, 'No se pudo guardar.') + ' (guardado local)');
+      setSaved(true);
+      setForm(saved_);
+      setTimeout(() => { setSaved(false); setDrawerOpen(false); }, 1200);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al guardar');
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const handleDelete = async (id: string) => {
-    setTeams((ts) => ts.filter((t) => t.id !== id));
-    if (selected?.id === id) { setSelected(null); setForm(emptyTeam()); }
-    try {
-      await request(`/api/teams/${id}`, { method: 'DELETE' });
-      setMessage('✅ Equipo eliminado.');
-    } catch (err) {
-      setError(toErrorMessage(err, 'No se pudo eliminar.') + ' (eliminado local)');
-    }
-  };
+  function handleDelete(team: Team) {
+    setDialog({
+      title: '¿Eliminar equipo?',
+      message: `«${team.fullName}» será eliminado permanentemente.`,
+      tone: 'danger',
+      confirmLabel: 'Eliminar',
+      onConfirm: async () => {
+        try {
+          await request(`/api/teams/${team.id}`, { method: 'DELETE' });
+          setTeams((prev) => prev.filter((t) => t.id !== team.id));
+          if (editingId.current === team.id) setDrawerOpen(false);
+        } catch (e) {
+          setDialog({ title: 'Error al eliminar', message: e instanceof Error ? e.message : 'Error', tone: 'error' });
+        }
+      },
+    });
+  }
 
-  if (loading) return <LoadingState />;
 
-  const list = (
-    <>
-      <div className="p-2 border-b border-white/10">
-        <button type="button" onClick={startNew} className={`w-full text-xs ${secondaryButtonClass}`}>
-          + Nuevo equipo
-        </button>
+  const selectedClub = clubs.find((c) => c.id === form.clubId);
+
+  if (loading) {
+    return <div className="flex items-center gap-2 p-4 text-xs text-white/40"><span className="animate-spin inline-block h-3 w-3 rounded-full border-2 border-white/20 border-t-white/70" /> Cargando…</div>;
+  }
+
+  return (
+    <div className="p-4">
+      {/* Cabecera y filtros */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">⚾ Equipos</h3>
+        <input
+          className="flex-1 min-w-[140px] rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+          placeholder="Buscar por nombre…"
+          value={filterName}
+          onChange={(e) => setFilterName(e.target.value)}
+        />
+        <select
+          className="rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none"
+          value={filterCat}
+          onChange={(e) => setFilterCat(e.target.value)}
+        >
+          <option value="">Todas las categorías</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <button type="button" onClick={openNew} className={primaryButtonClass}>+ Nuevo equipo</button>
       </div>
-      {teams.length === 0 ? (
-        <p className="px-3 py-4 text-xs text-white/35">Sin equipos registrados.</p>
+
+      {/* Lista */}
+      {filtered.length === 0 ? (
+        <p className="text-xs text-white/30">{teams.length === 0 ? 'Sin equipos registrados.' : 'Sin resultados para el filtro aplicado.'}</p>
       ) : (
-        teams.map((team) => (
-          <TeamListItem key={team.id} team={team} selected={selected?.id === team.id} onClick={() => selectTeam(team)} />
-        ))
+        <div className="rounded border border-white/10 overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-white/5 text-white/40 uppercase text-[9px] tracking-wider">
+                <th className="px-3 py-2 text-left w-8"></th>
+                <th className="px-3 py-2 text-left">Nombre</th>
+                <th className="px-3 py-2 text-left">Categorías</th>
+                <th className="px-3 py-2 text-left">Club</th>
+                <th className="px-3 py-2 text-left">Federado</th>
+                <th className="px-3 py-2 text-left">Asociación</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {filtered.map((team) => (
+                <tr
+                  key={team.id}
+                  className="hover:bg-white/5 transition cursor-pointer"
+                  onClick={(e) => openEdit(team, e.currentTarget as HTMLTableRowElement)}
+                >
+                  <td className="px-3 py-2"><TeamBadge team={team} /></td>
+                  <td className="px-3 py-2">
+                    <p className="font-medium text-white/85">{team.fullName}</p>
+                    {team.shortName && <p className="text-[10px] text-white/40">{team.shortName}</p>}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {team.categoryIds.map((id) => {
+                        const cat = categoryMap.get(id);
+                        return cat ? (
+                          <span key={id} className="rounded-full border border-white/15 px-2 py-0.5 text-[9px] text-white/50">{cat.name}</span>
+                        ) : null;
+                      })}
+                      {team.categoryIds.length === 0 && <span className="text-white/25">—</span>}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-white/60">{team.clubName || '—'}</td>
+                  <td className="px-3 py-2">
+                    {team.clubId ? (
+                      <span className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${team.clubFederated ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/40'}`}>
+                        {team.clubFederated ? 'Sí' : 'No'}
+                      </span>
+                    ) : <span className="text-white/20">—</span>}
+                  </td>
+                  <td className="px-3 py-2 text-white/50">{team.clubAssociationName || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </>
-  );
 
-  const detail = (
-    <div className="space-y-3 max-w-2xl">
-      {error && <Feedback tone="error" message={error} />}
-      {message && <Feedback tone="success" message={message} />}
+      {/* Drawer */}
+      <SlideDrawer
+        open={drawerOpen}
+        title={editingId.current ? `Editar: ${form.fullName || '…'}` : 'Nuevo equipo'}
+        onClose={() => setDrawerOpen(false)}
+        anchorRef={anchorRef as React.RefObject<HTMLElement | null>}
+      >
+        <div className="space-y-3 p-1">
+          {error && <Feedback tone="error" message={error} />}
+          {saved  && <Feedback tone="success" message="Guardado ✓" />}
 
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">
-          {form.id ? `Editando: ${form.fullName || '—'}` : 'Nuevo equipo'}
-        </h3>
-        {form.id && (
-          <button type="button" onClick={() => { void handleDelete(form.id); }} className={dangerButtonClass}>
-            Eliminar
-          </button>
-        )}
-      </div>
-
-      <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Nombre completo">
-            <input required className={fieldClass} value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
-          </Field>
-          <Field label="Nombre corto">
-            <input className={fieldClass} value={form.shortName} onChange={(e) => setForm((f) => ({ ...f, shortName: e.target.value }))} />
-          </Field>
-          <Field label="Abreviatura (máx 4)">
-            <input required maxLength={4} className={fieldClass} value={form.abbreviation} onChange={(e) => setForm((f) => ({ ...f, abbreviation: e.target.value.toUpperCase() }))} />
-          </Field>
-          <Field label="Logo asset ID">
-            <input className={fieldClass} placeholder="teams/logo-mineros" value={form.logoAssetId} onChange={(e) => setForm((f) => ({ ...f, logoAssetId: e.target.value }))} />
-          </Field>
-          <Field label="Ciudad">
-            <input className={fieldClass} value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
-          </Field>
-          <Field label="País">
-            <input className={fieldClass} value={form.country} onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} />
-          </Field>
-          <Field label="Color primario">
-            <div className="flex gap-2">
-              <input type="color" className="h-10 w-12 shrink-0 rounded border border-white/10 bg-black p-0.5 cursor-pointer" value={form.primaryColor} onChange={(e) => setForm((f) => ({ ...f, primaryColor: e.target.value }))} />
-              <input className={fieldClass} value={form.primaryColor} onChange={(e) => setForm((f) => ({ ...f, primaryColor: e.target.value }))} />
-            </div>
-          </Field>
-          <Field label="Color secundario">
-            <div className="flex gap-2">
-              <input type="color" className="h-10 w-12 shrink-0 rounded border border-white/10 bg-black p-0.5 cursor-pointer" value={form.secondaryColor} onChange={(e) => setForm((f) => ({ ...f, secondaryColor: e.target.value }))} />
-              <input className={fieldClass} value={form.secondaryColor} onChange={(e) => setForm((f) => ({ ...f, secondaryColor: e.target.value }))} />
-            </div>
-          </Field>
-        </div>
-
-        {categories.length > 0 && (
-          <Field label="Categorías">
-            <div className="flex flex-wrap gap-2 mt-1">
-              {categories.map((cat) => {
-                const on = form.categoryIds.includes(cat.id);
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => toggleCategory(cat.id)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${on ? 'bg-mineros-gold text-broadcast-black' : 'border border-white/15 bg-white/5 text-white/60 hover:bg-white/10'}`}
-                  >
-                    {cat.name}
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
-        )}
-
-        {/* Vista previa del badge */}
-        {(form.fullName || form.abbreviation) && (
-          <div className="flex items-center gap-3 rounded border border-white/10 bg-white/5 p-3">
-            <div className="h-10 w-10 rounded flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: form.primaryColor || '#1B2F5B' }}>
-              {form.abbreviation || form.fullName.slice(0, 2).toUpperCase()}
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white">{form.fullName}</p>
-              <p className="text-xs text-white/40">{form.categoryIds.map((id) => categoryMap.get(id) ?? id).join(' · ') || 'Sin categoría'}</p>
-            </div>
+          {/* Identidad */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Nombre completo">
+              <input className={fieldClass} value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} placeholder="Mineros de Santiago" />
+            </Field>
+            <Field label="Nombre corto">
+              <input className={fieldClass} value={form.shortName} onChange={(e) => setForm((f) => ({ ...f, shortName: e.target.value }))} placeholder="Mineros" />
+            </Field>
           </div>
-        )}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Abreviatura (máx 4)">
+              <input className={fieldClass} maxLength={4} value={form.abbreviation} onChange={(e) => setForm((f) => ({ ...f, abbreviation: e.target.value.toUpperCase() }))} placeholder="MIN" />
+            </Field>
+            <Field label="Logo Asset ID">
+              <input className={fieldClass} value={form.logoAssetId} onChange={(e) => setForm((f) => ({ ...f, logoAssetId: e.target.value }))} placeholder="teams/mineros-logo" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Ciudad">
+              <input className={fieldClass} value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} placeholder="Santiago" />
+            </Field>
+            <Field label="País (ISO)">
+              <input className={fieldClass} maxLength={4} value={form.country} onChange={(e) => setForm((f) => ({ ...f, country: e.target.value.toUpperCase() }))} placeholder="CL" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Color primario">
+              <div className="flex gap-2">
+                <input type="color" className="h-9 w-10 shrink-0 rounded border border-white/10 bg-black p-0.5 cursor-pointer" value={form.primaryColor} onChange={(e) => setForm((f) => ({ ...f, primaryColor: e.target.value }))} />
+                <input className={fieldClass} value={form.primaryColor} onChange={(e) => setForm((f) => ({ ...f, primaryColor: e.target.value }))} />
+              </div>
+            </Field>
+            <Field label="Color secundario">
+              <div className="flex gap-2">
+                <input type="color" className="h-9 w-10 shrink-0 rounded border border-white/10 bg-black p-0.5 cursor-pointer" value={form.secondaryColor} onChange={(e) => setForm((f) => ({ ...f, secondaryColor: e.target.value }))} />
+                <input className={fieldClass} value={form.secondaryColor} onChange={(e) => setForm((f) => ({ ...f, secondaryColor: e.target.value }))} />
+              </div>
+            </Field>
+          </div>
 
-        <div className="flex gap-2 pt-1">
-          <button type="submit" disabled={saving} className={primaryButtonClass}>
-            {saving ? 'Guardando...' : form.id ? 'Actualizar equipo' : 'Crear equipo'}
-          </button>
-          <button type="button" className={secondaryButtonClass} onClick={startNew}>
-            Cancelar
-          </button>
+          {/* Categorías */}
+          {categories.length > 0 && (
+            <div>
+              <span className={labelClass}>Categorías</span>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {categories.map((cat) => {
+                  const on = form.categoryIds.includes(cat.id);
+                  return (
+                    <button key={cat.id} type="button" onClick={() => toggleCategory(cat.id)}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${on ? 'bg-mineros-gold text-broadcast-black' : 'border border-white/15 bg-white/5 text-white/60 hover:bg-white/10'}`}>
+                      {cat.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Club */}
+          <div className="border-t border-white/8 pt-3">
+            <Field label="Club">
+              <SearchSelect
+                options={[
+                  { value: '', label: 'Sin club asignado' },
+                  ...clubs.map((c) => ({
+                    value: c.id,
+                    label: c.name,
+                    sublabel: c.federated
+                      ? `Federado · ${c.associationName || 'Sin asociación'}`
+                      : 'No federado',
+                  })),
+                ]}
+                value={form.clubId}
+                onChange={(v) => selectClub(v)}
+                placeholder="Seleccionar club…"
+              />
+            </Field>
+
+            {selectedClub && (
+              <div className="mt-2 rounded border border-white/10 bg-white/5 px-3 py-2 flex items-center gap-3">
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-white/80">{selectedClub.name}</p>
+                  {selectedClub.associationName && (
+                    <p className="text-[10px] text-white/40">{selectedClub.associationName}</p>
+                  )}
+                </div>
+                <span className={`rounded px-2 py-0.5 text-[9px] font-semibold uppercase ${selectedClub.federated ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/40'}`}>
+                  {selectedClub.federated ? 'Federado' : 'No federado'}
+                </span>
+              </div>
+            )}
+
+            {clubs.length === 0 && (
+              <p className="mt-1 text-[10px] text-white/30">Sin clubs registrados. Créalos en el tab 🏛️ Clubs.</p>
+            )}
+          </div>
+
+          {/* Preview badge */}
+          {form.fullName && (
+            <div className="flex items-center gap-3 rounded border border-white/10 bg-white/5 p-3">
+              <TeamBadge team={form} size="lg" />
+              <div>
+                <p className="text-sm font-semibold text-white">{form.fullName}</p>
+                <p className="text-[10px] text-white/40">
+                  {form.categoryIds.map((id) => categoryMap.get(id)?.name ?? id).join(' · ') || 'Sin categoría'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Acciones */}
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={() => { void handleSave(); }} disabled={saving} className={primaryButtonClass}>
+              {saved ? '✅ Guardado' : saving ? 'Guardando…' : 'Guardar'}
+            </button>
+            {editingId.current && (
+              <button type="button" onClick={() => { const t = teams.find((x) => x.id === editingId.current); if (t) handleDelete(t); }} className={dangerButtonClass}>
+                Eliminar
+              </button>
+            )}
+            <button type="button" onClick={() => setDrawerOpen(false)} className={secondaryButtonClass}>Cancelar</button>
+          </div>
         </div>
-      </form>
+      </SlideDrawer>
+
+      <ConfirmDialog state={dialog} onClose={() => setDialog(null)} />
     </div>
   );
-
-  return <MasterDetail listTitle={`${teams.length} equipo${teams.length !== 1 ? 's' : ''}`} listContent={list} detailTitle={form.id ? 'Editar equipo' : 'Nuevo equipo'} detailContent={detail} />;
 }

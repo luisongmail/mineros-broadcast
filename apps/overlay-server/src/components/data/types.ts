@@ -15,6 +15,11 @@ export type Team = {
   abbreviation: string;
   city: string;
   country: string;
+  clubId: string;
+  clubName: string;
+  clubFederated: boolean;
+  clubAssociationId: string;
+  clubAssociationName: string;
   primaryColor: string;
   secondaryColor: string;
   logoAssetId: string;
@@ -149,6 +154,11 @@ export function normalizeTeam(value: unknown): Team {
     abbreviation: asString(raw.abbreviation, asString(raw.abbr, '')),
     city: asString(raw.city),
     country: asString(raw.country),
+    clubId: asString(raw.clubId, asString(raw.club_id, '')),
+    clubName: asString(raw.clubName, asString(raw.club_name, '')),
+    clubFederated: Boolean(raw.clubFederated ?? raw.club_federated ?? false),
+    clubAssociationId: asString(raw.clubAssociationId, asString(raw.club_association_id, '')),
+    clubAssociationName: asString(raw.clubAssociationName, asString(raw.club_association_name, '')),
     primaryColor: asString(raw.primaryColor, asString(raw.primary_color, '#D71920')),
     secondaryColor: asString(raw.secondaryColor, asString(raw.secondary_color, '#1B2F5B')),
     logoAssetId: asString(raw.logoAssetId, asString(raw.logo_asset_id, '')),

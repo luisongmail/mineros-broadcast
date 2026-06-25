@@ -38,6 +38,11 @@ interface TeamRow extends RowDataPacket {
   logo_alternate_asset_id: string | null;
   city: string | null;
   country: string | null;
+  club_id: string | null;
+  club_name: string | null;
+  club_federated: number | null;
+  club_association_id: string | null;
+  club_association_name: string | null;
   primary_color: string | null;
   secondary_color: string | null;
   founded_year: number | null;
@@ -113,6 +118,11 @@ interface TeamPayload {
   logo_alternate_asset_id: string | null;
   city: string | null;
   country: string | null;
+  club_id: string | null;
+  club_name: string | null;
+  club_federated: boolean;
+  club_association_id: string | null;
+  club_association_name: string | null;
   primary_color: string | null;
   secondary_color: string | null;
   founded_year: number | null;
@@ -211,6 +221,7 @@ interface NormalizedRosterInput {
 }
 
 function mapTeam(row: TeamRow | DemoTeam): TeamPayload {
+  const r = row as TeamRow;
   return {
     id: row.id,
     name: row.name,
@@ -220,6 +231,11 @@ function mapTeam(row: TeamRow | DemoTeam): TeamPayload {
     logo_alternate_asset_id: row.logo_alternate_asset_id,
     city: row.city,
     country: row.country,
+    club_id: r.club_id ?? null,
+    club_name: r.club_name ?? null,
+    club_federated: Boolean(r.club_federated),
+    club_association_id: r.club_association_id ?? null,
+    club_association_name: r.club_association_name ?? null,
     primary_color: row.primary_color,
     secondary_color: row.secondary_color,
     founded_year: row.founded_year,
@@ -506,14 +522,18 @@ async function loadTeamDetail(teamId: string): Promise<TeamDetailPayload | null>
     };
   }
 
-  const [rows] = await pool.query<TeamRow[]>(
-    `SELECT id, name, short_name, logo_asset_id, logo_wordmark_asset_id, logo_alternate_asset_id,
-            city, country, primary_color, secondary_color, founded_year, active, created_at, updated_at
-     FROM teams
-     WHERE id = ? AND active = 1
-     LIMIT 1`,
-    [teamId],
-  );
+    const [rows] = await pool.query<TeamRow[]>(
+      `SELECT t.id, t.name, t.short_name, t.logo_asset_id, t.logo_wordmark_asset_id, t.logo_alternate_asset_id,
+              t.city, t.country, t.club_id, c.name AS club_name, c.federated AS club_federated,
+              c.association_id AS club_association_id, a.name AS club_association_name,
+              t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at
+       FROM teams t
+       LEFT JOIN clubs c ON c.id = t.club_id
+       LEFT JOIN associations a ON a.id = c.association_id
+       WHERE t.id = ? AND t.active = 1
+       LIMIT 1`,
+      [teamId],
+    );
 
   if (rows.length === 0) {
     return null;
@@ -561,9 +581,13 @@ router.get('/teams', async (request: Request, response: Response) => {
 
     const [rows] = await pool.query<TeamRow[]>(
       `SELECT DISTINCT t.id, t.name, t.short_name, t.logo_asset_id, t.logo_wordmark_asset_id,
-              t.logo_alternate_asset_id, t.city, t.country, t.primary_color, t.secondary_color,
-              t.founded_year, t.active, t.created_at, t.updated_at
+              t.logo_alternate_asset_id, t.city, t.country, t.club_id,
+              c.name AS club_name, c.federated AS club_federated,
+              c.association_id AS club_association_id, a.name AS club_association_name,
+              t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at
        FROM teams t
+       LEFT JOIN clubs c ON c.id = t.club_id
+       LEFT JOIN associations a ON a.id = c.association_id
        ${joins.join(' ')}
        WHERE ${filters.join(' AND ')}
        ORDER BY t.name ASC`,
@@ -620,8 +644,8 @@ router.post('/teams', async (request: Request, response: Response) => {
       await connection.query<ResultSetHeader>(
         `INSERT INTO teams (
           id, name, short_name, logo_asset_id, logo_wordmark_asset_id, logo_alternate_asset_id,
-          city, country, primary_color, secondary_color, founded_year, active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          city, country, club_id, primary_color, secondary_color, founded_year, active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           name,
@@ -631,6 +655,7 @@ router.post('/teams', async (request: Request, response: Response) => {
           optionalString(body.logo_alternate_asset_id),
           optionalString(body.city),
           optionalString(body.country) ?? 'DO',
+          optionalString(body.club_id) ?? null,
           optionalString(body.primary_color),
           optionalString(body.secondary_color),
           optionalInteger(body.founded_year),
@@ -680,6 +705,7 @@ router.put('/teams/:id', async (request: Request, response: Response) => {
       ['logo_alternate_asset_id', 'logo_alternate_asset_id'],
       ['city', 'city'],
       ['country', 'country'],
+      ['club_id', 'club_id'],
       ['primary_color', 'primary_color'],
       ['secondary_color', 'secondary_color'],
     ];
