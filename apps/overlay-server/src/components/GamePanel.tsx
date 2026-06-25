@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { MatchMetadata } from '../matchMetadata';
+import type { MatchMetadata, SponsorEntry } from '../matchMetadata';
+import { normalizeSponsor, type Sponsor } from './data/types';
 import { SlideDrawer } from './data/SlideDrawer';
 import { MatchMetadataEditor } from './MatchMetadataEditor';
 
@@ -68,13 +69,17 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
   const [defaults, setDefaults] = useState<BroadcastDefaults>(loadDefaults);
   const [defaultsSaved, setDefaultsSaved] = useState(false);
 
-  // Drawer para editar nombre / venue del partido
+  // Drawer para editar nombre / venue / sponsors del partido
   const [editGameId, setEditGameId] = useState<string | null>(null);
   const [editGameName, setEditGameName] = useState('');
   const [editVenue, setEditVenue] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [editSaved, setEditSaved] = useState(false);
   const editAnchorRef = useRef<HTMLElement | null>(null);
+
+  // Sponsors: lista global + asignados al partido en edición
+  const [allSponsors, setAllSponsors] = useState<Sponsor[]>([]);
+  const [assignedSponsors, setAssignedSponsors] = useState<SponsorEntry[]>([]);
 
   // Cargar lista de juegos
   useEffect(() => {
@@ -121,18 +126,59 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
     setEditGameName(g.gameName ?? '');
     setEditVenue(g.venue ?? '');
     setEditSaved(false);
+    setAssignedSponsors([]);
     editAnchorRef.current = rowEl;
+
+    // Cargar sponsors disponibles y los ya asignados al partido
+    void fetch(`${API}/sponsors`)
+      .then((r) => r.json() as Promise<{ result?: string; payload?: unknown[] }>)
+      .then((body) => {
+        const list = body.result === 'ok' && Array.isArray(body.payload) ? body.payload : [];
+        setAllSponsors(list.map(normalizeSponsor));
+      })
+      .catch(() => setAllSponsors([]));
+
+    void fetch(`${API}/games/${g.id}/metadata`)
+      .then((r) => r.json() as Promise<{ result?: string; payload?: Partial<MatchMetadata> }>)
+      .then((body) => {
+        const meta = body.result === 'ok' ? body.payload : null;
+        setAssignedSponsors(meta?.sponsors ?? []);
+      })
+      .catch(() => setAssignedSponsors([]));
   }, []);
+
+  function toggleSponsor(s: Sponsor) {
+    setAssignedSponsors((prev) => {
+      const already = prev.some((a) => a.sponsorId === s.id);
+      if (already) return prev.filter((a) => a.sponsorId !== s.id);
+      return [...prev, { sponsorId: s.id, displayName: s.name, logoAssetId: s.logoAssetId || undefined, priority: s.priority, active: true }];
+    });
+  }
 
   const saveGameEdit = useCallback(async () => {
     if (!editGameId) return;
     setEditSaving(true);
     try {
+      // Guardar nombre y venue
       await fetch(`${API}/games/${editGameId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameName: editGameName || null, venue: editVenue || null }),
       });
+
+      // Guardar sponsors asignados en la metadata del partido
+      const metaRes = await fetch(`${API}/games/${editGameId}/metadata`);
+      const metaBody = await metaRes.json() as { result?: string; payload?: Partial<MatchMetadata> };
+      const current: MatchMetadata = (metaBody.result === 'ok' && metaBody.payload)
+        ? (metaBody.payload as MatchMetadata)
+        : { gameId: editGameId, branding: { brandName: '', brandLogoAssetId: '' }, competition: { name: '', tournament: '', category: '' }, venue: { name: '' }, game: { gameType: '', remainingTime: '', configuredInnings: 7 }, sponsors: [] };
+
+      await fetch(`${API}/games/${editGameId}/metadata`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...current, sponsors: assignedSponsors }),
+      });
+
       setGames((prev) => prev.map((g) => g.id === editGameId
         ? { ...g, gameName: editGameName || undefined, venue: editVenue || undefined, label: editGameName || g.label }
         : g,
@@ -142,7 +188,7 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
     } catch { /* ignore */ } finally {
       setEditSaving(false);
     }
-  }, [editGameId, editGameName, editVenue]);
+  }, [editGameId, editGameName, editVenue, assignedSponsors]);
 
   const applyDefaultsToMetadata = useCallback(async () => {
     if (!selectedId) return;
@@ -223,7 +269,7 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
         onClose={() => setEditGameId(null)}
         anchorRef={editAnchorRef}
       >
-        <div className="space-y-3 p-1">
+        <div className="space-y-4 p-1">
           <label className="flex flex-col gap-1">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Nombre del partido</span>
             <input
@@ -232,7 +278,7 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
               onChange={(e) => setEditGameName(e.target.value)}
               placeholder="Nombre personalizado (opcional)"
             />
-            <span className="text-[10px] text-white/30">Si se omite, se usa el nombre automático (equipo local vs visitante)</span>
+            <span className="text-[10px] text-white/30">Si se omite, se usa el nombre automático</span>
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Sede</span>
@@ -243,6 +289,41 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
               placeholder="Estadio Mineros"
             />
           </label>
+
+          {/* Sponsors del partido */}
+          <div>
+            <span className="block text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-2">
+              Sponsors asignados
+            </span>
+            {allSponsors.length === 0 ? (
+              <p className="text-[10px] text-white/30">Sin sponsors registrados. Créalos en el tab 🤝 Sponsors.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-1.5">
+                {allSponsors.map((s) => {
+                  const on = assignedSponsors.some((a) => a.sponsorId === s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => toggleSponsor(s)}
+                      className={`flex items-center gap-2 rounded border px-3 py-2 text-left text-xs transition ${
+                        on
+                          ? 'border-mineros-gold bg-mineros-gold/10 text-mineros-gold'
+                          : 'border-white/15 bg-white/5 text-white/60 hover:border-white/30'
+                      }`}
+                    >
+                      <span>{on ? '✅' : '☐'}</span>
+                      <span>
+                        <span className="font-semibold">{s.name}</span>
+                        {s.brand && <span className="ml-1.5 opacity-50 text-[10px]">{s.brand}</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-2 pt-1">
             <button
               type="button"
