@@ -2,21 +2,51 @@ import { useEffect, useState } from 'react';
 
 import { generateId, request, toErrorMessage } from './api';
 import { mockCategories } from './mockData';
-import { EmptyState, Feedback, Field, LoadingState, SectionCard, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
+import { SlideDrawer } from './SlideDrawer';
+import { EmptyState, Feedback, Field, LoadingState, SectionCard, fieldClass, primaryButtonClass, dangerButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
 import { normalizeCategory, type Category } from './types';
 
 type Sport = { id: string; name: string; gender: string };
 
 const emptyCategory = (): Category => ({ id: '', name: '', description: '', sportId: 'softball_fast_f', ageMin: null, ageMax: null, active: true });
 
+function ageLabel(min: number | null, max: number | null): string {
+  if (min !== null && max !== null) return `${min}–${max} años`;
+  if (min !== null) return `${min}+ años`;
+  if (max !== null) return `hasta ${max} años`;
+  return '—';
+}
+
 export function CategoryEditor() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [sports, setSports] = useState<Sport[]>([]);
   const [form, setForm] = useState<Category>(emptyCategory());
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const sportName = (id: string) => sports.find((s) => s.id === id)?.name ?? id;
+
+  const openNew = () => {
+    setForm(emptyCategory());
+    setMessage(null);
+    setError(null);
+    setDrawerOpen(true);
+  };
+
+  const openEdit = (category: Category) => {
+    setForm(category);
+    setMessage(null);
+    setError(null);
+    setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setForm(emptyCategory());
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -60,7 +90,6 @@ export function CategoryEditor() {
     setError(null);
     setMessage(null);
 
-    // El backend espera snake_case — limpiar camelCase del spread
     const payload = {
       sport_id:    form.sportId,
       name:        form.name,
@@ -88,15 +117,14 @@ export function CategoryEditor() {
         setCategories((current) => [created, ...current]);
         setMessage('Categoría creada.');
       }
+      closeDrawer();
     } catch (submitError) {
       const fallback = form.id || generateId('category');
       const localCategory = { ...form, id: fallback };
       setCategories((current) => (form.id ? current.map((item) => (item.id === fallback ? localCategory : item)) : [localCategory, ...current]));
-      setMessage('Backend no disponible: cambio aplicado solo en memoria.');
       setError(toErrorMessage(submitError, 'No se pudo guardar la categoría.'));
     } finally {
       setSaving(false);
-      setForm(emptyCategory());
     }
   };
 
@@ -112,9 +140,7 @@ export function CategoryEditor() {
     }
 
     setCategories((current) => current.filter((item) => item.id !== id));
-    if (form.id === id) {
-      setForm(emptyCategory());
-    }
+    if (form.id === id) closeDrawer();
   };
 
   if (loading) {
@@ -122,11 +148,18 @@ export function CategoryEditor() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="relative space-y-3">
       {error && <Feedback tone="error" message={error} />}
       {message && <Feedback tone="success" message={message} />}
 
-      <SectionCard title="Categorías registradas">
+      <SectionCard
+        title="Categorías registradas"
+        actions={
+          <button type="button" className={primaryButtonClass} onClick={openNew}>
+            + Nueva categoría
+          </button>
+        }
+      >
         {categories.length === 0 ? (
           <EmptyState message="No hay categorías todavía." />
         ) : (
@@ -143,25 +176,21 @@ export function CategoryEditor() {
               </thead>
               <tbody className="divide-y divide-gray-800">
                 {categories.map((category) => (
-                  <tr key={category.id}>
+                  <tr key={category.id} className="hover:bg-gray-800/40">
                     <td className={tableCellClass}>{category.name}</td>
-                    <td className={tableCellClass}>{category.sportId}</td>
-                    <td className={`${tableCellClass} text-gray-400`}>
-                      {category.ageMin !== null && category.ageMax !== null
-                        ? `${category.ageMin}–${category.ageMax} años`
-                        : category.ageMin !== null
-                          ? `${category.ageMin}+ años`
-                          : category.ageMax !== null
-                            ? `hasta ${category.ageMax} años`
-                            : '—'}
+                    <td className={tableCellClass}>{sportName(category.sportId)}</td>
+                    <td className={`${tableCellClass} text-gray-400`}>{ageLabel(category.ageMin, category.ageMax)}</td>
+                    <td className={tableCellClass}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${category.active ? 'bg-green-900/40 text-green-400' : 'bg-gray-700 text-gray-400'}`}>
+                        {category.active ? 'Activa' : 'Inactiva'}
+                      </span>
                     </td>
-                    <td className={tableCellClass}>{category.active ? 'Activa' : 'Inactiva'}</td>
                     <td className={tableCellClass}>
                       <div className="flex gap-2">
-                        <button type="button" className={secondaryButtonClass} onClick={() => setForm(category)}>
+                        <button type="button" className={secondaryButtonClass} onClick={() => { openEdit(category); }}>
                           Editar
                         </button>
-                        <button type="button" className="text-xs font-semibold text-red-300 hover:text-red-200" onClick={() => { void handleDelete(category.id); }}>
+                        <button type="button" className={dangerButtonClass} onClick={() => { void handleDelete(category.id); }}>
                           Eliminar
                         </button>
                       </div>
@@ -174,23 +203,25 @@ export function CategoryEditor() {
         )}
       </SectionCard>
 
-      <SectionCard
-        title={form.id ? 'Editar categoría' : 'Nueva categoría'}
-        actions={<button type="button" className={secondaryButtonClass} onClick={() => setForm(emptyCategory())}>Nuevo</button>}
+      {/* Drawer lateral de edición */}
+      <SlideDrawer
+        open={drawerOpen}
+        title={form.id ? `Editar: ${form.name}` : 'Nueva categoría'}
+        onClose={closeDrawer}
       >
-        <form className="space-y-3" onSubmit={(event) => { void handleSubmit(event); }}>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Nombre">
-              <input required className={fieldClass} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
-            </Field>
-            <Field label="Deporte">
-              <select className={fieldClass} value={form.sportId} onChange={(event) => setForm((current) => ({ ...current, sportId: event.target.value }))}>
-                {sports.length === 0
-                  ? <option value={form.sportId}>{form.sportId}</option>
-                  : sports.map((sport) => <option key={sport.id} value={sport.id}>{sport.name}</option>)
-                }
-              </select>
-            </Field>
+        <form className="space-y-4" onSubmit={(event) => { void handleSubmit(event); }}>
+          <Field label="Nombre">
+            <input required className={fieldClass} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+          </Field>
+          <Field label="Deporte">
+            <select className={fieldClass} value={form.sportId} onChange={(event) => setForm((current) => ({ ...current, sportId: event.target.value }))}>
+              {sports.length === 0
+                ? <option value={form.sportId}>{form.sportId}</option>
+                : sports.map((sport) => <option key={sport.id} value={sport.id}>{sport.name}</option>)
+              }
+            </select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Edad mínima">
               <input
                 className={fieldClass}
@@ -213,22 +244,24 @@ export function CategoryEditor() {
                 onChange={(event) => setForm((current) => ({ ...current, ageMax: event.target.value ? Number(event.target.value) : null }))}
               />
             </Field>
-            <div className="md:col-span-2">
-              <Field label="Descripción">
-                <textarea className={`${fieldClass} min-h-24`} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
-              </Field>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-gray-300">
-              <input type="checkbox" checked={form.active} onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))} />
-              Activa
-            </label>
           </div>
-          <div className="flex gap-2">
-            <button type="submit" disabled={saving} className={primaryButtonClass}>{saving ? 'Guardando...' : 'Guardar'}</button>
-            <button type="button" className={secondaryButtonClass} onClick={() => setForm(emptyCategory())}>Cancelar</button>
+          <Field label="Descripción">
+            <textarea className={`${fieldClass} min-h-20`} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+          </Field>
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input type="checkbox" checked={form.active} onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))} />
+            Activa
+          </label>
+          <div className="flex gap-2 border-t border-gray-700 pt-4">
+            <button type="submit" disabled={saving} className={primaryButtonClass}>
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+            <button type="button" className={secondaryButtonClass} onClick={closeDrawer}>
+              Cancelar
+            </button>
           </div>
         </form>
-      </SectionCard>
+      </SlideDrawer>
     </div>
   );
 }

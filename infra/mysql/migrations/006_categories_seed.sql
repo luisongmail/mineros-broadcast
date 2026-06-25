@@ -4,13 +4,14 @@
 
 INSERT IGNORE INTO categories (id, sport_id, name, description, active) VALUES
 
--- ─── PEQUEÑAS LIGAS — Béisbol Masculino ─────────────────────────────────────
-('cat-pb-tball',    'baseball_m', 'T-Ball',         'Iniciación, 4-6 años',           1),
-('cat-pb-novato',   'baseball_m', 'Novato',         'División Novato, 6-8 años',       1),
-('cat-pb-menor',    'baseball_m', 'Pequeñas Ligas', 'División principal, 9-12 años',   1),
-('cat-pb-junior',   'baseball_m', 'Junior',         'División Junior, 13-14 años',     1),
-('cat-pb-senior',   'baseball_m', 'Senior',         'División Senior, 15-16 años',     1),
-('cat-pb-biglearn', 'baseball_m', 'Big League',     'División Big League, 16-18 años', 1),
+-- ─── PEQUEÑAS LIGAS — Béisbol Masculino (Little League International) ────────
+('cat-pb-tball',        'baseball_m', 'T-Ball',                 'Iniciación, 4-7 años',                         1),
+('cat-pb-novato',       'baseball_m', 'Coach Pitch / Menores',  'División Menores (Coach Pitch), 5-8 años',      1),
+('cat-pb-rookies',      'baseball_m', 'Rookies / Player Pitch', 'División Rookies (Player Pitch), 8-11 años',    1),
+('cat-pb-menor',        'baseball_m', 'Pequeñas Ligas',         'División Mayor (Major), 9-12 años',             1),
+('cat-pb-intermediate', 'baseball_m', 'Intermediate 50/70',     'División Intermediate (50/70), 11-13 años',     1),
+('cat-pb-junior',       'baseball_m', 'Junior',                 'División Junior League, 12-14 años',            1),
+('cat-pb-senior',       'baseball_m', 'Senior',                 'División Senior League, 13-16 años',            1),
 
 -- ─── PONY LEAGUE — Béisbol Masculino ─────────────────────────────────────────
 ('cat-pony-shetland',  'baseball_m', 'Shetland',  'Pony League, 5-6 años',   1),
