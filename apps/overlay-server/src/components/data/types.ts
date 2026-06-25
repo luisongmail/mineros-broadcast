@@ -23,7 +23,7 @@ export type Team = {
   primaryColor: string;
   secondaryColor: string;
   logoAssetId: string;
-  categoryIds: string[];
+  categoryId: string;   // Una sola categoría por equipo
 };
 
 export type Player = {
@@ -135,7 +135,7 @@ export function normalizeCategory(value: unknown): Category {
 
 export function normalizeTeam(value: unknown): Team {
   const raw = (value ?? {}) as Record<string, unknown>;
-  const categories = Array.isArray(raw.categoryIds)
+  const rawCategories = Array.isArray(raw.categoryIds)
     ? raw.categoryIds
     : Array.isArray(raw.category_ids)
       ? raw.category_ids
@@ -146,6 +146,8 @@ export function normalizeTeam(value: unknown): Team {
             return asString(entry.id, asString(entry.categoryId, asString(entry.category_id, '')));
           })
         : [];
+
+  const validCategories = rawCategories.filter((item): item is string => typeof item === 'string' && item.length > 0);
 
   return {
     id: asString(raw.id, asString(raw.team_id, '')),
@@ -162,7 +164,7 @@ export function normalizeTeam(value: unknown): Team {
     primaryColor: asString(raw.primaryColor, asString(raw.primary_color, '#D71920')),
     secondaryColor: asString(raw.secondaryColor, asString(raw.secondary_color, '#1B2F5B')),
     logoAssetId: asString(raw.logoAssetId, asString(raw.logo_asset_id, '')),
-    categoryIds: categories.filter((item): item is string => typeof item === 'string' && item.length > 0),
+    categoryId: validCategories[0] ?? '',
   };
 }
 

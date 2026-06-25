@@ -9,7 +9,6 @@ import {
   Feedback,
   fieldClass,
   Field,
-  labelClass,
   primaryButtonClass,
   secondaryButtonClass,
   type DialogState,
@@ -50,7 +49,7 @@ function emptyTeam(): Team {
     clubId: '', clubName: '', clubFederated: false,
     clubAssociationId: '', clubAssociationName: '',
     primaryColor: '#D71920', secondaryColor: '#1B2F5B',
-    logoAssetId: '', categoryIds: [],
+    logoAssetId: '', categoryId: '',
   };
 }
 
@@ -108,7 +107,7 @@ export function TeamEditor() {
   const filtered = useMemo(() => teams.filter((t) => {
     const q = filterName.toLowerCase();
     if (q && !t.fullName.toLowerCase().includes(q) && !t.shortName.toLowerCase().includes(q)) return false;
-    if (filterCat && !t.categoryIds.includes(filterCat)) return false;
+    if (filterCat && t.categoryId !== filterCat) return false;
     return true;
   }), [teams, filterName, filterCat]);
 
@@ -129,14 +128,6 @@ export function TeamEditor() {
     setError(null);
     setDrawerOpen(true);
   }
-
-  const toggleCategory = (id: string) =>
-    setForm((f) => ({
-      ...f,
-      categoryIds: f.categoryIds.includes(id)
-        ? f.categoryIds.filter((x) => x !== id)
-        : [...f.categoryIds, id],
-    }));
 
   // Al seleccionar un club, propaga su estado de federación y asociación
   function selectClub(clubId: string) {
@@ -165,7 +156,7 @@ export function TeamEditor() {
         club_id:         form.clubId       || null,
         primary_color:   form.primaryColor || null,
         secondary_color: form.secondaryColor || null,
-        category_ids:    form.categoryIds,
+        category_ids:    form.categoryId ? [form.categoryId] : [],
       };
       let saved_: Team;
       if (editingId.current) {
@@ -265,15 +256,9 @@ export function TeamEditor() {
                     {team.shortName && <p className="text-[10px] text-white/40">{team.shortName}</p>}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {team.categoryIds.map((id) => {
-                        const cat = categoryMap.get(id);
-                        return cat ? (
-                          <span key={id} className="rounded-full border border-white/15 px-2 py-0.5 text-[9px] text-white/50">{cat.name}</span>
-                        ) : null;
-                      })}
-                      {team.categoryIds.length === 0 && <span className="text-white/25">—</span>}
-                    </div>
+                    {team.categoryId
+                      ? <span className="rounded-full border border-white/15 px-2 py-0.5 text-[9px] text-white/50">{categoryMap.get(team.categoryId)?.name ?? team.categoryId}</span>
+                      : <span className="text-white/25">—</span>}
                   </td>
                   <td className="px-3 py-2 text-white/60">{team.clubName || '—'}</td>
                   <td className="px-3 py-2">
@@ -345,18 +330,21 @@ export function TeamEditor() {
           {/* Categorías */}
           {categories.length > 0 && (
             <div>
-              <span className={labelClass}>Categorías</span>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {categories.map((cat) => {
-                  const on = form.categoryIds.includes(cat.id);
-                  return (
-                    <button key={cat.id} type="button" onClick={() => toggleCategory(cat.id)}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${on ? 'bg-mineros-gold text-broadcast-black' : 'border border-white/15 bg-white/5 text-white/60 hover:bg-white/10'}`}>
-                      {cat.name}
-                    </button>
-                  );
-                })}
-              </div>
+              <Field label="Categoría">
+                <SearchSelect
+                  options={[
+                    { value: '', label: 'Sin categoría' },
+                    ...categories.map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                      sublabel: c.description || undefined,
+                    })),
+                  ]}
+                  value={form.categoryId}
+                  onChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}
+                  placeholder="Seleccionar categoría…"
+                />
+              </Field>
             </div>
           )}
 
@@ -406,7 +394,7 @@ export function TeamEditor() {
               <div>
                 <p className="text-sm font-semibold text-white">{form.fullName}</p>
                 <p className="text-[10px] text-white/40">
-                  {form.categoryIds.map((id) => categoryMap.get(id)?.name ?? id).join(' · ') || 'Sin categoría'}
+                  {form.categoryId ? (categoryMap.get(form.categoryId)?.name ?? form.categoryId) : 'Sin categoría'}
                 </p>
               </div>
             </div>

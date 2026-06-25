@@ -18,7 +18,7 @@ export const mockTeams: Team[] = [
     primaryColor: '#D71920',
     secondaryColor: '#1B2F5B',
     logoAssetId: 'teams/logo-mineros',
-    categoryIds: ['cat-u15', 'cat-adultos'],
+    categoryId: 'cat-fed-bm-adulto',
   },
   {
     id: 'team-aguilas',
@@ -31,7 +31,7 @@ export const mockTeams: Team[] = [
     primaryColor: '#FACC15',
     secondaryColor: '#111827',
     logoAssetId: 'teams/logo-aguilas',
-    categoryIds: ['cat-u12'],
+    categoryId: 'cat-fed-bm-sub15',
   },
 ];
 
