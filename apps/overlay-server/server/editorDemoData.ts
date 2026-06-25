@@ -1,0 +1,474 @@
+export interface DemoCategory {
+  id: string;
+  sport_id: string;
+  name: string;
+  description: string | null;
+  active: number;
+  created_at: string;
+}
+
+export interface DemoTeam {
+  id: string;
+  name: string;
+  short_name: string;
+  logo_asset_id: string | null;
+  logo_wordmark_asset_id: string | null;
+  logo_alternate_asset_id: string | null;
+  city: string | null;
+  country: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  founded_year: number | null;
+  active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DemoPlayer {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  nickname: string | null;
+  name: string;
+  team_id: string;
+  number: string;
+  position: string;
+  bats: string | null;
+  throws: string | null;
+  photo_asset_id: string | null;
+  photo_action_asset_id: string | null;
+  stats: Record<string, unknown>;
+  status: string;
+  date_of_birth: string | null;
+  nationality: string | null;
+  gender: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DemoStaff {
+  id: string;
+  team_id: string;
+  tournament_id: string | null;
+  name: string;
+  role: string;
+  photo_asset_id: string | null;
+  active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DemoLeague {
+  id: string;
+  sport_id: string;
+  name: string;
+  short_name: string | null;
+  country: string;
+  level: string | null;
+  logo_asset_id: string | null;
+  banner_asset_id: string | null;
+  active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DemoTournament {
+  id: string;
+  league_id: string;
+  category_id: string | null;
+  name: string;
+  short_name: string | null;
+  type: string | null;
+  season: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  rules: Record<string, unknown> | null;
+  logo_asset_id: string | null;
+  banner_asset_id: string | null;
+  trophy_asset_id: string | null;
+  status: string;
+  structure_type: string | null;
+  num_rounds: number | null;
+  has_playoffs: number;
+  playoff_format: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DemoTournamentGroup {
+  id: string;
+  tournament_id: string;
+  name: string;
+  order_num: number;
+  created_at: string;
+}
+
+export interface DemoTournamentGroupTeam {
+  group_id: string;
+  team_id: string;
+  seeding: number | null;
+}
+
+export interface DemoStanding {
+  id: string;
+  tournament_id: string;
+  group_id: string | null;
+  team_id: string;
+  JG: number;
+  JP: number;
+  JE: number;
+  PCT: number;
+  RA: number;
+  RC: number;
+  Dif: number;
+  updated_at: string;
+}
+
+export interface DemoSponsor {
+  id: string;
+  name: string;
+  brand: string;
+  asset_id: string | null;
+  status: string;
+  priority: number;
+  weight: number;
+  allowed_placements: string[];
+  start_date: string | null;
+  end_date: string | null;
+  exposure_limits: Record<string, unknown>;
+  blackout_rules: unknown[];
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DemoPitch {
+  id: string;
+  game_id: string;
+  at_bat_id: string | null;
+  pitcher_player_id: string;
+  batter_player_id: string;
+  pitch_num: number;
+  pitch_type: string | null;
+  zone_x: number | null;
+  zone_y: number | null;
+  umpire_call: string;
+  inning: number;
+  inning_half: string;
+  operator_id: string;
+  timestamp: string;
+}
+
+export interface DemoGameEvent {
+  id: string;
+  game_id: string;
+  event_type: string;
+  at_bat_id: string | null;
+  inning: number;
+  inning_half: string;
+  batter_player_id: string | null;
+  pitcher_player_id: string | null;
+  payload: Record<string, unknown>;
+  operator_id: string;
+  created_at: string;
+}
+
+export const demoCategories: DemoCategory[] = [
+  {
+    id: 'cat-juvenil',
+    sport_id: 'baseball',
+    name: 'Juvenil',
+    description: 'Categoría de desarrollo para torneos juveniles.',
+    active: 1,
+    created_at: '2026-01-10T12:00:00.000Z',
+  },
+  {
+    id: 'cat-mayor',
+    sport_id: 'baseball',
+    name: 'Mayor',
+    description: 'Categoría principal para competencias superiores.',
+    active: 1,
+    created_at: '2026-01-10T12:05:00.000Z',
+  },
+];
+
+export const demoTeams: DemoTeam[] = [
+  {
+    id: 'team-mineros',
+    name: 'Mineros de Santiago',
+    short_name: 'MIN',
+    logo_asset_id: 'asset-mineros-logo',
+    logo_wordmark_asset_id: 'asset-mineros-wordmark',
+    logo_alternate_asset_id: null,
+    city: 'Santiago',
+    country: 'DO',
+    primary_color: '#D71920',
+    secondary_color: '#1B2F5B',
+    founded_year: 2018,
+    active: 1,
+    created_at: '2026-01-10T12:10:00.000Z',
+    updated_at: '2026-01-10T12:10:00.000Z',
+  },
+  {
+    id: 'team-aguilas-cibao-demo',
+    name: 'Águilas del Cibao Demo',
+    short_name: 'AGD',
+    logo_asset_id: 'asset-aguilas-logo',
+    logo_wordmark_asset_id: null,
+    logo_alternate_asset_id: null,
+    city: 'Santiago',
+    country: 'DO',
+    primary_color: '#D4AF37',
+    secondary_color: '#0D0D0D',
+    founded_year: 2020,
+    active: 1,
+    created_at: '2026-01-10T12:15:00.000Z',
+    updated_at: '2026-01-10T12:15:00.000Z',
+  },
+];
+
+export const demoTeamCategories = [
+  { team_id: 'team-mineros', category_id: 'cat-juvenil' },
+  { team_id: 'team-mineros', category_id: 'cat-mayor' },
+  { team_id: 'team-aguilas-cibao-demo', category_id: 'cat-mayor' },
+];
+
+export const demoPlayers: DemoPlayer[] = [
+  {
+    id: 'player-rivera-9',
+    first_name: 'José',
+    last_name: 'Rivera',
+    nickname: 'Pepe',
+    name: 'José Rivera',
+    team_id: 'team-mineros',
+    number: '9',
+    position: 'CF',
+    bats: 'R',
+    throws: 'R',
+    photo_asset_id: null,
+    photo_action_asset_id: null,
+    stats: { avg: 0.347 },
+    status: 'active',
+    date_of_birth: '2004-08-12',
+    nationality: 'DO',
+    gender: 'male',
+    created_at: '2026-01-10T12:20:00.000Z',
+    updated_at: '2026-01-10T12:20:00.000Z',
+  },
+  {
+    id: 'player-mendez-18',
+    first_name: 'Luis',
+    last_name: 'Méndez',
+    nickname: null,
+    name: 'Luis Méndez',
+    team_id: 'team-mineros',
+    number: '18',
+    position: 'P',
+    bats: 'L',
+    throws: 'L',
+    photo_asset_id: null,
+    photo_action_asset_id: null,
+    stats: { era: 2.41 },
+    status: 'active',
+    date_of_birth: '2002-02-20',
+    nationality: 'DO',
+    gender: 'male',
+    created_at: '2026-01-10T12:21:00.000Z',
+    updated_at: '2026-01-10T12:21:00.000Z',
+  },
+];
+
+export const demoRosters = [
+  {
+    id: 'roster-demo-mineros-juvenil-rivera',
+    tournament_id: 'tournament-copa-norte-2026',
+    team_id: 'team-mineros',
+    player_id: 'player-rivera-9',
+    number: '9',
+    position: 'CF',
+    batting_slot: 1,
+    status: 'active',
+  },
+  {
+    id: 'roster-demo-mineros-juvenil-mendez',
+    tournament_id: 'tournament-copa-norte-2026',
+    team_id: 'team-mineros',
+    player_id: 'player-mendez-18',
+    number: '18',
+    position: 'P',
+    batting_slot: 9,
+    status: 'active',
+  },
+];
+
+export const demoStaff: DemoStaff[] = [
+  {
+    id: 'staff-demo-manager-mineros',
+    team_id: 'team-mineros',
+    tournament_id: null,
+    name: 'Carlos Peña',
+    role: 'manager',
+    photo_asset_id: null,
+    active: 1,
+    created_at: '2026-01-10T12:30:00.000Z',
+    updated_at: '2026-01-10T12:30:00.000Z',
+  },
+  {
+    id: 'staff-demo-pitcher-mineros',
+    team_id: 'team-mineros',
+    tournament_id: 'tournament-copa-norte-2026',
+    name: 'Miguel Santos',
+    role: 'pitcher_coach',
+    photo_asset_id: null,
+    active: 1,
+    created_at: '2026-01-10T12:31:00.000Z',
+    updated_at: '2026-01-10T12:31:00.000Z',
+  },
+];
+
+export const demoLeagues: DemoLeague[] = [
+  {
+    id: 'league-liga-norte',
+    sport_id: 'baseball',
+    name: 'Liga del Norte',
+    short_name: 'LDN',
+    country: 'DO',
+    level: 'amateur',
+    logo_asset_id: null,
+    banner_asset_id: null,
+    active: 1,
+    created_at: '2026-01-10T12:40:00.000Z',
+    updated_at: '2026-01-10T12:40:00.000Z',
+  },
+];
+
+export const demoTournaments: DemoTournament[] = [
+  {
+    id: 'tournament-copa-norte-2026',
+    league_id: 'league-liga-norte',
+    category_id: 'cat-juvenil',
+    name: 'Copa del Norte 2026',
+    short_name: 'Copa Norte',
+    type: 'regular_season',
+    season: '2026',
+    start_date: '2026-03-10',
+    end_date: '2026-04-15',
+    rules: { mercyRule: true },
+    logo_asset_id: null,
+    banner_asset_id: null,
+    trophy_asset_id: null,
+    status: 'live',
+    structure_type: 'group_stage',
+    num_rounds: 1,
+    has_playoffs: 1,
+    playoff_format: 'semifinal_final',
+    created_at: '2026-01-10T12:45:00.000Z',
+    updated_at: '2026-01-10T12:45:00.000Z',
+  },
+];
+
+export const demoTournamentTeams = [
+  { tournament_id: 'tournament-copa-norte-2026', team_id: 'team-mineros', seeding: 1, eliminated: 0 },
+  { tournament_id: 'tournament-copa-norte-2026', team_id: 'team-aguilas-cibao-demo', seeding: 2, eliminated: 0 },
+];
+
+export const demoTournamentGroups: DemoTournamentGroup[] = [
+  {
+    id: 'group-a-demo',
+    tournament_id: 'tournament-copa-norte-2026',
+    name: 'Grupo A',
+    order_num: 1,
+    created_at: '2026-01-10T12:50:00.000Z',
+  },
+];
+
+export const demoTournamentGroupTeams: DemoTournamentGroupTeam[] = [
+  { group_id: 'group-a-demo', team_id: 'team-mineros', seeding: 1 },
+  { group_id: 'group-a-demo', team_id: 'team-aguilas-cibao-demo', seeding: 2 },
+];
+
+export const demoStandings: DemoStanding[] = [
+  {
+    id: 'standing-mineros-demo',
+    tournament_id: 'tournament-copa-norte-2026',
+    group_id: 'group-a-demo',
+    team_id: 'team-mineros',
+    JG: 3,
+    JP: 1,
+    JE: 0,
+    PCT: 0.75,
+    RA: 14,
+    RC: 22,
+    Dif: 8,
+    updated_at: '2026-03-18T01:15:00.000Z',
+  },
+  {
+    id: 'standing-aguilas-demo',
+    tournament_id: 'tournament-copa-norte-2026',
+    group_id: 'group-a-demo',
+    team_id: 'team-aguilas-cibao-demo',
+    JG: 2,
+    JP: 2,
+    JE: 0,
+    PCT: 0.5,
+    RA: 18,
+    RC: 18,
+    Dif: 0,
+    updated_at: '2026-03-18T01:15:00.000Z',
+  },
+];
+
+export const demoSponsors: DemoSponsor[] = [
+  {
+    id: 'sponsor-mineros-ferreteria',
+    name: 'Ferretería Central',
+    brand: 'Ferretería Central',
+    asset_id: 'asset-sponsor-ferreteria',
+    status: 'active',
+    priority: 80,
+    weight: 20,
+    allowed_placements: ['scorebug', 'lower_third'],
+    start_date: '2026-03-01T00:00:00.000Z',
+    end_date: '2026-12-31T23:59:59.000Z',
+    exposure_limits: { perGame: 12 },
+    blackout_rules: [],
+    metadata: { contact: 'ventas@ferreteriacentral.do' },
+    created_at: '2026-01-10T13:00:00.000Z',
+    updated_at: '2026-01-10T13:00:00.000Z',
+  },
+];
+
+export const demoPitches: DemoPitch[] = [
+  {
+    id: 'pitch-demo-1',
+    game_id: 'game-demo-001',
+    at_bat_id: 'ab-demo-1',
+    pitcher_player_id: 'player-mendez-18',
+    batter_player_id: 'player-rivera-9',
+    pitch_num: 1,
+    pitch_type: 'recta',
+    zone_x: 4,
+    zone_y: 3,
+    umpire_call: 'strike',
+    inning: 1,
+    inning_half: 'top',
+    operator_id: 'demo-operator',
+    timestamp: '2026-03-18T18:05:10.000Z',
+  },
+];
+
+export const demoGameEvents: DemoGameEvent[] = [
+  {
+    id: 'event-demo-1',
+    game_id: 'game-demo-001',
+    event_type: 'pitch',
+    at_bat_id: 'ab-demo-1',
+    inning: 1,
+    inning_half: 'top',
+    batter_player_id: 'player-rivera-9',
+    pitcher_player_id: 'player-mendez-18',
+    payload: { umpire_call: 'strike', zone_x: 4, zone_y: 3 },
+    operator_id: 'demo-operator',
+    created_at: '2026-03-18T18:05:10.000Z',
+  },
+];

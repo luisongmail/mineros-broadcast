@@ -19,6 +19,7 @@ import { PitcherOverlay } from '@mineros/overlay-pitcher';
 import { GameConfigPanel } from './components/GameConfigPanel';
 import { MatchMetadataEditor } from './components/MatchMetadataEditor';
 import { LayoutEditor } from './components/LayoutEditor';
+import { DataPanel } from './components/data/DataPanel';
 import { useBroadcastWS } from './hooks/useBroadcastWS';
 import {
   DEMO_GAME_DETAIL,
@@ -481,7 +482,7 @@ function OperatorControlPanel() {
 
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [rightTab, setRightTab] = useState<'config' | 'history' | 'layout' | 'obs' | 'metadata'>('config');
+  const [rightTab, setRightTab] = useState<'config' | 'history' | 'layout' | 'obs' | 'metadata' | 'data'>('config');
   const handleResetGame = useCallback(async () => {
     setResetting(true);
     try {
@@ -1189,6 +1190,7 @@ function OperatorControlPanel() {
               [
                 { key: 'config', label: 'Config' },
                 { key: 'metadata', label: 'Partido' },
+                { key: 'data', label: '🗃️ Datos' },
                 { key: 'history', label: 'Hist.' },
                 { key: 'layout', label: 'Layout' },
                 { key: 'obs', label: 'OBS' },
@@ -1227,6 +1229,15 @@ function OperatorControlPanel() {
                   Datos del partido · Competencia · Sponsors
                 </p>
                 <MatchMetadataEditor gameId={game.gameId} />
+              </div>
+            )}
+
+            {rightTab === 'data' && (
+              <div className="p-3">
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-white/35">
+                  Equipos · Roster · Categorías · Torneos · Sponsors
+                </p>
+                <DataPanel />
               </div>
             )}
 

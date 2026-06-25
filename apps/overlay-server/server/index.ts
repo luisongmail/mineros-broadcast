@@ -7,12 +7,17 @@ import { fileURLToPath } from 'node:url';
 import cors, { type CorsOptions } from 'cors';
 import express, { type Request, type Response } from 'express';
 
+import categoriesRouter from './categoriesRouter';
 import { handleCommand, parseCommandRequest } from './commandHandler';
 import { gameConfigRouter } from './gameConfigRouter';
 import { layoutRouter } from './layoutRouter';
+import leaguesTournamentsRouter from './leaguesTournamentsRouter';
 import { matchMetadataRouter } from './matchMetadataRouter';
+import pitchesRouter from './pitchesRouter';
 import { scorerRouter } from './scorerRouter';
+import sponsorsRouter from './sponsorsRouter';
 import { stateStore } from './stateStore';
+import teamsRouter from './teamsRouter';
 import { attachWebSocketServer } from './wsServer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -112,10 +117,15 @@ app.use((_request, response, next) => {
   setCompatibilityHeaders(response);
   next();
 });
+app.use('/api', categoriesRouter);
 app.use('/api', gameConfigRouter);
 app.use('/api', layoutRouter);
+app.use('/api', leaguesTournamentsRouter);
 app.use('/api', matchMetadataRouter);
+app.use('/api', pitchesRouter);
 app.use('/api', scorerRouter);
+app.use('/api', sponsorsRouter);
+app.use('/api', teamsRouter);
 
 // Assets locales: storage/assets/ → /assets/*
 // En producción se usa ASSETS_BASE_URL apuntando a Azure Blob Storage.
