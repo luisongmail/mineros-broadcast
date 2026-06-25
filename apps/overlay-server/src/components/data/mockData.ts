@@ -91,6 +91,8 @@ export const mockTournaments: Tournament[] = [
     id: 'tournament-apertura',
     name: 'Torneo Apertura 2026',
     shortName: 'Apertura 26',
+    type: 'tournament',
+    season: '2026',
     leagueId: 'league-lnb',
     categoryId: 'cat-adultos',
     structureType: 'group_stage',

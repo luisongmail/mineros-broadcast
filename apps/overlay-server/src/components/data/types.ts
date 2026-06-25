@@ -72,6 +72,8 @@ export type Tournament = {
   id: string;
   name: string;
   shortName: string;
+  type: string;
+  season: string;
   leagueId: string;
   categoryId: string;
   structureType: 'round_robin' | 'single_elimination' | 'group_stage' | 'exhibition';
@@ -231,6 +233,8 @@ export function normalizeTournament(value: unknown): Tournament {
     id: asString(raw.id, asString(raw.tournament_id, '')),
     name: asString(raw.name),
     shortName: asString(raw.shortName, asString(raw.short_name, '')),
+    type: asString(raw.type, 'league'),
+    season: asString(raw.season, ''),
     leagueId: asString(raw.leagueId, asString(raw.league_id, '')),
     categoryId: asString(raw.categoryId, asString(raw.category_id, '')),
     structureType: asString(raw.structureType, asString(raw.structure_type, 'round_robin')) as Tournament['structureType'],
