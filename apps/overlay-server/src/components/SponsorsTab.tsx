@@ -4,6 +4,7 @@ import type { MatchMetadata, SponsorEntry } from '../matchMetadata';
 import { SearchSelect } from './data/SearchSelect';
 import { normalizeSponsor, type Sponsor } from './data/types';
 import { SlideDrawer } from './data/SlideDrawer';
+import { ConfirmDialog, type DialogState } from './data/shared';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
@@ -28,6 +29,7 @@ function SponsorCrudSection() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -80,14 +82,25 @@ function SponsorCrudSection() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('¿Eliminar este sponsor?')) return;
-    try {
-      await apiFetch(`/sponsors/${id}`, { method: 'DELETE' });
-      setSponsors((prev) => prev.filter((s) => s.id !== id));
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Error al eliminar');
-    }
+  function handleDelete(id: string, name: string) {
+    setDialog({
+      title: '¿Eliminar sponsor?',
+      message: `«${name}» será eliminado permanentemente y no podrá asignarse a nuevos partidos.`,
+      tone: 'danger',
+      confirmLabel: 'Eliminar',
+      onConfirm: async () => {
+        try {
+          await apiFetch(`/sponsors/${id}`, { method: 'DELETE' });
+          setSponsors((prev) => prev.filter((s) => s.id !== id));
+        } catch (e) {
+          setDialog({
+            title: 'Error al eliminar',
+            message: e instanceof Error ? e.message : 'Error al eliminar el sponsor.',
+            tone: 'error',
+          });
+        }
+      },
+    });
   }
 
   return (
@@ -130,7 +143,7 @@ function SponsorCrudSection() {
                   <td className="px-3 py-2 text-white/50">{s.priority}</td>
                   <td className="px-2 py-2 flex gap-1">
                     <button type="button" onClick={() => openEdit(s)} className="text-white/40 hover:text-mineros-gold transition text-xs">✏️</button>
-                    <button type="button" onClick={() => { void handleDelete(s.id); }} className="text-white/40 hover:text-red-400 transition text-xs">🗑️</button>
+                    <button type="button" onClick={() => handleDelete(s.id, s.name)} className="text-white/40 hover:text-red-400 transition text-xs">🗑️</button>
                   </td>
                 </tr>
               ))}
@@ -205,6 +218,8 @@ function SponsorCrudSection() {
           </div>
         </div>
       </SlideDrawer>
+
+      <ConfirmDialog state={dialog} onClose={() => setDialog(null)} />
     </div>
   );
 }

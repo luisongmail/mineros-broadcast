@@ -58,7 +58,7 @@ matchMetadataRouter.get('/games/:id/metadata', (req: Request, res: Response) => 
 
 /** Valida que todos los sponsorIds del array existan en MySQL. Devuelve los IDs inválidos. */
 async function validateSponsorIds(entries: SponsorEntry[]): Promise<string[]> {
-  if (!hasDatabaseConfigured() || entries.length === 0) return [];
+  if (!hasDatabaseConfigured() || !pool || entries.length === 0) return [];
   const ids = entries.map((e) => e.sponsorId);
   const placeholders = ids.map(() => '?').join(',');
   const [rows] = await pool.query<RowDataPacket[]>(
