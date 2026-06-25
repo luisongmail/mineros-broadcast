@@ -12,6 +12,7 @@ import type {
   TeamRole,
 } from '@mineros/game-engine';
 import { SOFTBALL_FAST_RULES } from '@mineros/game-engine';
+import type { ScoreboardOverlayData } from '@mineros/overlay-scoreboard';
 
 export type GameConfigSource = 'demo' | 'mysql';
 
@@ -174,6 +175,127 @@ export const DEMO_GAME_DETAIL: GameConfigDetail = {
   lineups: {
     home: DEMO_HOME_LINEUP,
     away: DEMO_AWAY_LINEUP,
+  },
+};
+
+
+export const DEMO_SCOREBOARD_DATA: ScoreboardOverlayData = {
+  schemaVersion: '1.0.0',
+  correlationId: 'demo-scoreboard',
+  overlay: 'baseball_scoreboard_board',
+  variant: 'full_board',
+  branding: {
+    brandName: 'Mineros Broadcast',
+    brandLogoAssetId: 'brands/mineros-broadcast-logo',
+  },
+  competition: {
+    name: 'Liga Oriente',
+    tournament: 'Torneo Apertura 2026',
+    category: 'Categoría Infantil',
+  },
+  venue: {
+    name: 'Estadio Lo Prado',
+  },
+  game: {
+    gameId: 'game-2026-001',
+    gameType: 'Juego Regular',
+    date: '2026-06-25',
+    startTime: '13:30',
+    configuredInnings: 7,
+    remainingTime: '48:12',
+    status: 'live',
+  },
+  teams: {
+    away: {
+      teamId: 'team-anderson',
+      displayName: 'Team Anderson',
+      abbr: 'TAI',
+      logoAssetId: 'teams/team-anderson-logo',
+    },
+    home: {
+      teamId: 'astros',
+      displayName: 'Astros',
+      abbr: 'AST',
+      logoAssetId: 'teams/astros-logo',
+    },
+  },
+  lineScore: {
+    innings: [
+      { inning: 1, away: 0, home: 1 },
+      { inning: 2, away: 0, home: 0 },
+      { inning: 3, away: 1, home: 0 },
+      { inning: 4, away: 1, home: 3 },
+      { inning: 5, away: null, home: null },
+      { inning: 6, away: null, home: null },
+      { inning: 7, away: null, home: null },
+    ],
+    totals: {
+      away: { runs: 2, hits: 5, errors: 1 },
+      home: { runs: 4, hits: 6, errors: 0 },
+    },
+  },
+  battingTeam: {
+    teamId: 'astros',
+    displayName: 'Astros',
+    abbr: 'AST',
+    logoAssetId: 'teams/astros-logo',
+  },
+  nextBatters: [
+    { order: 1, playerId: 'player-012', playerNumber: '12', playerName: 'S. Sánchez', position: 'SS', battingHand: 'BD', avg: '.333', hits: 2, rbi: 1, today: '1-2' },
+    { order: 2, playerId: 'player-018', playerNumber: '18', playerName: 'C. Arias', position: 'CF', battingHand: 'BI', avg: '.286', hits: 1, rbi: 0, today: '0-1' },
+    { order: 3, playerId: 'player-023', playerNumber: '23', playerName: 'I. Córdova', position: '1B', battingHand: 'BD', avg: '.417', hits: 3, rbi: 2, today: '2-2' },
+  ],
+  pitchers: {
+    away: {
+      teamId: 'team-anderson',
+      teamAbbr: 'TAI',
+      teamLogoAssetId: 'teams/team-anderson-logo',
+      playerId: 'player-045',
+      playerNumber: '45',
+      playerName: 'R. Gómez',
+      ip: '3.0',
+      runsAllowed: 4,
+      hitsAllowed: 6,
+      walks: 2,
+      strikeouts: 3,
+      pitchCount: 64,
+    },
+    home: {
+      teamId: 'astros',
+      teamAbbr: 'AST',
+      teamLogoAssetId: 'teams/astros-logo',
+      playerId: 'player-021',
+      playerNumber: '21',
+      playerName: 'C. Jara',
+      ip: '4.0',
+      runsAllowed: 2,
+      hitsAllowed: 5,
+      walks: 1,
+      strikeouts: 5,
+      pitchCount: 54,
+    },
+  },
+  sponsors: [
+    { sponsorId: 'merchise', displayName: 'Merchise', logoAssetId: 'sponsors/merchise-logo', text: 'Tecnología para la transmisión', priority: 1, active: true },
+    { sponsorId: 'storeware', displayName: 'Storeware', logoAssetId: 'sponsors/storeware-logo', text: 'Plataforma oficial de datos', priority: 2, active: true },
+    { sponsorId: 'pjd', displayName: 'PJD', logoAssetId: 'sponsors/pjd-logo', text: 'Auspiciador de la jornada', priority: 3, active: true },
+  ],
+  layout: {
+    preferredZone: 'center',
+    priority: 80,
+    persistent: false,
+    safeArea: 60,
+    durationMs: 12000,
+    sponsorGrid: {
+      enabled: true,
+      visibleCards: 3,
+      direction: 'right_to_left',
+      transitionMs: 450,
+      holdMs: 5000,
+      showPartialNextCard: true,
+      cardGapPx: 22,
+      cardMode: 'logo_text',
+    },
   },
 };
 

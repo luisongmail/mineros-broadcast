@@ -157,6 +157,7 @@ layoutRouter.put('/layouts/game/:gameId', async (req: Request, res: Response) =>
 
 const OVERLAY_DEFAULT_ANIM: Record<string, { animIn: OverlayAnimIn; animOut: OverlayAnimOut }> = {
   scorebug:           { animIn: 'slide_up',   animOut: 'slide_down_out' },
+  scoreboard:         { animIn: 'fade_in',    animOut: 'fade_out' },
   batter:             { animIn: 'slide_up',   animOut: 'fade_out' },
   pitcher:            { animIn: 'slide_up',   animOut: 'fade_out' },
   'next-batters':     { animIn: 'slide_up',   animOut: 'fade_out' },

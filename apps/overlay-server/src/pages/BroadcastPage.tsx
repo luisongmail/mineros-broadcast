@@ -10,12 +10,14 @@ import { LineupOverlay } from '@mineros/overlay-lineup';
 import { NextBattersOverlay } from '@mineros/overlay-next-batters';
 import { PitcherOverlay } from '@mineros/overlay-pitcher';
 import { Scorebug } from '@mineros/overlay-scorebug';
+import { ScoreboardOverlay } from '@mineros/overlay-scoreboard';
 import { SocialLowerThirdOverlay } from '@mineros/overlay-social-lower-third';
 import { SponsorBreakOverlay } from '@mineros/overlay-sponsor-break';
 import { SubstitutionOverlay } from '@mineros/overlay-substitution';
 
 import { DEMO_GAME_DETAIL, createDemoGameState, findPlayerById } from '../gameConfig';
 import { useBroadcastWS } from '../hooks/useBroadcastWS';
+import { createScoreboardOverlayData } from '../scoreboardData';
 import './BroadcastPage.css';
 
 interface LivePlayerStats {
@@ -81,6 +83,7 @@ interface OverlayVisibility {
   countdown: VisibilityState;
   substitution: VisibilityState;
   'game-event': VisibilityState;
+  scoreboard: VisibilityState;
 }
 
 const DEFAULT_VISIBILITY: OverlayVisibility = {
@@ -97,6 +100,7 @@ const DEFAULT_VISIBILITY: OverlayVisibility = {
   countdown: 'hidden',
   substitution: 'hidden',
   'game-event': 'hidden',
+  scoreboard: 'hidden',
 };
 
 const HIDDEN_VISIBILITY: OverlayVisibility = {
@@ -113,6 +117,7 @@ const HIDDEN_VISIBILITY: OverlayVisibility = {
   countdown: 'hidden',
   substitution: 'hidden',
   'game-event': 'hidden',
+  scoreboard: 'hidden',
 };
 
 const OVERLAY_KEYS = Object.keys(DEFAULT_VISIBILITY) as Array<keyof OverlayVisibility>;
@@ -447,6 +452,7 @@ const DEFAULT_ANIM_IN: Record<string, OverlayAnimIn> = {
   'sponsor-break': 'slide_up',
   substitution: 'slide_up',
   'game-event': 'slide_up',
+  scoreboard: 'fade_in',
 };
 
 const DEFAULT_ANIM_OUT: Record<string, OverlayAnimOut> = {
@@ -463,6 +469,7 @@ const DEFAULT_ANIM_OUT: Record<string, OverlayAnimOut> = {
   'sponsor-break': 'fade_out',
   substitution: 'fade_out',
   'game-event': 'fade_out',
+  scoreboard: 'fade_out',
 };
 
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
@@ -708,6 +715,10 @@ export function BroadcastPage() {
   }, [lineupRole, resolvedGameState.lineup]);
 
   const basesLabel = useMemo(() => toBasesLabel(resolvedGameState), [resolvedGameState]);
+  const scoreboardData = useMemo(
+    () => createScoreboardOverlayData(DEMO_GAME_DETAIL, resolvedGameState, { liveStats, livePitcherStats }),
+    [livePitcherStats, liveStats, resolvedGameState],
+  );
 
   const getZoneAnim = useCallback(
     (id: string): { animIn: OverlayAnimIn; animOut: OverlayAnimOut } => ({
@@ -818,6 +829,16 @@ export function BroadcastPage() {
       <ZoneLayer overlayId="scorebug">
         <OverlaySlot visibility={visibility.scorebug} {...getZoneAnim('scorebug')}>
           <Scorebug game={resolvedGameState} assetBaseUrl={import.meta.env.VITE_ASSETS_BASE_URL} />
+        </OverlaySlot>
+      </ZoneLayer>
+
+      <ZoneLayer overlayId="scoreboard">
+        <OverlaySlot visibility={visibility.scoreboard} {...getZoneAnim('scoreboard')}>
+          <ScoreboardOverlay
+            data={scoreboardData}
+            assetBaseUrl={import.meta.env.VITE_ASSETS_BASE_URL}
+            isPaused={visibility.scoreboard !== 'live'}
+          />
         </OverlaySlot>
       </ZoneLayer>
 

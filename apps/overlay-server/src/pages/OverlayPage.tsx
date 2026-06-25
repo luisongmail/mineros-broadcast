@@ -8,12 +8,16 @@ import { LineupOverlay } from '@mineros/overlay-lineup';
 import { NextBattersOverlay } from '@mineros/overlay-next-batters';
 import { PitcherOverlay } from '@mineros/overlay-pitcher';
 import { Scorebug } from '@mineros/overlay-scorebug';
+import { ScoreboardOverlay } from '@mineros/overlay-scoreboard';
 import { SponsorBreakOverlay } from '@mineros/overlay-sponsor-break';
 import { AnnouncementOverlay } from '@mineros/overlay-announcement';
 import { SocialLowerThirdOverlay } from '@mineros/overlay-social-lower-third';
 import { CountdownOverlay } from '@mineros/overlay-countdown';
 import { SubstitutionOverlay } from '@mineros/overlay-substitution';
 import { GameEventOverlay } from '@mineros/overlay-game-event';
+
+import { DEMO_GAME_DETAIL } from '../gameConfig';
+import { createScoreboardOverlayData } from '../scoreboardData';
 
 type OverlayId =
   | 'scorebug'
@@ -29,7 +33,8 @@ type OverlayId =
   | 'countdown'
   | 'sponsor-break'
   | 'substitution'
-  | 'game-event';
+  | 'game-event'
+  | 'scoreboard';
 
 type OverlayDefinition = {
   defaultVariant: string;
@@ -64,6 +69,7 @@ const OVERLAYS: Record<Exclude<OverlayId, 'scorebug'>, OverlayDefinition> = {
   'sponsor-break': { defaultVariant: 'lower_third_compact' },
   substitution: { defaultVariant: 'lower_third_compact' },
   'game-event': { defaultVariant: 'lower_third_compact' },
+  scoreboard: { defaultVariant: 'full_board' },
 };
 
 const homeTeam: GameTeam = {
@@ -157,7 +163,7 @@ function createDefaultGameState(): GameState {
 }
 
 function isOverlayId(value: string | undefined): value is OverlayId {
-  const valid: OverlayId[] = ['scorebug', 'batter', 'pitcher', 'lineup', 'next-batters', 'inning-transition', 'final-score', 'announcement', 'social', 'social-lower-third', 'countdown', 'sponsor-break', 'substitution', 'game-event'];
+  const valid: OverlayId[] = ['scorebug', 'scoreboard', 'batter', 'pitcher', 'lineup', 'next-batters', 'inning-transition', 'final-score', 'announcement', 'social', 'social-lower-third', 'countdown', 'sponsor-break', 'substitution', 'game-event'];
   return valid.includes(value as OverlayId);
 }
 
@@ -311,6 +317,8 @@ function renderOverlay(overlayId: OverlayId, gameState: GameState, variant?: str
     inningHalf: gameState.inningHalf,
   };
 
+  const scoreboardData = createScoreboardOverlayData(DEMO_GAME_DETAIL, gameState);
+
   const gameEventData = {
     gameId: 'demo-game-001',
     event: { type: 'double' as const, label: 'DOBLE', description: 'Doble al jardin derecho', direction: 'Jardin derecho' },
@@ -322,6 +330,8 @@ function renderOverlay(overlayId: OverlayId, gameState: GameState, variant?: str
   switch (overlayId) {
     case 'scorebug':
       return <Scorebug game={gameState} />;
+    case 'scoreboard':
+      return <ScoreboardOverlay data={scoreboardData} assetBaseUrl={import.meta.env.VITE_ASSETS_BASE_URL} isPaused />;
     case 'batter':
       return <BatterOverlay batter={DEMO_BATTERS[0]} variant={resolvedVariant as never} />;
     case 'pitcher':

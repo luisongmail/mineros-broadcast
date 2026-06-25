@@ -23,6 +23,7 @@ export interface Layout {
 const OVERLAY_LABELS: Record<string, string> = {
   scorebug: 'Scorebug',
   batter: 'Bateador',
+  scoreboard: 'Scoreboard',
   'next-batters': 'Próximas Bateadoras',
   pitcher: 'Pitcher',
   'inning-transition': 'Transición Entrada',
@@ -39,6 +40,7 @@ const OVERLAY_LABELS: Record<string, string> = {
 const OVERLAY_COLORS: Record<string, string> = {
   scorebug: '#D71920',
   batter: '#1B2F5B',
+  scoreboard: '#D4AF37',
   'next-batters': '#2E4A7A',
   pitcher: '#D4AF37',
   'inning-transition': '#6B21A8',
@@ -60,6 +62,7 @@ const OVERLAY_COLORS: Record<string, string> = {
 const OVERLAY_FOOTPRINT: Record<string, { x: number; y: number; width: number; height: number }> = {
   // bottom-[60px] left-[60px] min-w-[620px] → y = 1080-60-88 = 932
   scorebug:           { x: 60,  y: 932, width: 620,  height: 88  },
+  scoreboard:         { x: 60,  y: 60,  width: 1800, height: 960 },
   // lower_third: bottom-[60px] left-[60px] min-h-[72px] min-w-[420px] py-3 → y = 1080-60-72 = 948
   batter:             { x: 60,  y: 948, width: 420,  height: 72  },
   // bottom-[160px] left-[60px] w-[980px] — left accent + 3 cols compactas → h≈120 → y = 800

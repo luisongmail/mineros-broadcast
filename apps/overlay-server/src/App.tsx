@@ -6,6 +6,7 @@ import { FinalScoreOverlay } from '@mineros/overlay-final-score';
 import { InningTransitionOverlay } from '@mineros/overlay-inning-transition';
 import { NextBattersOverlay } from '@mineros/overlay-next-batters';
 import { Scorebug } from '@mineros/overlay-scorebug';
+import { ScoreboardOverlay } from '@mineros/overlay-scoreboard';
 import { SponsorBreakOverlay } from '@mineros/overlay-sponsor-break';
 import { AnnouncementOverlay } from '@mineros/overlay-announcement';
 import { SocialLowerThirdOverlay } from '@mineros/overlay-social-lower-third';
@@ -29,6 +30,7 @@ import {
   type GameConfigDetail,
 } from './gameConfig';
 import { BroadcastPage } from './pages/BroadcastPage';
+import { createScoreboardOverlayData } from './scoreboardData';
 import { OverlayPage } from './pages/OverlayPage';
 import { ScorerPage } from './pages/ScorerPage';
 
@@ -48,7 +50,8 @@ type OverlayId =
   | 'countdown'
   | 'sponsor-break'
   | 'substitution'
-  | 'game-event';
+  | 'game-event'
+  | 'scoreboard';
 
 type HistoryAction = 'preview_overlay' | 'take_overlay' | 'hide_overlay' | 'hide_all' | 'clear_preview';
 
@@ -136,6 +139,13 @@ const OVERLAYS: Record<OverlayId, OverlayDefinition> = {
     defaultVariant: 'lower_third_compact',
     autoHideMs: 7000,
   },
+  scoreboard: {
+    label: 'Scoreboard',
+    category: 'Juego',
+    variants: ['full_board'],
+    defaultVariant: 'full_board',
+    autoHideMs: 12000,
+  },
   lineup: {
     label: 'Lineup',
     category: 'Juego',
@@ -153,7 +163,7 @@ const OVERLAYS: Record<OverlayId, OverlayDefinition> = {
 };
 
 const TRIGGER_GROUPS: Array<{ title: OverlayDefinition['category']; overlays: OverlayId[] }> = [
-  { title: 'Juego', overlays: ['batter', 'next-batters', 'lineup', 'pitcher', 'inning-transition', 'final-score'] },
+  { title: 'Juego', overlays: ['scoreboard', 'batter', 'next-batters', 'lineup', 'pitcher', 'inning-transition', 'final-score'] },
   { title: 'Comunicacion', overlays: ['announcement', 'social', 'countdown', 'sponsor-break'] },
   { title: 'Accion', overlays: ['substitution', 'game-event'] },
 ];
@@ -172,6 +182,7 @@ const OUTPUT_OVERLAY_IDS: Array<'scorebug' | OverlayId> = [
   'sponsor-break',
   'substitution',
   'game-event',
+  'scoreboard',
 ];
 
 function outputOverlayLabel(overlayId: 'scorebug' | OverlayId): string {
@@ -806,6 +817,8 @@ function OperatorControlPanel() {
     inningHalf: game.inningHalf,
   };
 
+  const scoreboardData = useMemo(() => createScoreboardOverlayData(gameConfigDetail, game), [game, gameConfigDetail]);
+
   const gameEventData = {
     gameId: game.gameId,
     event: { type: 'double' as const, label: 'DOBLE', description: 'Doble al jardin derecho', direction: 'Jardin derecho' },
@@ -876,6 +889,8 @@ function OperatorControlPanel() {
           />
         );
       }
+      case 'scoreboard':
+        return <ScoreboardOverlay data={scoreboardData} assetBaseUrl={import.meta.env.VITE_ASSETS_BASE_URL} isPaused />;
       case 'pitcher': {
         const pitchingRole = game.inningHalf === 'top' ? 'home' : 'away';
         const pitchingLineup = DEMO_GAME_DETAIL.lineups[pitchingRole];
