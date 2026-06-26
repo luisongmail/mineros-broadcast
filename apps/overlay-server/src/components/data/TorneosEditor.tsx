@@ -142,7 +142,7 @@ export function TorneosEditor() {
       };
       if (isNew) {
         const res = await request<unknown>(`${API}/tournaments`, {
-          method: 'POST', body: JSON.stringify(payload),
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         });
         const tournament = normalizeTournament(
           res && typeof res === 'object' && 'tournament' in res
@@ -153,7 +153,7 @@ export function TorneosEditor() {
         editingId.current = payload.id;
       } else {
         const res = await request<unknown>(`${API}/tournaments/${payload.id}`, {
-          method: 'PUT', body: JSON.stringify(payload),
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         });
         const tournament = normalizeTournament(
           res && typeof res === 'object' && 'tournament' in res

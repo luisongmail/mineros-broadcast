@@ -99,14 +99,14 @@ export function LigasEditor() {
       };
       if (isNew) {
         const res = await request<{ league?: unknown }>(`${API}/leagues`, {
-          method: 'POST', body: JSON.stringify(payload),
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         });
         const created = (res as Record<string, unknown>).league ?? (res as Record<string, unknown>).payload ?? res;
         setLeagues((prev) => [...prev, normalizeLeague(created)]);
         editingId.current = id;
       } else {
         const res = await request<{ league?: unknown }>(`${API}/leagues/${id}`, {
-          method: 'PUT', body: JSON.stringify(payload),
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         });
         const updated = (res as Record<string, unknown>).league ?? (res as Record<string, unknown>).payload ?? res;
         setLeagues((prev) => prev.map((l) => l.id === id ? normalizeLeague(updated) : l));
