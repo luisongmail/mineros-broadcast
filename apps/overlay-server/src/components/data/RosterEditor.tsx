@@ -1,336 +1,407 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { generateId, request, toErrorMessage } from './api';
+import { request, toErrorMessage } from './api';
 import { mockPlayersByTeam, mockStaffByTeam, mockTeams } from './mockData';
 import { SearchSelect } from './SearchSelect';
-import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass, tableClass, tableBodyClass, tableHeadRowClass, tableRowClass } from './shared';
+import { SlideDrawer } from './SlideDrawer';
+import {
+  ConfirmDialog,
+  dangerButtonClass,
+  EmptyState,
+  Feedback,
+  Field,
+  fieldClass,
+  LoadingState,
+  primaryButtonClass,
+  secondaryButtonClass,
+  tableBodyClass,
+  tableClass,
+  tableHeadRowClass,
+  tableHeaderClass,
+  tableRowClass,
+  tableCellClass,
+  type DialogState,
+} from './shared';
 import { normalizePlayer, normalizeStaffMember, normalizeTeam, type Player, type StaffMember, type StaffRole, type Team } from './types';
 
 const positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'UT', 'DH'] as const;
 const staffRoles: StaffRole[] = ['manager', 'coach_bateo', 'coach_bases', 'pitcher_coach', 'utilero', 'otro'];
 
 const emptyPlayer = (): Player => ({ id: '', fullName: '', nickname: '', number: '', position: 'UT', bats: 'R', throws: 'R', photoAssetId: '', birthDate: '', nationality: '', status: 'active' });
-const emptyStaff = (): StaffMember => ({ id: '', name: '', role: 'manager', photoAssetId: '' });
+const emptyStaff  = (): StaffMember => ({ id: '', name: '', role: 'manager', photoAssetId: '' });
 
 export function RosterEditor() {
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [teams, setTeams]               = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [playerForm, setPlayerForm] = useState<Player>(emptyPlayer());
-  const [staffForm, setStaffForm] = useState<StaffMember>(emptyStaff());
+  const [players, setPlayers]           = useState<Player[]>([]);
+  const [staff, setStaff]               = useState<StaffMember[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [loadingRoster, setLoadingRoster] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving]             = useState(false);
+  const [saved, setSaved]               = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [dialog, setDialog]             = useState<DialogState | null>(null);
+
+  // Drawer jugador
+  const [playerDrawerOpen, setPlayerDrawerOpen] = useState(false);
+  const [playerForm, setPlayerForm]             = useState<Player>(emptyPlayer());
+  const playerAnchor = useRef<HTMLTableRowElement | null>(null);
+
+  // Drawer staff
+  const [staffDrawerOpen, setStaffDrawerOpen] = useState(false);
+  const [staffForm, setStaffForm]             = useState<StaffMember>(emptyStaff());
+  const staffAnchor = useRef<HTMLTableRowElement | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadTeams = async () => {
-      setLoadingTeams(true);
-      try {
-        const payload = await request<unknown[]>('/api/teams');
-        if (!cancelled) {
-          const nextTeams = payload.map(normalizeTeam);
-          setTeams(nextTeams);
-          setSelectedTeamId((current) => current || nextTeams[0]?.id || '');
-        }
-      } catch (loadError) {
-        if (!cancelled) {
-          setTeams(mockTeams);
-          setSelectedTeamId(mockTeams[0]?.id ?? '');
-          setError(`${toErrorMessage(loadError, 'No se pudieron cargar los equipos.')} Mostrando datos mock.`);
-        }
-      } finally {
-        if (!cancelled) setLoadingTeams(false);
-      }
-    };
-
-    void loadTeams();
-    return () => {
-      cancelled = true;
-    };
+    setLoadingTeams(true);
+    request<unknown[]>('/api/teams')
+      .then((payload) => {
+        const t = payload.map(normalizeTeam);
+        setTeams(t);
+        setSelectedTeamId((cur) => cur || t[0]?.id || '');
+      })
+      .catch(() => {
+        setTeams(mockTeams);
+        setSelectedTeamId(mockTeams[0]?.id ?? '');
+      })
+      .finally(() => setLoadingTeams(false));
   }, []);
 
   useEffect(() => {
-    if (!selectedTeamId) {
-      setPlayers([]);
-      setStaff([]);
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadRoster = async () => {
-      setLoadingRoster(true);
-      setError(null);
-
-      try {
-        const [playersPayload, staffPayload] = await Promise.all([
-          request<unknown[]>(`/api/teams/${selectedTeamId}/players`),
-          request<unknown[]>(`/api/teams/${selectedTeamId}/staff`),
-        ]);
-
-        if (!cancelled) {
-          setPlayers(playersPayload.map(normalizePlayer));
-          setStaff(staffPayload.map(normalizeStaffMember));
-        }
-      } catch (loadError) {
-        if (!cancelled) {
-          setPlayers(mockPlayersByTeam[selectedTeamId] ?? []);
-          setStaff(mockStaffByTeam[selectedTeamId] ?? []);
-          setError(`${toErrorMessage(loadError, 'No se pudo cargar el roster.')} Mostrando datos mock.`);
-        }
-      } finally {
-        if (!cancelled) setLoadingRoster(false);
-      }
-    };
-
-    void loadRoster();
-    return () => {
-      cancelled = true;
-    };
+    if (!selectedTeamId) { setPlayers([]); setStaff([]); return; }
+    setLoadingRoster(true);
+    setError(null);
+    Promise.all([
+      request<unknown[]>(`/api/teams/${selectedTeamId}/players`),
+      request<unknown[]>(`/api/teams/${selectedTeamId}/staff`),
+    ])
+      .then(([p, s]) => { setPlayers(p.map(normalizePlayer)); setStaff(s.map(normalizeStaffMember)); })
+      .catch(() => { setPlayers(mockPlayersByTeam[selectedTeamId] ?? []); setStaff(mockStaffByTeam[selectedTeamId] ?? []); })
+      .finally(() => setLoadingRoster(false));
   }, [selectedTeamId]);
 
-  const selectedTeamName = useMemo(() => teams.find((team) => team.id === selectedTeamId)?.shortName ?? 'Equipo', [teams, selectedTeamId]);
+  const teamName = useMemo(() => teams.find((t) => t.id === selectedTeamId)?.shortName ?? 'Equipo', [teams, selectedTeamId]);
 
-  const upsertPlayer = (entry: Player) => setPlayers((current) => (current.some((item) => item.id === entry.id) ? current.map((item) => (item.id === entry.id ? entry : item)) : [entry, ...current]));
-  const upsertStaff = (entry: StaffMember) => setStaff((current) => (current.some((item) => item.id === entry.id) ? current.map((item) => (item.id === entry.id ? entry : item)) : [entry, ...current]));
+  // ── Jugadores ─────────────────────────────────────────────────────────────
 
-  const savePlayer = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  function openNewPlayer() {
+    playerAnchor.current = null;
+    setPlayerForm(emptyPlayer());
+    setSaved(false);
+    setPlayerDrawerOpen(true);
+    setStaffDrawerOpen(false);
+  }
+
+  function openEditPlayer(player: Player, row: HTMLTableRowElement) {
+    playerAnchor.current = row;
+    setPlayerForm({ ...player });
+    setSaved(false);
+    setPlayerDrawerOpen(true);
+    setStaffDrawerOpen(false);
+  }
+
+  async function savePlayer() {
     if (!selectedTeamId) return;
-
     setSaving(true);
     setError(null);
-    setMessage(null);
-
     try {
-      const method = playerForm.id ? 'PUT' : 'POST';
-      const path = playerForm.id ? `/api/teams/${selectedTeamId}/players/${playerForm.id}` : `/api/teams/${selectedTeamId}/players`;
-      // Mapear camelCase → snake_case para el backend
-      const playerPayload = {
-        name:           playerForm.fullName,
-        first_name:     playerForm.fullName.split(' ')[0] ?? '',
-        last_name:      playerForm.fullName.split(' ').slice(1).join(' ') || null,
-        nickname:       playerForm.nickname || null,
-        number:         playerForm.number,
-        position:       playerForm.position,
-        bats:           playerForm.bats,
-        throws:         playerForm.throws,
-        photo_asset_id: playerForm.photoAssetId || null,
-        date_of_birth:  playerForm.birthDate || null,
-        nationality:    playerForm.nationality || 'DO',
-        status:         playerForm.status,
+      const isNew = !playerForm.id;
+      const path  = isNew ? `/api/teams/${selectedTeamId}/players` : `/api/teams/${selectedTeamId}/players/${playerForm.id}`;
+      const body  = {
+        name: playerForm.fullName, first_name: playerForm.fullName.split(' ')[0] ?? '',
+        last_name: playerForm.fullName.split(' ').slice(1).join(' ') || null,
+        nickname: playerForm.nickname || null, number: playerForm.number,
+        position: playerForm.position, bats: playerForm.bats, throws: playerForm.throws,
+        photo_asset_id: playerForm.photoAssetId || null, date_of_birth: playerForm.birthDate || null,
+        nationality: playerForm.nationality || 'DO', status: playerForm.status,
       };
-      const payload = normalizePlayer(await request(path, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(playerPayload),
-      }));
-      upsertPlayer(payload);
-      setMessage(`Jugador ${playerForm.id ? 'actualizado' : 'creado'} en ${selectedTeamName}.`);
-    } catch (saveError) {
-      const local = { ...playerForm, id: playerForm.id || generateId('player') };
-      upsertPlayer(local);
-      setError(toErrorMessage(saveError, 'No se pudo guardar el jugador.'));
-      setMessage('Cambio de jugador aplicado localmente.');
+      const result = normalizePlayer(await request(path, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+      setPlayers((prev) => isNew ? [...prev, result] : prev.map((p) => p.id === result.id ? result : p));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setError(toErrorMessage(e, 'No se pudo guardar el jugador.'));
     } finally {
       setSaving(false);
-      setPlayerForm(emptyPlayer());
     }
-  };
+  }
 
-  const saveStaff = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  function confirmDeletePlayer(player: Player) {
+    setDialog({
+      title: `Eliminar "${player.fullName}"`,
+      message: '¿Eliminar este jugador del roster?',
+      tone: 'danger',
+      confirmLabel: 'Eliminar',
+      onConfirm: async () => {
+        try {
+          await request(`/api/teams/${selectedTeamId}/players/${player.id}`, { method: 'DELETE' });
+          setPlayers((prev) => prev.filter((p) => p.id !== player.id));
+          setPlayerDrawerOpen(false);
+        } catch (e) {
+          setDialog({ title: 'Error', message: toErrorMessage(e, 'Error inesperado.'), tone: 'error' });
+        }
+      },
+    });
+  }
+
+  // ── Staff ─────────────────────────────────────────────────────────────────
+
+  function openNewStaff() {
+    staffAnchor.current = null;
+    setStaffForm(emptyStaff());
+    setSaved(false);
+    setStaffDrawerOpen(true);
+    setPlayerDrawerOpen(false);
+  }
+
+  function openEditStaff(member: StaffMember, row: HTMLTableRowElement) {
+    staffAnchor.current = row;
+    setStaffForm({ ...member });
+    setSaved(false);
+    setStaffDrawerOpen(true);
+    setPlayerDrawerOpen(false);
+  }
+
+  async function saveStaff() {
     if (!selectedTeamId) return;
-
     setSaving(true);
     setError(null);
-    setMessage(null);
-
     try {
-      const method = staffForm.id ? 'PUT' : 'POST';
-      const path = staffForm.id ? `/api/teams/${selectedTeamId}/staff/${staffForm.id}` : `/api/teams/${selectedTeamId}/staff`;
-      // Mapear camelCase → snake_case para el backend
-      const staffPayload = {
-        name:           staffForm.name,
-        role:           staffForm.role,
-        photo_asset_id: staffForm.photoAssetId || null,
-        active:         true,
-      };
-      const payload = normalizeStaffMember(await request(path, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(staffPayload),
-      }));
-      upsertStaff(payload);
-      setMessage(`Miembro del staff ${staffForm.id ? 'actualizado' : 'creado'}.`);
-    } catch (saveError) {
-      const local = { ...staffForm, id: staffForm.id || generateId('staff') };
-      upsertStaff(local);
-      setError(toErrorMessage(saveError, 'No se pudo guardar el staff.'));
-      setMessage('Cambio de staff aplicado localmente.');
+      const isNew = !staffForm.id;
+      const path  = isNew ? `/api/teams/${selectedTeamId}/staff` : `/api/teams/${selectedTeamId}/staff/${staffForm.id}`;
+      const body  = { name: staffForm.name, role: staffForm.role, photo_asset_id: staffForm.photoAssetId || null, active: true };
+      const result = normalizeStaffMember(await request(path, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+      setStaff((prev) => isNew ? [...prev, result] : prev.map((s) => s.id === result.id ? result : s));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setError(toErrorMessage(e, 'No se pudo guardar el staff.'));
     } finally {
       setSaving(false);
-      setStaffForm(emptyStaff());
     }
-  };
+  }
 
-  const deletePlayer = async (id: string) => {
-    setPlayers((current) => current.filter((item) => item.id !== id));
-    if (playerForm.id === id) setPlayerForm(emptyPlayer());
-
-    try {
-      await request(`/api/teams/${selectedTeamId}/players/${id}`, { method: 'DELETE' });
-    } catch (deleteError) {
-      setError(`${toErrorMessage(deleteError, 'No se pudo eliminar el jugador.')} Eliminado solo localmente.`);
-    }
-  };
-
-  const deleteStaff = async (id: string) => {
-    setStaff((current) => current.filter((item) => item.id !== id));
-    if (staffForm.id === id) setStaffForm(emptyStaff());
-
-    try {
-      await request(`/api/teams/${selectedTeamId}/staff/${id}`, { method: 'DELETE' });
-    } catch (deleteError) {
-      setError(`${toErrorMessage(deleteError, 'No se pudo eliminar el staff.')} Eliminado solo localmente.`);
-    }
-  };
+  function confirmDeleteStaff(member: StaffMember) {
+    setDialog({
+      title: `Eliminar "${member.name}"`,
+      message: '¿Eliminar este miembro del cuerpo técnico?',
+      tone: 'danger',
+      confirmLabel: 'Eliminar',
+      onConfirm: async () => {
+        try {
+          await request(`/api/teams/${selectedTeamId}/staff/${member.id}`, { method: 'DELETE' });
+          setStaff((prev) => prev.filter((s) => s.id !== member.id));
+          setStaffDrawerOpen(false);
+        } catch (e) {
+          setDialog({ title: 'Error', message: toErrorMessage(e, 'Error inesperado.'), tone: 'error' });
+        }
+      },
+    });
+  }
 
   if (loadingTeams) return <LoadingState message="Cargando equipos..." />;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {error && <Feedback tone="error" message={error} />}
-      {message && <Feedback tone="success" message={message} />}
 
-      <SectionCard title="Equipo">
-        <Field label="Selector de equipo">
+      {/* Selector de equipo */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 max-w-sm">
           <SearchSelect
             options={teams.map((t) => ({ value: t.id, label: t.fullName, sublabel: t.shortName }))}
             value={selectedTeamId}
-            onChange={setSelectedTeamId}
+            onChange={(v) => { setSelectedTeamId(v); setPlayerDrawerOpen(false); setStaffDrawerOpen(false); }}
             placeholder="Seleccionar equipo…"
           />
-        </Field>
-      </SectionCard>
+        </div>
+        {selectedTeamId && (
+          <p className="text-[10px] text-white/30">
+            {players.length} jugador{players.length !== 1 ? 'es' : ''} · {staff.length} técnico{staff.length !== 1 ? 's' : ''}
+          </p>
+        )}
+      </div>
 
-      {loadingRoster ? <LoadingState message="Cargando roster..." /> : (
+      {loadingRoster ? <LoadingState message="Cargando roster..." /> : !selectedTeamId ? (
+        <p className="text-xs text-white/30">Selecciona un equipo para ver su roster.</p>
+      ) : (
         <>
-          <SectionCard title={`Jugadores · ${selectedTeamName}`} actions={<button type="button" className={secondaryButtonClass} onClick={() => setPlayerForm(emptyPlayer())}>Nuevo</button>}>
+          {/* ── Jugadores ── */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/35">👕 Jugadores · {teamName}</p>
+              <button type="button" onClick={openNewPlayer} className={primaryButtonClass}>+ Nuevo jugador</button>
+            </div>
+
             {players.length === 0 ? (
-              <EmptyState message="No hay jugadores cargados." />
+              <EmptyState message="Sin jugadores en este roster." />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="rounded border border-white/10 overflow-hidden">
                 <table className={tableClass}>
                   <thead>
                     <tr className={tableHeadRowClass}>
-                      <th className={tableHeaderClass}>#</th>
+                      <th className={tableHeaderClass + ' w-8'}>#</th>
                       <th className={tableHeaderClass}>Nombre</th>
                       <th className={tableHeaderClass}>Pos</th>
                       <th className={tableHeaderClass}>B/L</th>
                       <th className={tableHeaderClass}>Estado</th>
-                      <th className={tableHeaderClass}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody className={tableBodyClass}>
                     {players.map((player) => (
-                      <tr key={player.id} className={tableRowClass}>
-                        <td className={`${tableCellClass} text-white/40 font-mono`}>{player.number || '—'}</td>
-                        <td className={tableCellClass}>{player.fullName}</td>
-                        <td className={`${tableCellClass} text-white/50`}>{player.position}</td>
-                        <td className={`${tableCellClass} text-white/40 font-mono`}>{player.bats}/{player.throws}</td>
+                      <tr
+                        key={player.id}
+                        className={`${tableRowClass} ${playerDrawerOpen && playerForm.id === player.id ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
+                        onClick={(e) => openEditPlayer(player, e.currentTarget as HTMLTableRowElement)}
+                      >
+                        <td className={tableCellClass + ' text-white/40 font-mono'}>{player.number || '—'}</td>
+                        <td className={tableCellClass + ' font-medium'}>{player.fullName}</td>
+                        <td className={tableCellClass + ' text-white/50'}>{player.position}</td>
+                        <td className={tableCellClass + ' text-white/40 font-mono'}>{player.bats}/{player.throws}</td>
                         <td className={tableCellClass}>
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${player.status === 'active' ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/40'}`}>
                             {player.status === 'active' ? 'Activo' : 'Inactivo'}
                           </span>
                         </td>
-                        <td className={tableCellClass} onClick={(e) => e.stopPropagation()}>
-                          <div className="flex gap-2">
-                            <button type="button" className={secondaryButtonClass} onClick={() => setPlayerForm(player)}>Editar</button>
-                            <button type="button" className={dangerButtonClass} onClick={() => { void deletePlayer(player.id); }}>Eliminar</button>
-                          </div>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
-          </SectionCard>
+          </div>
 
-          <SectionCard title={playerForm.id ? 'Editar jugador' : 'Nuevo jugador'}>
-            <form className="space-y-3" onSubmit={(event) => { void savePlayer(event); }}>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field label="Nombre completo"><input required className={fieldClass} value={playerForm.fullName} onChange={(event) => setPlayerForm((current) => ({ ...current, fullName: event.target.value }))} /></Field>
-                <Field label="Apodo"><input className={fieldClass} value={playerForm.nickname} onChange={(event) => setPlayerForm((current) => ({ ...current, nickname: event.target.value }))} /></Field>
-                <Field label="Número"><input required className={fieldClass} value={playerForm.number} onChange={(event) => setPlayerForm((current) => ({ ...current, number: event.target.value }))} /></Field>
-                <Field label="Posición"><SearchSelect options={positions.map((p) => ({ value: p, label: p }))} value={playerForm.position} onChange={(v) => setPlayerForm((c) => ({ ...c, position: v }))} /></Field>
-                <Field label="Bats"><SearchSelect options={[{ value: 'L', label: 'L – Zurdo' }, { value: 'R', label: 'R – Derecho' }, { value: 'S', label: 'S – Switch' }]} value={playerForm.bats ?? ''} onChange={(v) => setPlayerForm((c) => ({ ...c, bats: v as Player['bats'] }))} placeholder="—" /></Field>
-                <Field label="Throws"><SearchSelect options={[{ value: 'L', label: 'L – Zurdo' }, { value: 'R', label: 'R – Derecho' }, { value: 'S', label: 'S – Switch' }]} value={playerForm.throws ?? ''} onChange={(v) => setPlayerForm((c) => ({ ...c, throws: v as Player['throws'] }))} placeholder="—" /></Field>
-                <Field label="Foto asset ID"><input className={fieldClass} placeholder="ej: teams/logo-mineros" value={playerForm.photoAssetId} onChange={(event) => setPlayerForm((current) => ({ ...current, photoAssetId: event.target.value }))} /></Field>
-                <Field label="Fecha de nacimiento"><input className={fieldClass} type="date" value={playerForm.birthDate} onChange={(event) => setPlayerForm((current) => ({ ...current, birthDate: event.target.value }))} /></Field>
-                <Field label="Nacionalidad"><input className={fieldClass} value={playerForm.nationality} onChange={(event) => setPlayerForm((current) => ({ ...current, nationality: event.target.value }))} /></Field>
-                <Field label="Status"><SearchSelect options={[{ value: 'active', label: 'Activo' }, { value: 'inactive', label: 'Inactivo' }]} value={playerForm.status ?? 'active'} onChange={(v) => setPlayerForm((c) => ({ ...c, status: v as Player['status'] }))} /></Field>
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" disabled={saving || !selectedTeamId} className={primaryButtonClass}>{saving ? 'Guardando...' : 'Guardar'}</button>
-                <button type="button" className={secondaryButtonClass} onClick={() => setPlayerForm(emptyPlayer())}>Cancelar</button>
-              </div>
-            </form>
-          </SectionCard>
+          {/* ── Cuerpo Técnico ── */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/35">🧢 Cuerpo técnico</p>
+              <button type="button" onClick={openNewStaff} className={secondaryButtonClass}>+ Nuevo técnico</button>
+            </div>
 
-          <SectionCard title="Cuerpo técnico" actions={<button type="button" className={secondaryButtonClass} onClick={() => setStaffForm(emptyStaff())}>Nuevo</button>}>
             {staff.length === 0 ? (
-              <EmptyState message="No hay cuerpo técnico registrado." />
+              <EmptyState message="Sin cuerpo técnico registrado." />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="rounded border border-white/10 overflow-hidden">
                 <table className={tableClass}>
                   <thead>
                     <tr className={tableHeadRowClass}>
                       <th className={tableHeaderClass}>Nombre</th>
                       <th className={tableHeaderClass}>Rol</th>
-                      <th className={tableHeaderClass}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody className={tableBodyClass}>
                     {staff.map((member) => (
-                      <tr key={member.id} className={tableRowClass}>
-                        <td className={tableCellClass}>{member.name}</td>
-                        <td className={`${tableCellClass} text-white/50`}>{member.role}</td>
-                        <td className={tableCellClass} onClick={(e) => e.stopPropagation()}>
-                          <div className="flex gap-2">
-                            <button type="button" className={secondaryButtonClass} onClick={() => setStaffForm(member)}>Editar</button>
-                            <button type="button" className={dangerButtonClass} onClick={() => { void deleteStaff(member.id); }}>Eliminar</button>
-                          </div>
-                        </td>
+                      <tr
+                        key={member.id}
+                        className={`${tableRowClass} ${staffDrawerOpen && staffForm.id === member.id ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
+                        onClick={(e) => openEditStaff(member, e.currentTarget as HTMLTableRowElement)}
+                      >
+                        <td className={tableCellClass + ' font-medium'}>{member.name}</td>
+                        <td className={tableCellClass + ' text-white/50'}>{member.role}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
-          </SectionCard>
-
-          <SectionCard title={staffForm.id ? 'Editar staff' : 'Nuevo staff'}>
-            <form className="space-y-3" onSubmit={(event) => { void saveStaff(event); }}>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field label="Nombre"><input required className={fieldClass} value={staffForm.name} onChange={(event) => setStaffForm((current) => ({ ...current, name: event.target.value }))} /></Field>
-                <Field label="Rol"><SearchSelect options={staffRoles.map((r) => ({ value: r, label: r }))} value={staffForm.role} onChange={(v) => setStaffForm((c) => ({ ...c, role: v as StaffRole }))} /></Field>
-                <Field label="Foto asset ID"><input className={fieldClass} placeholder="ej: teams/logo-mineros" value={staffForm.photoAssetId} onChange={(event) => setStaffForm((current) => ({ ...current, photoAssetId: event.target.value }))} /></Field>
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" disabled={saving || !selectedTeamId} className={primaryButtonClass}>{saving ? 'Guardando...' : 'Guardar'}</button>
-                <button type="button" className={secondaryButtonClass} onClick={() => setStaffForm(emptyStaff())}>Cancelar</button>
-              </div>
-            </form>
-          </SectionCard>
+          </div>
         </>
       )}
+
+      {/* Drawer jugador */}
+      <SlideDrawer
+        open={playerDrawerOpen}
+        title={playerForm.id ? 'Editar jugador' : 'Nuevo jugador'}
+        onClose={() => setPlayerDrawerOpen(false)}
+        anchorRef={playerAnchor}
+      >
+        <div className="space-y-3 p-1">
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Nombre completo">
+              <input required className={fieldClass} value={playerForm.fullName}
+                onChange={(e) => setPlayerForm((f) => ({ ...f, fullName: e.target.value }))} />
+            </Field>
+            <Field label="Apodo">
+              <input className={fieldClass} value={playerForm.nickname}
+                onChange={(e) => setPlayerForm((f) => ({ ...f, nickname: e.target.value }))} />
+            </Field>
+            <Field label="Número">
+              <input required className={fieldClass} value={playerForm.number}
+                onChange={(e) => setPlayerForm((f) => ({ ...f, number: e.target.value }))} />
+            </Field>
+            <Field label="Posición">
+              <SearchSelect options={positions.map((p) => ({ value: p, label: p }))}
+                value={playerForm.position} onChange={(v) => setPlayerForm((f) => ({ ...f, position: v }))} />
+            </Field>
+            <Field label="Batea">
+              <SearchSelect options={[{ value: 'L', label: 'L – Zurdo' }, { value: 'R', label: 'R – Derecho' }, { value: 'S', label: 'S – Switch' }]}
+                value={playerForm.bats ?? ''} onChange={(v) => setPlayerForm((f) => ({ ...f, bats: v as Player['bats'] }))} />
+            </Field>
+            <Field label="Lanza">
+              <SearchSelect options={[{ value: 'L', label: 'L – Zurdo' }, { value: 'R', label: 'R – Derecho' }]}
+                value={playerForm.throws ?? ''} onChange={(v) => setPlayerForm((f) => ({ ...f, throws: v as Player['throws'] }))} />
+            </Field>
+            <Field label="Nacimiento">
+              <input type="date" className={fieldClass} value={playerForm.birthDate}
+                onChange={(e) => setPlayerForm((f) => ({ ...f, birthDate: e.target.value }))} />
+            </Field>
+            <Field label="Nacionalidad">
+              <input className={fieldClass} value={playerForm.nationality}
+                onChange={(e) => setPlayerForm((f) => ({ ...f, nationality: e.target.value }))} />
+            </Field>
+            <Field label="Estado">
+              <SearchSelect options={[{ value: 'active', label: 'Activo' }, { value: 'inactive', label: 'Inactivo' }]}
+                value={playerForm.status ?? 'active'} onChange={(v) => setPlayerForm((f) => ({ ...f, status: v as Player['status'] }))} />
+            </Field>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={() => { void savePlayer(); }} disabled={saving || !selectedTeamId} className={primaryButtonClass}>
+              {saved ? '✅ Guardado' : saving ? 'Guardando…' : 'Guardar'}
+            </button>
+            {playerForm.id && (
+              <button type="button" onClick={() => { const p = players.find((x) => x.id === playerForm.id); if (p) confirmDeletePlayer(p); }} className={dangerButtonClass}>
+                Eliminar
+              </button>
+            )}
+            <button type="button" onClick={() => setPlayerDrawerOpen(false)} className={secondaryButtonClass}>Cancelar</button>
+          </div>
+        </div>
+      </SlideDrawer>
+
+      {/* Drawer staff */}
+      <SlideDrawer
+        open={staffDrawerOpen}
+        title={staffForm.id ? 'Editar técnico' : 'Nuevo técnico'}
+        onClose={() => setStaffDrawerOpen(false)}
+        anchorRef={staffAnchor}
+      >
+        <div className="space-y-3 p-1">
+          <Field label="Nombre">
+            <input required className={fieldClass} value={staffForm.name}
+              onChange={(e) => setStaffForm((f) => ({ ...f, name: e.target.value }))} />
+          </Field>
+          <Field label="Rol">
+            <SearchSelect
+              options={staffRoles.map((r) => ({ value: r, label: r }))}
+              value={staffForm.role}
+              onChange={(v) => setStaffForm((f) => ({ ...f, role: v as StaffRole }))}
+            />
+          </Field>
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={() => { void saveStaff(); }} disabled={saving || !selectedTeamId} className={primaryButtonClass}>
+              {saved ? '✅ Guardado' : saving ? 'Guardando…' : 'Guardar'}
+            </button>
+            {staffForm.id && (
+              <button type="button" onClick={() => { const s = staff.find((x) => x.id === staffForm.id); if (s) confirmDeleteStaff(s); }} className={dangerButtonClass}>
+                Eliminar
+              </button>
+            )}
+            <button type="button" onClick={() => setStaffDrawerOpen(false)} className={secondaryButtonClass}>Cancelar</button>
+          </div>
+        </div>
+      </SlideDrawer>
+
+      <ConfirmDialog state={dialog} onClose={() => setDialog(null)} />
     </div>
   );
 }

@@ -154,7 +154,7 @@ function emptyForm(game?: GameSummary) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export function GamePanel({ currentGameId }: { currentGameId: string }) {
+export function GamePanel({ currentGameId, embedded = false }: { currentGameId: string; embedded?: boolean }) {
   const [games, setGames]         = useState<GameSummary[]>([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
@@ -307,7 +307,7 @@ export function GamePanel({ currentGameId }: { currentGameId: string }) {
   if (loading) return <LoadingState />;
 
   return (
-    <div className="space-y-3 p-4">
+    <div className={`space-y-3 ${embedded ? '' : 'p-4'}`}>
       {error   && <Feedback tone="error"   message={error}   />}
       {message && <Feedback tone="success" message={message} />}
 

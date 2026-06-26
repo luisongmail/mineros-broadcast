@@ -17,7 +17,6 @@ import { LineupOverlay } from '@mineros/overlay-lineup';
 import { PitcherOverlay } from '@mineros/overlay-pitcher';
 
 import { GameConfigPanel } from './components/GameConfigPanel';
-import { GamePanel } from './components/GamePanel';
 import { LayoutEditor } from './components/LayoutEditor';
 import { DataPanel } from './components/data/DataPanel';
 import { useBroadcastWS } from './hooks/useBroadcastWS';
@@ -482,7 +481,7 @@ function OperatorControlPanel() {
 
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [rightTab, setRightTab] = useState<'config' | 'history' | 'layout' | 'obs' | 'metadata' | 'data'>('metadata');
+  const [rightTab, setRightTab] = useState<'config' | 'history' | 'layout' | 'obs' | 'data'>('data');
   const handleResetGame = useCallback(async () => {
     setResetting(true);
     try {
@@ -1186,12 +1185,11 @@ function OperatorControlPanel() {
               <div className="flex shrink-0 border-b border-white/10 bg-broadcast-black/60">
                 {(
                   [
-                    { key: 'metadata', label: '⚾ Partido' },
-                    { key: 'config',   label: '⚙️ Config' },
-                    { key: 'data',     label: '🗃️ Catálogo' },
-                    { key: 'history',  label: '📋 Historial' },
-                    { key: 'layout',   label: '🖼️ Layout' },
-                    { key: 'obs',      label: '📡 OBS' },
+                    { key: 'data',    label: '🗃️ Catálogo' },
+                    { key: 'config',  label: '⚙️ Config' },
+                    { key: 'history', label: '📋 Historial' },
+                    { key: 'layout',  label: '🖼️ Layout' },
+                    { key: 'obs',     label: '📡 OBS' },
                   ] as const
                 ).map((tab) => (
                   <button
@@ -1220,19 +1218,10 @@ function OperatorControlPanel() {
                   </div>
                 )}
 
-                {/* DATOS DEL PARTIDO */}
-                {rightTab === 'metadata' && (
-                  <GamePanel currentGameId={game.gameId} />
-                )}
-
-                {/* SPONSORS eliminado del top-level — ahora en Catálogo */}
-
-                {/* ESTADIOS eliminado del top-level — ahora en Catálogo */}
-
                 {/* CATÁLOGO */}
                 {rightTab === 'data' && (
                   <div className="p-4">
-                    <DataPanel />
+                    <DataPanel currentGameId={game.gameId} />
                   </div>
                 )}
 
