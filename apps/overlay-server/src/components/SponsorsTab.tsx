@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { SearchSelect } from './data/SearchSelect';
 import { normalizeSponsor, type Sponsor } from './data/types';
 import { SlideDrawer } from './data/SlideDrawer';
-import { ConfirmDialog, dangerButtonClass, fieldClass, labelClass, primaryButtonClass, secondaryButtonClass, tableBodyClass, tableClass, tableHeadRowClass, tableHeaderClass, tableRowClass, tableCellClass, type DialogState } from './data/shared';
+import { AssetImage, ConfirmDialog, RowDeleteButton, dangerButtonClass, fieldClass, filterSelectClass, labelClass, primaryButtonClass, searchInputClass, secondaryButtonClass, tableBodyClass, tableClass, tableHeadRowClass, tableHeaderClass, tableRowClass, tableCellClass, type DialogState } from './data/shared';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
@@ -29,6 +29,15 @@ function SponsorCrudSection() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [filterName, setFilterName] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+
+  const filtered = useMemo(() => sponsors.filter((s) => {
+    const q = filterName.toLowerCase();
+    if (q && !s.name.toLowerCase().includes(q) && !s.brand.toLowerCase().includes(q)) return false;
+    if (filterStatus && s.status !== filterStatus) return false;
+    return true;
+  }), [sponsors, filterName, filterStatus]);
 
   useEffect(() => {
     setLoading(true);
@@ -103,47 +112,60 @@ function SponsorCrudSection() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35">🤝 Sponsors registrados</h3>
-        <button type="button" onClick={openNew} className={primaryButtonClass}>
-          + Nuevo sponsor
-        </button>
+    <div className="space-y-3">
+      {/* Header: título + búsqueda + filtro estado + nuevo */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">🤝 Sponsors</h3>
+        <input
+          className={searchInputClass}
+          placeholder="Buscar por nombre o marca…"
+          value={filterName}
+          onChange={(e) => setFilterName(e.target.value)}
+        />
+        <select className={filterSelectClass} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+          <option value="">Todos los estados</option>
+          <option value="active">Activo</option>
+          <option value="inactive">Inactivo</option>
+          <option value="draft">Draft</option>
+        </select>
+        <button type="button" onClick={openNew} className={primaryButtonClass}>+ Nuevo sponsor</button>
       </div>
 
       {loading && <p className="text-xs text-white/30">Cargando…</p>}
 
-      {!loading && sponsors.length === 0 && (
-        <p className="text-xs text-white/30">Sin sponsors registrados.</p>
+      {!loading && filtered.length === 0 && (
+        <p className="text-xs text-white/30">{sponsors.length === 0 ? 'Sin sponsors registrados.' : 'Sin resultados.'}</p>
       )}
 
-      {!loading && sponsors.length > 0 && (
+      {!loading && filtered.length > 0 && (
         <div className="rounded border border-white/10 overflow-hidden">
           <table className={tableClass}>
             <thead>
               <tr className={tableHeadRowClass}>
-                <th className={tableHeaderClass}>Nombre</th>
-                <th className={tableHeaderClass}>Marca</th>
+                <th className={tableHeaderClass + ' w-9'}></th>
+                <th className={tableHeaderClass}>Nombre / Marca</th>
                 <th className={tableHeaderClass}>Estado</th>
                 <th className={tableHeaderClass}>Prioridad</th>
-                <th className={tableHeaderClass + ' w-16'}></th>
+                <th className={tableHeaderClass + ' w-10'}></th>
               </tr>
             </thead>
             <tbody className={tableBodyClass}>
-              {sponsors.map((s) => (
+              {filtered.map((s) => (
                 <tr key={s.id} className={tableRowClass} onClick={() => openEdit(s)}>
-                  <td className={tableCellClass + ' font-medium'}>{s.name}</td>
-                  <td className={tableCellClass + ' text-white/50'}>{s.brand}</td>
+                  <td className="px-2 py-1 align-middle">
+                    <AssetImage assetId={s.logoAssetId} alt={s.name} size={28} />
+                  </td>
+                  <td className={tableCellClass}>
+                    <p className="font-medium text-white/90">{s.name}</p>
+                    <p className="text-[10px] text-white/40">{s.brand}</p>
+                  </td>
                   <td className={tableCellClass}>
                     <span className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${s.status === 'active' ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/40'}`}>
                       {s.status}
                     </span>
                   </td>
                   <td className={tableCellClass + ' text-white/50 tabular-nums'}>{s.priority}</td>
-                  <td className={tableCellClass + ' flex gap-1'} onClick={(e) => e.stopPropagation()}>
-                    <button type="button" onClick={() => openEdit(s)} className="text-white/40 hover:text-mineros-gold transition text-xs">✏️</button>
-                    <button type="button" onClick={() => handleDelete(s.id, s.name)} className="text-white/40 hover:text-red-400 transition text-xs">🗑️</button>
-                  </td>
+                  <RowDeleteButton onDelete={() => handleDelete(s.id, s.name)} />
                 </tr>
               ))}
             </tbody>

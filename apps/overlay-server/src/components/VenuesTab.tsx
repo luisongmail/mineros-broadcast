@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { SlideDrawer } from './data/SlideDrawer';
 import {
+  AssetImage,
   ConfirmDialog,
   dangerButtonClass,
   Feedback,
   fieldClass,
   primaryButtonClass,
+  RowDeleteButton,
+  searchInputClass,
   secondaryButtonClass,
   tableBodyClass,
   tableClass,
@@ -133,6 +136,12 @@ export function VenuesTab({ embedded = false }: { embedded?: boolean }) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [filterName, setFilterName] = useState('');
+
+  const filtered = useMemo(() =>
+    venues.filter((v) => !filterName || v.name.toLowerCase().includes(filterName.toLowerCase())),
+    [venues, filterName],
+  );
   const anchorRef = useRef<HTMLElement | null>(null);
   const editingId = useRef<string | null>(null);
 
@@ -240,40 +249,42 @@ export function VenuesTab({ embedded = false }: { embedded?: boolean }) {
   // Calcula posición del drawer anclada a la fila seleccionada
 
   return (
-    <div className={embedded ? '' : 'p-4'}>
-      {/* Cabecera */}
-      {!embedded && (
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35">🏟️ Estadios registrados</h3>
-        </div>
-      )}
-      <div className="flex items-center justify-between mb-4">
-        <span />
-        <button type="button" onClick={openNew} className={primaryButtonClass}>
-          + Nuevo estadio
-        </button>
+    <div className={`space-y-3 ${embedded ? '' : 'p-4'}`}>
+      {/* Header uniforme */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {!embedded && (
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">🏟️ Estadios</h3>
+        )}
+        <input
+          className={searchInputClass}
+          placeholder="Buscar estadio…"
+          value={filterName}
+          onChange={(e) => setFilterName(e.target.value)}
+        />
+        <button type="button" onClick={openNew} className={primaryButtonClass}>+ Nuevo estadio</button>
       </div>
 
       {/* Lista */}
       {loading && <p className="text-xs text-white/30">Cargando…</p>}
-      {!loading && venues.length === 0 && (
-        <p className="text-xs text-white/30">Sin estadios registrados.</p>
+      {!loading && filtered.length === 0 && (
+        <p className="text-xs text-white/30">{venues.length === 0 ? 'Sin estadios registrados.' : 'Sin resultados.'}</p>
       )}
-      {!loading && venues.length > 0 && (
+      {!loading && filtered.length > 0 && (
         <div className="rounded border border-white/10 overflow-hidden">
           <table className={tableClass}>
             <thead>
               <tr className={tableHeadRowClass}>
+                <th className={tableHeaderClass + ' w-9'}></th>
                 <th className={tableHeaderClass}>Nombre</th>
                 <th className={tableHeaderClass}>Ciudad</th>
                 <th className={tableHeaderClass}>País</th>
                 <th className={tableHeaderClass}>Coords</th>
                 <th className={tableHeaderClass}>Cómo llegar</th>
-                <th className={tableHeaderClass + ' w-8'}></th>
+                <th className={tableHeaderClass + ' w-10'}></th>
               </tr>
             </thead>
             <tbody className={tableBodyClass}>
-              {venues.map((v) => {
+              {filtered.map((v) => {
                 const url = mapsUrl(v);
                 return (
                   <tr
@@ -281,6 +292,9 @@ export function VenuesTab({ embedded = false }: { embedded?: boolean }) {
                     className={tableRowClass}
                     onClick={(e) => openEdit(v, e.currentTarget as HTMLTableRowElement)}
                   >
+                    <td className="px-2 py-1 align-middle">
+                      <AssetImage assetId={v.photoAssetId} alt={v.name} size={28} />
+                    </td>
                     <td className={tableCellClass + ' font-medium'}>{v.name}</td>
                     <td className={tableCellClass + ' text-white/50'}>{v.address.city || '—'}</td>
                     <td className={tableCellClass + ' text-white/50'}>{v.address.countryCode || v.address.country || '—'}</td>
@@ -304,9 +318,7 @@ export function VenuesTab({ embedded = false }: { embedded?: boolean }) {
                         <span className="text-white/20 text-[10px]">—</span>
                       )}
                     </td>
-                    <td className={tableCellClass + ' flex gap-1'} onClick={(e) => e.stopPropagation()}>
-                      <button type="button" onClick={() => handleDelete(v)} className="text-white/40 hover:text-red-400 transition text-xs" title="Eliminar">🗑️</button>
-                    </td>
+                    <RowDeleteButton onDelete={() => handleDelete(v)} />
                   </tr>
                 );
               })}

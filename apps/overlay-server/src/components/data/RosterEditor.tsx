@@ -275,7 +275,7 @@ export function RosterEditor() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-white/35">🧢 Cuerpo técnico</p>
-              <button type="button" onClick={openNewStaff} className={secondaryButtonClass}>+ Nuevo técnico</button>
+              <button type="button" onClick={openNewStaff} className={primaryButtonClass}>+ Nuevo técnico</button>
             </div>
 
             {staff.length === 0 ? (

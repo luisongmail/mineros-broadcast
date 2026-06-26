@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { generateId, request, toErrorMessage } from './api';
 import { mockLeagues } from './mockData';
 import { SlideDrawer } from './SlideDrawer';
 import {
+  AssetImage,
   ConfirmDialog,
   dangerButtonClass,
   EmptyState,
@@ -12,6 +13,8 @@ import {
   fieldClass,
   LoadingState,
   primaryButtonClass,
+  RowDeleteButton,
+  searchInputClass,
   secondaryButtonClass,
   tableBodyClass,
   tableClass,
@@ -39,6 +42,12 @@ export function LigasEditor() {
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
   const [dialog, setDialog]       = useState<DialogState | null>(null);
+  const [filterName, setFilterName] = useState('');
+
+  const filtered = useMemo(() =>
+    leagues.filter((l) => !filterName || l.name.toLowerCase().includes(filterName.toLowerCase())),
+    [leagues, filterName],
+  );
   const editingId                 = useRef<string | null>(null);
   const anchorRef                 = useRef<HTMLTableRowElement | null>(null);
 
@@ -125,34 +134,46 @@ export function LigasEditor() {
   return (
     <div className="space-y-3">
       {message && <Feedback tone="success" message={message} />}
+      {error && <Feedback tone="error" message={error} />}
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] text-white/30">{leagues.length} liga{leagues.length !== 1 ? 's' : ''}</p>
+      {/* Header uniforme */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">🏆 Ligas</h3>
+        <input
+          className={searchInputClass}
+          placeholder="Buscar liga…"
+          value={filterName}
+          onChange={(e) => setFilterName(e.target.value)}
+        />
         <button type="button" onClick={openNew} className={primaryButtonClass}>+ Nueva liga</button>
       </div>
 
       {/* Lista */}
-      {leagues.length === 0 ? (
-        <EmptyState message="Sin ligas registradas." />
+      {filtered.length === 0 ? (
+        <EmptyState message={leagues.length === 0 ? 'Sin ligas registradas.' : 'Sin resultados.'} />
       ) : (
         <div className="rounded border border-white/10 overflow-hidden">
           <table className={tableClass}>
             <thead>
               <tr className={tableHeadRowClass}>
+                <th className={tableHeaderClass + ' w-9'}></th>
                 <th className={tableHeaderClass}>Nombre</th>
                 <th className={tableHeaderClass}>Abrev.</th>
                 <th className={tableHeaderClass}>País</th>
                 <th className={tableHeaderClass}>Estado</th>
+                <th className={tableHeaderClass + ' w-10'}></th>
               </tr>
             </thead>
             <tbody className={tableBodyClass}>
-              {leagues.map((league) => (
+              {filtered.map((league) => (
                 <tr
                   key={league.id}
                   className={tableRowClass}
                   onClick={(e) => openEdit(league, e.currentTarget as HTMLTableRowElement)}
                 >
+                  <td className="px-2 py-1 align-middle">
+                    <AssetImage assetId={league.logoAssetId} alt={league.name} size={28} initials={league.shortName?.slice(0, 2) ?? undefined} />
+                  </td>
                   <td className={tableCellClass + ' font-medium'}>{league.name}</td>
                   <td className={tableCellClass + ' text-white/50 font-mono'}>{league.shortName || '—'}</td>
                   <td className={tableCellClass + ' text-white/50'}>{league.country || '—'}</td>
@@ -161,6 +182,7 @@ export function LigasEditor() {
                       {league.active ? 'Activa' : 'Inactiva'}
                     </span>
                   </td>
+                  <RowDeleteButton onDelete={() => handleDelete(league)} />
                 </tr>
               ))}
             </tbody>

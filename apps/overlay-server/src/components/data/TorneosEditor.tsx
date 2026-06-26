@@ -161,8 +161,9 @@ export function TorneosEditor() {
     <div className="space-y-3">
       {message && <Feedback tone="success" message={message} />}
 
-      {/* Toolbar */}
+      {/* Header uniforme */}
       <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">🏅 Torneos</h3>
         <SearchSelect
           options={[{ value: '', label: 'Todas las ligas' }, ...leagues.map((l) => ({ value: l.id, label: l.name }))]}
           value={filterLeague}

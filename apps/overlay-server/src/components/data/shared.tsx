@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export const cardClass = 'rounded-lg border border-white/10 bg-white/[0.03]';
 export const fieldClass = 'w-full rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-mineros-gold focus:bg-white/[0.06]';
@@ -14,6 +14,68 @@ export const tableHeadRowClass = 'bg-white/[0.03]';
 export const primaryButtonClass = 'rounded-md bg-mineros-gold px-3 py-2 text-xs font-semibold uppercase tracking-wide text-broadcast-black transition hover:bg-mineros-gold/85 disabled:cursor-not-allowed disabled:opacity-50';
 export const secondaryButtonClass = 'rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white/80 transition hover:bg-white/10 hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-50';
 export const dangerButtonClass = 'rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-red-300 transition hover:bg-red-500/20 hover:border-red-500/50 disabled:cursor-not-allowed disabled:opacity-50';
+
+// URL base para assets estáticos
+const ASSETS_BASE = import.meta.env.DEV ? 'http://localhost:3001/assets' : '/assets';
+export function assetUrl(assetId: string): string {
+  return `${ASSETS_BASE}/${assetId}`;
+}
+
+/** Muestra la imagen del asset o un badge de iniciales como fallback. */
+export function AssetImage({
+  assetId,
+  alt,
+  size = 32,
+  initials,
+  bgColor,
+}: {
+  assetId?: string | null;
+  alt: string;
+  size?: number;
+  initials?: string;
+  bgColor?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (assetId && !failed) {
+    return (
+      <img
+        src={assetUrl(assetId)}
+        alt={alt}
+        style={{ width: size, height: size }}
+        className="shrink-0 rounded object-contain"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  const label = initials ?? alt.slice(0, 2).toUpperCase();
+  return (
+    <div
+      className="shrink-0 rounded flex items-center justify-center font-bold text-white text-[10px]"
+      style={{ width: size, height: size, backgroundColor: bgColor ?? 'rgba(255,255,255,0.08)' }}
+    >
+      {label}
+    </div>
+  );
+}
+
+/** Celda de acciones en fila (eliminar). Detiene propagación de click. */
+export function RowDeleteButton({ onDelete }: { onDelete: () => void }) {
+  return (
+    <td
+      className="px-2 py-1 align-middle text-right whitespace-nowrap w-10"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={onDelete}
+        className="p-1.5 rounded text-white/25 hover:text-red-400 hover:bg-red-400/10 transition"
+        title="Eliminar"
+      >
+        ✕
+      </button>
+    </td>
+  );
+}
 
 export function SectionCard({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
   return (
