@@ -5,6 +5,7 @@ import { mockPlayersByTeam, mockStaffByTeam, mockTeams } from './mockData';
 import { SearchSelect } from './SearchSelect';
 import { SlideDrawer } from './SlideDrawer';
 import {
+  AssetImage,
   ConfirmDialog,
   dangerButtonClass,
   EmptyState,
@@ -106,7 +107,7 @@ export function RosterEditor() {
     setError(null);
     try {
       const isNew = !playerForm.id;
-      const path  = isNew ? `/api/teams/${selectedTeamId}/players` : `/api/teams/${selectedTeamId}/players/${playerForm.id}`;
+      const path  = isNew ? `/api/teams/${selectedTeamId}/players` : `/api/players/${playerForm.id}`;
       const body  = {
         name: playerForm.fullName, first_name: playerForm.fullName.split(' ')[0] ?? '',
         last_name: playerForm.fullName.split(' ').slice(1).join(' ') || null,
@@ -115,7 +116,12 @@ export function RosterEditor() {
         photo_asset_id: playerForm.photoAssetId || null, date_of_birth: playerForm.birthDate || null,
         nationality: playerForm.nationality || 'DO', status: playerForm.status,
       };
-      const result = normalizePlayer(await request(path, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+      const response = await request<unknown>(path, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const result = normalizePlayer(
+        response && typeof response === 'object' && 'player' in response
+          ? (response as { player?: unknown }).player
+          : response,
+      );
       setPlayers((prev) => isNew ? [...prev, result] : prev.map((p) => p.id === result.id ? result : p));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -134,7 +140,7 @@ export function RosterEditor() {
       confirmLabel: 'Eliminar',
       onConfirm: async () => {
         try {
-          await request(`/api/teams/${selectedTeamId}/players/${player.id}`, { method: 'DELETE' });
+          await request(`/api/players/${player.id}`, { method: 'DELETE' });
           setPlayers((prev) => prev.filter((p) => p.id !== player.id));
           setPlayerDrawerOpen(false);
         } catch (e) {
@@ -168,9 +174,14 @@ export function RosterEditor() {
     setError(null);
     try {
       const isNew = !staffForm.id;
-      const path  = isNew ? `/api/teams/${selectedTeamId}/staff` : `/api/teams/${selectedTeamId}/staff/${staffForm.id}`;
+      const path  = isNew ? `/api/teams/${selectedTeamId}/staff` : `/api/staff/${staffForm.id}`;
       const body  = { name: staffForm.name, role: staffForm.role, photo_asset_id: staffForm.photoAssetId || null, active: true };
-      const result = normalizeStaffMember(await request(path, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+      const response = await request<unknown>(path, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const result = normalizeStaffMember(
+        response && typeof response === 'object' && 'staff' in response
+          ? (response as { staff?: unknown }).staff
+          : response,
+      );
       setStaff((prev) => isNew ? [...prev, result] : prev.map((s) => s.id === result.id ? result : s));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -189,7 +200,7 @@ export function RosterEditor() {
       confirmLabel: 'Eliminar',
       onConfirm: async () => {
         try {
-          await request(`/api/teams/${selectedTeamId}/staff/${member.id}`, { method: 'DELETE' });
+          await request(`/api/staff/${member.id}`, { method: 'DELETE' });
           setStaff((prev) => prev.filter((s) => s.id !== member.id));
           setStaffDrawerOpen(false);
         } catch (e) {
@@ -240,6 +251,7 @@ export function RosterEditor() {
                 <table className={tableClass}>
                   <thead>
                     <tr className={tableHeadRowClass}>
+                      <th className={tableHeaderClass + ' w-8'}></th>
                       <th className={tableHeaderClass + ' w-8'}>#</th>
                       <th className={tableHeaderClass}>Nombre</th>
                       <th className={tableHeaderClass}>Pos</th>
@@ -254,6 +266,9 @@ export function RosterEditor() {
                         className={`${tableRowClass} ${playerDrawerOpen && playerForm.id === player.id ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
                         onClick={(e) => openEditPlayer(player, e.currentTarget as HTMLTableRowElement)}
                       >
+                        <td className="px-2 py-1.5">
+                          <AssetImage assetId={player.photoAssetId} alt={player.fullName} size={28} />
+                        </td>
                         <td className={tableCellClass + ' text-white/40 font-mono'}>{player.number || '—'}</td>
                         <td className={tableCellClass + ' font-medium'}>{player.fullName}</td>
                         <td className={tableCellClass + ' text-white/50'}>{player.position}</td>
@@ -285,6 +300,7 @@ export function RosterEditor() {
                 <table className={tableClass}>
                   <thead>
                     <tr className={tableHeadRowClass}>
+                      <th className={tableHeaderClass + ' w-8'}></th>
                       <th className={tableHeaderClass}>Nombre</th>
                       <th className={tableHeaderClass}>Rol</th>
                     </tr>
@@ -296,6 +312,9 @@ export function RosterEditor() {
                         className={`${tableRowClass} ${staffDrawerOpen && staffForm.id === member.id ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
                         onClick={(e) => openEditStaff(member, e.currentTarget as HTMLTableRowElement)}
                       >
+                        <td className="px-2 py-1.5">
+                          <AssetImage assetId={member.photoAssetId} alt={member.name} size={28} />
+                        </td>
                         <td className={tableCellClass + ' font-medium'}>{member.name}</td>
                         <td className={tableCellClass + ' text-white/50'}>{member.role}</td>
                       </tr>
@@ -353,6 +372,13 @@ export function RosterEditor() {
               <SearchSelect options={[{ value: 'active', label: 'Activo' }, { value: 'inactive', label: 'Inactivo' }]}
                 value={playerForm.status ?? 'active'} onChange={(v) => setPlayerForm((f) => ({ ...f, status: v as Player['status'] }))} />
             </Field>
+            <div className="col-span-2">
+              <Field label="Foto (assetId)">
+                <input className={fieldClass} value={playerForm.photoAssetId}
+                  onChange={(e) => setPlayerForm((f) => ({ ...f, photoAssetId: e.target.value }))}
+                  placeholder="Ej: photo-player-001.jpg" />
+              </Field>
+            </div>
           </div>
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => { void savePlayer(); }} disabled={saving || !selectedTeamId} className={primaryButtonClass}>
@@ -386,6 +412,11 @@ export function RosterEditor() {
               value={staffForm.role}
               onChange={(v) => setStaffForm((f) => ({ ...f, role: v as StaffRole }))}
             />
+          </Field>
+          <Field label="Foto (assetId)">
+            <input className={fieldClass} value={staffForm.photoAssetId}
+              onChange={(e) => setStaffForm((f) => ({ ...f, photoAssetId: e.target.value }))}
+              placeholder="Ej: photo-staff-001.jpg" />
           </Field>
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => { void saveStaff(); }} disabled={saving || !selectedTeamId} className={primaryButtonClass}>

@@ -85,18 +85,30 @@ export function LigasEditor() {
     setError(null);
     try {
       const isNew = !editingId.current;
-      const payload = { ...form, id: isNew ? generateId(form.name) : form.id };
+      const id = isNew ? generateId(form.name) : form.id;
+      // Backend espera snake_case
+      const payload = {
+        id,
+        sport_id: 'baseball',
+        name: form.name,
+        short_name: form.shortName,
+        country: form.country,
+        logo_asset_id: form.logoAssetId || null,
+        active: form.active,
+      };
       if (isNew) {
         const res = await request<{ league?: unknown }>(`${API}/leagues`, {
           method: 'POST', body: JSON.stringify(payload),
         });
-        setLeagues((prev) => [...prev, normalizeLeague(res.league ?? payload)]);
-        editingId.current = payload.id;
+        const created = (res as Record<string, unknown>).league ?? (res as Record<string, unknown>).payload ?? res;
+        setLeagues((prev) => [...prev, normalizeLeague(created)]);
+        editingId.current = id;
       } else {
-        const res = await request<{ league?: unknown }>(`${API}/leagues/${payload.id}`, {
+        const res = await request<{ league?: unknown }>(`${API}/leagues/${id}`, {
           method: 'PUT', body: JSON.stringify(payload),
         });
-        setLeagues((prev) => prev.map((l) => l.id === payload.id ? normalizeLeague(res.league ?? payload) : l));
+        const updated = (res as Record<string, unknown>).league ?? (res as Record<string, unknown>).payload ?? res;
+        setLeagues((prev) => prev.map((l) => l.id === id ? normalizeLeague(updated) : l));
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

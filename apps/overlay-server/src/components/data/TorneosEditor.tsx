@@ -58,6 +58,7 @@ export function TorneosEditor() {
   const [saving, setSaving]           = useState(false);
   const [saved, setSaved]             = useState(false);
   const [dialog, setDialog]           = useState<DialogState | null>(null);
+  const [standingsModalOpen, setStandingsModalOpen] = useState(false);
   const [filterLeague, setFilterLeague] = useState('');
   const editingId                     = useRef<string | null>(null);
   const anchorRef                     = useRef<HTMLTableRowElement | null>(null);
@@ -91,6 +92,7 @@ export function TorneosEditor() {
   function openNew() {
     editingId.current = null;
     anchorRef.current = null;
+    setStandingsModalOpen(false);
     setForm(emptyTournament());
     setError(null);
     setSaved(false);
@@ -100,6 +102,7 @@ export function TorneosEditor() {
   function openEdit(t: Tournament, row: HTMLTableRowElement) {
     editingId.current = t.id;
     anchorRef.current = row;
+    setStandingsModalOpen(false);
     setForm({ ...t });
     setError(null);
     setSaved(false);
@@ -111,18 +114,43 @@ export function TorneosEditor() {
     setError(null);
     try {
       const isNew = !editingId.current;
-      const payload = { ...form, id: isNew ? generateId(form.name) : form.id };
+      const payload = {
+        id: isNew ? generateId(form.name) : form.id,
+        name: form.name,
+        short_name: form.shortName,
+        type: form.type,
+        season: form.season,
+        league_id: form.leagueId || null,
+        category_id: form.categoryId || null,
+        structure_type: form.structureType,
+        start_date: form.startDate || null,
+        end_date: form.endDate || null,
+        status: form.status,
+        has_playoffs: form.hasPlayoffs,
+        playoff_format: form.playoffFormat || null,
+        round_robin_rounds: form.roundRobinRounds,
+      };
       if (isNew) {
-        const res = await request<{ tournament?: unknown }>(`${API}/tournaments`, {
+        const res = await request<unknown>(`${API}/tournaments`, {
           method: 'POST', body: JSON.stringify(payload),
         });
-        setTournaments((prev) => [...prev, normalizeTournament(res.tournament ?? payload)]);
+        const tournament = normalizeTournament(
+          res && typeof res === 'object' && 'tournament' in res
+            ? (res as { tournament?: unknown }).tournament
+            : res ?? payload,
+        );
+        setTournaments((prev) => [...prev, tournament]);
         editingId.current = payload.id;
       } else {
-        const res = await request<{ tournament?: unknown }>(`${API}/tournaments/${payload.id}`, {
+        const res = await request<unknown>(`${API}/tournaments/${payload.id}`, {
           method: 'PUT', body: JSON.stringify(payload),
         });
-        setTournaments((prev) => prev.map((t) => t.id === payload.id ? normalizeTournament(res.tournament ?? payload) : t));
+        const tournament = normalizeTournament(
+          res && typeof res === 'object' && 'tournament' in res
+            ? (res as { tournament?: unknown }).tournament
+            : res ?? payload,
+        );
+        setTournaments((prev) => prev.map((t) => t.id === payload.id ? tournament : t));
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -221,7 +249,7 @@ export function TorneosEditor() {
       <SlideDrawer
         open={drawerOpen}
         title={editingId.current ? 'Editar torneo' : 'Nuevo torneo'}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => { setDrawerOpen(false); setStandingsModalOpen(false); }}
         anchorRef={anchorRef}
       >
         <div className="space-y-3 p-1">
@@ -301,36 +329,13 @@ export function TorneosEditor() {
 
           {/* Standings de solo lectura */}
           {form.standings.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-1">Posiciones</p>
-              <div className="rounded border border-white/10 overflow-hidden">
-                <table className={tableClass}>
-                  <thead>
-                    <tr className={tableHeadRowClass}>
-                      {['#', 'Equipo', 'JG', 'JP', 'PCT', 'Dif'].map((h) => (
-                        <th key={h} className={tableHeaderClass}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className={tableBodyClass}>
-                    {[...form.standings]
-                      .sort((a, b) => (b.pct - a.pct) || (b.runDiff - a.runDiff))
-                      .map((row: TournamentStanding, i) => (
-                        <tr key={row.teamId} className="border-b border-white/5 last:border-0">
-                          <td className={tableCellClass + ' text-white/40 tabular-nums'}>{i + 1}</td>
-                          <td className={tableCellClass}>{teamMap.get(row.teamId) ?? row.teamId}</td>
-                          <td className={tableCellClass + ' tabular-nums'}>{row.wins}</td>
-                          <td className={tableCellClass + ' tabular-nums'}>{row.losses}</td>
-                          <td className={tableCellClass + ' font-mono tabular-nums'}>{row.pct.toFixed(3)}</td>
-                          <td className={`${tableCellClass} font-mono tabular-nums ${row.runDiff > 0 ? 'text-emerald-300' : row.runDiff < 0 ? 'text-red-400' : 'text-white/40'}`}>
-                            {row.runDiff > 0 ? `+${row.runDiff}` : row.runDiff}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <button
+              type="button"
+              className={secondaryButtonClass}
+              onClick={() => setStandingsModalOpen(true)}
+            >
+              📊 Ver posiciones ({form.standings.length} equipos)
+            </button>
           )}
 
           <div className="flex gap-2 pt-2">
@@ -348,6 +353,46 @@ export function TorneosEditor() {
           </div>
         </div>
       </SlideDrawer>
+
+      {standingsModalOpen && form.standings.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setStandingsModalOpen(false)} />
+          <div className="relative z-10 w-full max-w-lg rounded-xl border border-white/10 bg-[#0f1117] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <h3 className="text-sm font-semibold text-white">{form.name} — Posiciones</h3>
+              <button type="button" onClick={() => setStandingsModalOpen(false)}
+                className="text-white/40 hover:text-white transition text-lg leading-none">✕</button>
+            </div>
+            <div className="overflow-auto max-h-96">
+              <table className={tableClass}>
+                <thead>
+                  <tr className={tableHeadRowClass}>
+                    {['#', 'Equipo', 'JG', 'JP', 'PCT', 'Dif'].map((h) => (
+                      <th key={h} className={tableHeaderClass}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className={tableBodyClass}>
+                  {[...form.standings]
+                    .sort((a, b) => (b.pct - a.pct) || (b.runDiff - a.runDiff))
+                    .map((row: TournamentStanding, i) => (
+                      <tr key={row.teamId} className="border-b border-white/5 last:border-0">
+                        <td className={tableCellClass + ' text-white/40 tabular-nums'}>{i + 1}</td>
+                        <td className={tableCellClass}>{teamMap.get(row.teamId) ?? row.teamId}</td>
+                        <td className={tableCellClass + ' tabular-nums'}>{row.wins}</td>
+                        <td className={tableCellClass + ' tabular-nums'}>{row.losses}</td>
+                        <td className={tableCellClass + ' font-mono tabular-nums'}>{row.pct.toFixed(3)}</td>
+                        <td className={`${tableCellClass} font-mono tabular-nums ${row.runDiff > 0 ? 'text-emerald-300' : row.runDiff < 0 ? 'text-red-400' : 'text-white/40'}`}>
+                          {row.runDiff > 0 ? `+${row.runDiff}` : row.runDiff}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog state={dialog} onClose={() => setDialog(null)} />
     </div>

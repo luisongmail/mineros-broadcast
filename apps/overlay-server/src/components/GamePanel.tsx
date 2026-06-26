@@ -167,6 +167,7 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
   const [form, setForm]                     = useState(emptyForm());
   const [allSponsors, setAllSponsors]       = useState<Sponsor[]>([]);
   const [allTeams, setAllTeams]             = useState<{ id: string; name: string; shortName: string }[]>([]);
+  const [allVenues, setAllVenues]           = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving]                 = useState(false);
   const anchorRef = useRef<HTMLTableRowElement | null>(null);
 
@@ -222,6 +223,19 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
         }));
       })
       .catch(() => setAllTeams([]));
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API}/venues`)
+      .then((r) => r.json() as Promise<{ result?: string; payload?: unknown[] }>)
+      .then((body) => {
+        const list = body.result === 'ok' && Array.isArray(body.payload) ? body.payload : [];
+        setAllVenues(list.map((v) => {
+          const raw = v as Record<string, unknown>;
+          return { id: String(raw.id ?? ''), name: String(raw.name ?? '') };
+        }));
+      })
+      .catch(() => setAllVenues([]));
   }, []);
 
   function openNew() {
@@ -452,12 +466,21 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
           </Field>
 
           <Field label="Sede">
-            <input
-              className={fieldClass}
-              value={form.venue}
-              onChange={(e) => setForm((f) => ({ ...f, venue: e.target.value }))}
-              placeholder="Estadio Mineros"
-            />
+            {allVenues.length > 0 ? (
+              <SearchSelect
+                options={[{ value: '', label: 'Sin sede' }, ...allVenues.map((v) => ({ value: v.name, label: v.name }))]}
+                value={form.venue}
+                onChange={(v) => setForm((f) => ({ ...f, venue: v }))}
+                placeholder="Seleccionar estadio…"
+              />
+            ) : (
+              <input
+                className={fieldClass}
+                value={form.venue}
+                onChange={(e) => setForm((f) => ({ ...f, venue: e.target.value }))}
+                placeholder="Estadio Mineros"
+              />
+            )}
           </Field>
 
           <Field label="Fecha">
