@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { GameState } from '@mineros/game-engine';
 
 import type { GameConfigDetail, GameConfigSource, GameConfigSummary } from '../gameConfig';
+import { ConfirmDialog, type DialogState } from './data/shared';
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
@@ -70,7 +71,7 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
   const [loadingAction, setLoadingAction] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,17 +174,19 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
   };
 
   const handleResetGame = async () => {
-    if (!selectedGameId) {
-      return;
-    }
-
-    setShowResetConfirm(true);
+    if (!selectedGameId) return;
+    setDialog({
+      title: 'Reiniciar partido',
+      message: 'Se borrarán todos los at-bats e historial. Esta acción no se puede deshacer.',
+      tone: 'danger',
+      confirmLabel: 'Reiniciar',
+      onConfirm: () => void confirmReset(),
+    });
   };
 
   const confirmReset = async () => {
     if (!selectedGameId) return;
 
-    setShowResetConfirm(false);
     setLoadingAction(true);
     setErrorMessage(null);
 
@@ -277,29 +280,7 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
         </div>
       )}
 
-      {/* Confirmación de reset */}
-      {showResetConfirm && (
-        <div className="rounded border border-orange-400/40 bg-orange-400/10 p-3 space-y-2">
-          <p className="text-xs font-semibold text-orange-200">⚠️ ¿Reiniciar el partido?</p>
-          <p className="text-[10px] text-white/60">Se borrarán todos los at-bats e historial. Esta acción no se puede deshacer.</p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => { void confirmReset(); }}
-              className="flex-1 rounded bg-orange-500 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white transition hover:bg-orange-600"
-            >
-              Confirmar
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowResetConfirm(false)}
-              className="rounded border border-white/20 bg-white/5 px-3 py-1.5 text-[10px] font-semibold text-white/60 transition hover:bg-white/10"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog state={dialog} onClose={() => setDialog(null)} />
     </div>
   );
 }

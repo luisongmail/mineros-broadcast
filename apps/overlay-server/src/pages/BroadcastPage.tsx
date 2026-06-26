@@ -15,7 +15,7 @@ import { SocialLowerThirdOverlay } from '@mineros/overlay-social-lower-third';
 import { SponsorBreakOverlay } from '@mineros/overlay-sponsor-break';
 import { SubstitutionOverlay } from '@mineros/overlay-substitution';
 
-import { DEMO_GAME_DETAIL, createDemoGameState, findPlayerById } from '../gameConfig';
+import { DEMO_GAME_DETAIL, createDemoGameState, findPlayerById, type GameConfigDetail } from '../gameConfig';
 import { useBroadcastWS } from '../hooks/useBroadcastWS';
 import { createScoreboardOverlayData } from '../scoreboardData';
 import type { MatchMetadata } from '../matchMetadata';
@@ -159,8 +159,8 @@ function toOverlayTeam(team: GameState['homeTeam']) {
   };
 }
 
-function toPitcherThrows(playerId: string): 'R' | 'L' | undefined {
-  const value = getPlayerStat(playerId, 'throws');
+function toPitcherThrows(playerId: string, config: GameConfigDetail): 'R' | 'L' | undefined {
+  const value = makeGetPlayerStat(config)(playerId, 'throws');
   return value === 'R' || value === 'L' ? value : undefined;
 }
 
@@ -177,13 +177,16 @@ function getLineupPlayer(gameState: GameState, role: TeamRole, playerId: string 
   return players[0] ?? null;
 }
 
-function getPlayerStat(playerId: string, key: string): string | number | undefined {
-  const player = findPlayerById(DEMO_GAME_DETAIL, playerId);
-  const value = player?.stats[key];
-  return typeof value === 'string' || typeof value === 'number' ? value : undefined;
+function makeGetPlayerStat(config: GameConfigDetail) {
+  return (playerId: string, key: string): string | number | undefined => {
+    const player = findPlayerById(config, playerId);
+    const value = player?.stats[key];
+    return typeof value === 'string' || typeof value === 'number' ? value : undefined;
+  };
 }
 
-function getBatterData(gameState: GameState, liveStats: Record<string, LivePlayerStats>) {
+function getBatterData(gameState: GameState, liveStats: Record<string, LivePlayerStats>, config: GameConfigDetail) {
+  const getPlayerStat = makeGetPlayerStat(config);
   const battingRole = getBattingRole(gameState.inningHalf);
   const team = getTeamByRole(gameState, battingRole);
   const batter = getLineupPlayer(gameState, battingRole, gameState.currentBatterId);
@@ -204,7 +207,7 @@ function getBatterData(gameState: GameState, liveStats: Record<string, LivePlaye
     status: 'AL BATE',
     battingOrder: batter.order,
     teamId: team.id,
-    photoAssetId: findPlayerById(DEMO_GAME_DETAIL, batter.playerId)?.photoAssetId,
+    photoAssetId: findPlayerById(config, batter.playerId)?.photoAssetId,
     stats: {
       avg: avgStr ?? (typeof getPlayerStat(batter.playerId, 'avg') === 'string' ? (getPlayerStat(batter.playerId, 'avg') as string) : undefined),
       hits: live?.hits ?? (typeof getPlayerStat(batter.playerId, 'hits') === 'number' ? (getPlayerStat(batter.playerId, 'hits') as number) : undefined),
@@ -216,12 +219,12 @@ function getBatterData(gameState: GameState, liveStats: Record<string, LivePlaye
   };
 }
 
-function getPitcherData(gameState: GameState, livePitcherStats: Record<string, LivePitcherStats>) {
+function getPitcherData(gameState: GameState, livePitcherStats: Record<string, LivePitcherStats>, config: GameConfigDetail) {
+  const getPlayerStat = makeGetPlayerStat(config);
   const pitchingRole = getPitchingRole(gameState.inningHalf);
   const team = getTeamByRole(gameState, pitchingRole);
   const pitchingLineup = gameState.lineup[pitchingRole];
 
-  // Busca primero por currentPitcherId (coincidencia exacta), luego por posición P
   const pitcher =
     (gameState.currentPitcherId
       ? pitchingLineup.find((p) => p.playerId === gameState.currentPitcherId)
@@ -238,8 +241,8 @@ function getPitcherData(gameState: GameState, livePitcherStats: Record<string, L
     number: pitcher.number,
     name: pitcher.name,
     teamId: team.id,
-    photoAssetId: findPlayerById(DEMO_GAME_DETAIL, pitcher.playerId)?.photoAssetId,
-    throws: toPitcherThrows(pitcher.playerId),
+    photoAssetId: findPlayerById(config, pitcher.playerId)?.photoAssetId,
+    throws: toPitcherThrows(pitcher.playerId, config),
     stats: (() => {
       const live = livePitcherStats[pitcher.playerId];
       return {
@@ -255,7 +258,8 @@ function getPitcherData(gameState: GameState, livePitcherStats: Record<string, L
   };
 }
 
-function getNextBattersData(gameState: GameState, liveStats: Record<string, LivePlayerStats>) {
+function getNextBattersData(gameState: GameState, liveStats: Record<string, LivePlayerStats>, config: GameConfigDetail) {
+  const getPlayerStat = makeGetPlayerStat(config);
   const battingRole = getBattingRole(gameState.inningHalf);
   const lineup = gameState.lineup[battingRole];
 
@@ -270,10 +274,9 @@ function getNextBattersData(gameState: GameState, liveStats: Record<string, Live
 
   return ['current', 'on_deck', 'in_the_hole'].map((state, offset) => {
     const player = lineup[(currentIndex + offset) % lineup.length];
-    const playerData = findPlayerById(DEMO_GAME_DETAIL, player.playerId);
+    const playerData = findPlayerById(config, player.playerId);
     const live = liveStats[player.playerId];
 
-    // avg: prefer live computed from at-bats, fallback to demo static stat
     const liveAvg = live && live.ab > 0
       ? (live.hits / live.ab).toFixed(3).replace('0.', '.')
       : undefined;
@@ -282,7 +285,6 @@ function getNextBattersData(gameState: GameState, liveStats: Record<string, Live
       : undefined;
     const avg = liveAvg ?? staticAvg;
 
-    // today: H-AB de este juego
     const today = live ? `${live.hits}-${live.ab}` : undefined;
 
     return {
@@ -491,6 +493,7 @@ const CANVAS_H = 1080;
 
 export function BroadcastPage() {
   const { gameState, lastMessage } = useBroadcastWS(getBroadcastWebSocketUrl());
+  const [gameConfig, setGameConfig] = useState<GameConfigDetail>(DEMO_GAME_DETAIL);
   const [visibility, setVisibility] = useState<OverlayVisibility>(DEFAULT_VISIBILITY);
   const [liveStats, setLiveStats] = useState<Record<string, LivePlayerStats>>({});
   const [livePitcherStats, setLivePitcherStats] = useState<Record<string, LivePitcherStats>>({});
@@ -540,6 +543,22 @@ export function BroadcastPage() {
     if (!gid) return;
     fetchActiveLayout(gid)
       .then((zones) => { if (Object.keys(zones).length > 0) setLayoutZones(zones); })
+      .catch(() => undefined);
+  }, [gameState?.gameId]);
+
+  // Cargar config completo del partido (equipos, lineups, fotos) cuando cambia el gameId
+  useEffect(() => {
+    const gid = gameState?.gameId;
+    if (!gid) return;
+    const apiBase = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+    fetch(`${apiBase}/games/${gid}`)
+      .then((r) => r.json() as Promise<{ result?: string; payload?: { game?: unknown } }>)
+      .then((body) => {
+        const cfg = body?.payload?.game;
+        if (cfg && typeof cfg === 'object') {
+          setGameConfig(cfg as GameConfigDetail);
+        }
+      })
       .catch(() => undefined);
   }, [gameState?.gameId]);
 
@@ -670,9 +689,9 @@ export function BroadcastPage() {
   }, [lastMessage]);
 
   const resolvedGameState = useMemo(() => gameState ?? createDemoGameState(), [gameState]);
-  const batterData = useMemo(() => getBatterData(resolvedGameState, liveStats), [resolvedGameState, liveStats]);
-  const pitcherData = useMemo(() => getPitcherData(resolvedGameState, livePitcherStats), [resolvedGameState, livePitcherStats]);
-  const nextBattersData = useMemo(() => getNextBattersData(resolvedGameState, liveStats), [resolvedGameState, liveStats]);
+  const batterData = useMemo(() => getBatterData(resolvedGameState, liveStats, gameConfig), [resolvedGameState, liveStats, gameConfig]);
+  const pitcherData = useMemo(() => getPitcherData(resolvedGameState, livePitcherStats, gameConfig), [resolvedGameState, livePitcherStats, gameConfig]);
+  const nextBattersData = useMemo(() => getNextBattersData(resolvedGameState, liveStats, gameConfig), [resolvedGameState, liveStats, gameConfig]);
 
   // Refs estables para evitar desmonte del OverlaySlot cuando los datos se actualizan brevemente a null/empty
   const lastBatterDataRef = useRef(batterData);
@@ -687,11 +706,11 @@ export function BroadcastPage() {
   const winningTeam = toOverlayTeam(homeAhead ? resolvedGameState.homeTeam : resolvedGameState.awayTeam);
   const losingTeam = toOverlayTeam(homeAhead ? resolvedGameState.awayTeam : resolvedGameState.homeTeam);
   const lineupPlayers = useMemo(
-    () =>
-      resolvedGameState.lineup[lineupRole].map((player) => {
+    () => {
+      const getPlayerStat = makeGetPlayerStat(gameConfig);
+      return resolvedGameState.lineup[lineupRole].map((player) => {
         const avg = getPlayerStat(player.playerId, 'avg');
-        // Fallback: si el estado del servidor no tiene photoAssetId, lo buscamos en DEMO_GAME_DETAIL
-        const photoAssetId = player.photoAssetId ?? findPlayerById(DEMO_GAME_DETAIL, player.playerId)?.photoAssetId;
+        const photoAssetId = player.photoAssetId ?? findPlayerById(gameConfig, player.playerId)?.photoAssetId;
 
         return {
           order: player.order,
@@ -704,22 +723,22 @@ export function BroadcastPage() {
           status: player.status,
           isCurrentBatter: player.playerId === resolvedGameState.currentBatterId,
         };
-      }),
-    [lineupRole, resolvedGameState],
+      });
+    },
+    [lineupRole, resolvedGameState, gameConfig],
   );
 
-  // Pitcher propio del equipo que está bateando (para mostrar en el card de lineup)
   const lineupPitcher = useMemo(() => {
     const pitcher = resolvedGameState.lineup[lineupRole].find((p) => p.position.toUpperCase() === 'P');
     if (!pitcher) return undefined;
-    const photoAssetId = pitcher.photoAssetId ?? findPlayerById(DEMO_GAME_DETAIL, pitcher.playerId)?.photoAssetId;
+    const photoAssetId = pitcher.photoAssetId ?? findPlayerById(gameConfig, pitcher.playerId)?.photoAssetId;
     return { playerId: pitcher.playerId, name: pitcher.name, number: pitcher.number, photoAssetId };
-  }, [lineupRole, resolvedGameState.lineup]);
+  }, [lineupRole, resolvedGameState.lineup, gameConfig]);
 
   const basesLabel = useMemo(() => toBasesLabel(resolvedGameState), [resolvedGameState]);
   const scoreboardData = useMemo(
-    () => createScoreboardOverlayData(DEMO_GAME_DETAIL, resolvedGameState, { liveStats, livePitcherStats, metadata: matchMetadata }),
-    [livePitcherStats, liveStats, matchMetadata, resolvedGameState],
+    () => createScoreboardOverlayData(gameConfig, resolvedGameState, { liveStats, livePitcherStats, metadata: matchMetadata }),
+    [livePitcherStats, liveStats, matchMetadata, resolvedGameState, gameConfig],
   );
 
   // Recargar metadata del partido cuando cambie el gameId o cuando se haya guardado
@@ -752,12 +771,12 @@ export function BroadcastPage() {
 
     const assetIds = new Set<string>();
     (['home', 'away'] as const).forEach((side) => {
-      DEMO_GAME_DETAIL.lineups[side].forEach((p) => {
+      gameConfig.lineups[side].forEach((p) => {
         if (p.photoAssetId) assetIds.add(p.photoAssetId);
       });
     });
-    if (DEMO_GAME_DETAIL.homeTeam.logoAssetId) assetIds.add(DEMO_GAME_DETAIL.homeTeam.logoAssetId);
-    if (DEMO_GAME_DETAIL.awayTeam.logoAssetId) assetIds.add(DEMO_GAME_DETAIL.awayTeam.logoAssetId);
+    if (gameConfig.homeTeam.logoAssetId) assetIds.add(gameConfig.homeTeam.logoAssetId);
+    if (gameConfig.awayTeam.logoAssetId) assetIds.add(gameConfig.awayTeam.logoAssetId);
 
     const links: HTMLLinkElement[] = [];
     assetIds.forEach((id) => {
@@ -770,8 +789,7 @@ export function BroadcastPage() {
     });
 
     return () => links.forEach((l) => l.remove());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [gameConfig]);
 
   // Reactive preload: when live game data changes, ensure new photos are cached
   useEffect(() => {

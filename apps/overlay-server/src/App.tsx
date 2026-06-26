@@ -19,6 +19,7 @@ import { PitcherOverlay } from '@mineros/overlay-pitcher';
 import { GameConfigPanel } from './components/GameConfigPanel';
 import { LayoutEditor } from './components/LayoutEditor';
 import { DataPanel } from './components/data/DataPanel';
+import { ConfirmDialog, type DialogState } from './components/data/shared';
 import { useBroadcastWS } from './hooks/useBroadcastWS';
 import {
   DEMO_GAME_DETAIL,
@@ -364,12 +365,12 @@ function OperatorControlPanel() {
 
     const assetIds = new Set<string>();
     (['home', 'away'] as const).forEach((side) => {
-      DEMO_GAME_DETAIL.lineups[side].forEach((p) => {
+      gameConfigDetail.lineups[side].forEach((p) => {
         if (p.photoAssetId) assetIds.add(p.photoAssetId);
       });
     });
-    if (DEMO_GAME_DETAIL.homeTeam.logoAssetId) assetIds.add(DEMO_GAME_DETAIL.homeTeam.logoAssetId);
-    if (DEMO_GAME_DETAIL.awayTeam.logoAssetId) assetIds.add(DEMO_GAME_DETAIL.awayTeam.logoAssetId);
+    if (gameConfigDetail.homeTeam.logoAssetId) assetIds.add(gameConfigDetail.homeTeam.logoAssetId);
+    if (gameConfigDetail.awayTeam.logoAssetId) assetIds.add(gameConfigDetail.awayTeam.logoAssetId);
 
     const links: HTMLLinkElement[] = [];
     assetIds.forEach((id) => {
@@ -383,7 +384,7 @@ function OperatorControlPanel() {
 
     return () => links.forEach((l) => l.remove());
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [gameConfigDetail]);
 
   const [previewOverlay, setPreviewOverlay] = useState<OverlayId | null>(null);
   const [previewVariant, setPreviewVariant] = useState('lower_third_compact');
@@ -479,7 +480,7 @@ function OperatorControlPanel() {
     }
   }, [wsLastMessage, programOverlay]);
 
-  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetDialog, setResetDialog] = useState<DialogState | null>(null);
   const [resetting, setResetting] = useState(false);
   const [rightTab, setRightTab] = useState<'config' | 'history' | 'layout' | 'obs' | 'data'>('data');
   const handleResetGame = useCallback(async () => {
@@ -487,7 +488,7 @@ function OperatorControlPanel() {
     try {
       const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
       await fetch(`${API_BASE}/game/reset`, { method: 'POST' });
-      setShowResetModal(false);
+      setResetDialog(null);
     } catch {
       // ignorar error — el WS actualizará el estado
     } finally {
@@ -870,7 +871,7 @@ function OperatorControlPanel() {
       case 'lineup': {
         const battingRole = game.inningHalf === 'top' ? 'away' : 'home';
         const battingTeam = game[battingRole === 'home' ? 'homeTeam' : 'awayTeam'];
-        const lineupPlayers = DEMO_GAME_DETAIL.lineups[battingRole].map((p) => ({
+        const lineupPlayers = gameConfigDetail.lineups[battingRole].map((p) => ({
           order: p.order,
           playerId: p.playerId,
           name: p.name,
@@ -880,7 +881,7 @@ function OperatorControlPanel() {
           isCurrentBatter: p.playerId === game.currentBatterId,
           status: 'active' as const,
         }));
-        const pitcherEntry = DEMO_GAME_DETAIL.lineups[battingRole].find((p) => p.position === 'P');
+        const pitcherEntry = gameConfigDetail.lineups[battingRole].find((p) => p.position === 'P');
         return (
           <LineupOverlay
             team={{ teamId: battingTeam.id, name: battingTeam.name, shortName: battingTeam.shortName, logoAssetId: battingTeam.logoAssetId }}
@@ -894,7 +895,7 @@ function OperatorControlPanel() {
         return <ScoreboardOverlay data={scoreboardData} assetBaseUrl={import.meta.env.VITE_ASSETS_BASE_URL} isPaused />;
       case 'pitcher': {
         const pitchingRole = game.inningHalf === 'top' ? 'home' : 'away';
-        const pitchingLineup = DEMO_GAME_DETAIL.lineups[pitchingRole];
+        const pitchingLineup = gameConfigDetail.lineups[pitchingRole];
         // Busca por currentPitcherId exacto primero, luego por posición P
         const pitcherPlayer =
           (game.currentPitcherId
@@ -1047,7 +1048,13 @@ function OperatorControlPanel() {
             </button>
             <button
               type="button"
-              onClick={() => setShowResetModal(true)}
+              onClick={() => setResetDialog({
+                title: 'Reiniciar juego',
+                message: 'Se borrarán todos los at-bats, estadísticas e historial. El marcador vuelve a 0-0, entrada 1. Los equipos y lineup se conservan.',
+                tone: 'danger',
+                confirmLabel: resetting ? 'Reiniciando…' : 'Sí, reiniciar',
+                onConfirm: () => void handleResetGame(),
+              })}
               className="rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-red-300 hover:bg-red-500/20"
             >
               ⟳ Reset
@@ -1280,34 +1287,7 @@ function OperatorControlPanel() {
       </div>
 
       {/* ── MODAL RESET JUEGO ── */}
-      {showResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="mx-4 w-full max-w-sm rounded-2xl border border-red-500/40 bg-[#1a0a0a] p-6 shadow-2xl">
-            <p className="font-bebas text-2xl uppercase tracking-wide text-red-300">⚠ Reiniciar juego</p>
-            <p className="mt-3 text-sm text-white/70">
-              Esta acción borrará <strong className="text-white">todos los at-bats, estadísticas e historial</strong> del partido actual y restablecerá el marcador a 0-0, entrada 1.
-            </p>
-            <p className="mt-2 text-sm text-white/50">Los equipos y lineup se conservan.</p>
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowResetModal(false)}
-                className="flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/15"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleResetGame()}
-                disabled={resetting}
-                className="flex-1 rounded-xl bg-[#D71920] px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
-              >
-                {resetting ? 'Reiniciando…' : 'Sí, reiniciar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog state={resetDialog} onClose={() => setResetDialog(null)} />
     </div>
   );
 }
