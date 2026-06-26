@@ -186,7 +186,7 @@ export function LigasEditor() {
                   onClick={(e) => openEdit(league, e.currentTarget as HTMLTableRowElement)}
                 >
                   <td className="px-2 py-1 align-middle">
-                    <AssetImage assetId={league.logoAssetId} alt={league.name} size={28} initials={league.shortName?.slice(0, 2) ?? undefined} />
+                    <AssetImage assetId={league.logoAssetId} alt={league.name} size={40} initials={league.shortName?.slice(0, 2) ?? undefined} />
                   </td>
                   <td className={tableCellClass + ' font-medium'}>{league.name}</td>
                   <td className={tableCellClass + ' text-white/50 font-mono'}>{league.shortName || '—'}</td>
@@ -226,8 +226,13 @@ export function LigasEditor() {
               onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} />
           </Field>
           <Field label="Logo (asset ID)">
-            <input className={fieldClass} value={form.logoAssetId}
-              onChange={(e) => setForm((f) => ({ ...f, logoAssetId: e.target.value }))} />
+            <div className="flex items-center gap-3">
+              <input className={`${fieldClass} flex-1`} value={form.logoAssetId}
+                onChange={(e) => setForm((f) => ({ ...f, logoAssetId: e.target.value }))} />
+              {form.logoAssetId && (
+                <AssetImage assetId={form.logoAssetId} alt="Vista previa" size={48} initials={form.shortName?.slice(0, 2) ?? undefined} />
+              )}
+            </div>
           </Field>
           <label className="flex items-center gap-2 text-xs text-white/70 cursor-pointer">
             <input type="checkbox" checked={form.active}

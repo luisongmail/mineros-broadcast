@@ -269,7 +269,7 @@ export function RosterEditor() {
                         onClick={(e) => openEditPlayer(player, e.currentTarget as HTMLTableRowElement)}
                       >
                         <td className="px-2 py-1.5">
-                          <AssetImage assetId={player.photoAssetId} alt={player.fullName} size={28} />
+                          <AssetImage assetId={player.photoAssetId} alt={player.fullName} size={36} />
                         </td>
                         <td className={tableCellClass + ' text-white/40 font-mono'}>{player.number || '—'}</td>
                         <td className={tableCellClass + ' font-medium'}>{player.fullName}</td>
@@ -316,7 +316,7 @@ export function RosterEditor() {
                         onClick={(e) => openEditStaff(member, e.currentTarget as HTMLTableRowElement)}
                       >
                         <td className="px-2 py-1.5">
-                          <AssetImage assetId={member.photoAssetId} alt={member.name} size={28} />
+                          <AssetImage assetId={member.photoAssetId} alt={member.name} size={36} />
                         </td>
                         <td className={tableCellClass + ' font-medium'}>{member.name}</td>
                         <td className={tableCellClass + ' text-white/50'}>{member.role}</td>
@@ -377,9 +377,14 @@ export function RosterEditor() {
             </Field>
             <div className="col-span-2">
               <Field label="Foto (assetId)">
-                <input className={fieldClass} value={playerForm.photoAssetId}
-                  onChange={(e) => setPlayerForm((f) => ({ ...f, photoAssetId: e.target.value }))}
-                  placeholder="Ej: photo-player-001.jpg" />
+                <div className="flex items-center gap-3">
+                  <input className={`${fieldClass} flex-1`} value={playerForm.photoAssetId}
+                    onChange={(e) => setPlayerForm((f) => ({ ...f, photoAssetId: e.target.value }))}
+                    placeholder="Ej: photo-player-001.jpg" />
+                  {playerForm.photoAssetId && (
+                    <AssetImage assetId={playerForm.photoAssetId} alt="Vista previa" size={52} />
+                  )}
+                </div>
               </Field>
             </div>
           </div>
@@ -421,9 +426,14 @@ export function RosterEditor() {
             />
           </Field>
           <Field label="Foto (assetId)">
-            <input className={fieldClass} value={staffForm.photoAssetId}
-              onChange={(e) => setStaffForm((f) => ({ ...f, photoAssetId: e.target.value }))}
-              placeholder="Ej: photo-staff-001.jpg" />
+            <div className="flex items-center gap-3">
+              <input className={`${fieldClass} flex-1`} value={staffForm.photoAssetId}
+                onChange={(e) => setStaffForm((f) => ({ ...f, photoAssetId: e.target.value }))}
+                placeholder="Ej: photo-staff-001.jpg" />
+              {staffForm.photoAssetId && (
+                <AssetImage assetId={staffForm.photoAssetId} alt="Vista previa" size={52} />
+              )}
+            </div>
           </Field>
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => { void saveStaff(); }} disabled={saving || !selectedTeamId} className={primaryButtonClass}>

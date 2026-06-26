@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { SlideDrawer } from './data/SlideDrawer';
 import {
   AssetImage,
+  assetUrl,
   ConfirmDialog,
   dangerButtonClass,
   Feedback,
@@ -293,7 +294,7 @@ export function VenuesTab({ embedded = false }: { embedded?: boolean }) {
                     onClick={(e) => openEdit(v, e.currentTarget as HTMLTableRowElement)}
                   >
                     <td className="px-2 py-1 align-middle">
-                      <AssetImage assetId={v.photoAssetId} alt={v.name} size={28} />
+                      <AssetImage assetId={v.photoAssetId} alt={v.name} size={48} />
                     </td>
                     <td className={tableCellClass + ' font-medium'}>{v.name}</td>
                     <td className={tableCellClass + ' text-white/50'}>{v.address.city || '—'}</td>
@@ -344,6 +345,16 @@ export function VenuesTab({ embedded = false }: { embedded?: boolean }) {
 
           <Field label="Foto — Asset ID">
             <input className={fieldClass} value={form.photoAssetId} onChange={(e) => setForm((f) => ({ ...f, photoAssetId: e.target.value }))} placeholder="venues/estadio-mineros" />
+            {form.photoAssetId && (
+              <div className="mt-2 rounded border border-white/10 overflow-hidden bg-white/[0.02]">
+                <img
+                  src={assetUrl(form.photoAssetId)}
+                  alt="Vista previa del estadio"
+                  className="w-full h-32 object-cover"
+                  onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
+                />
+              </div>
+            )}
           </Field>
 
           {/* Dirección */}

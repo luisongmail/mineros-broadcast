@@ -317,7 +317,12 @@ export function TeamEditor() {
               <input className={fieldClass} maxLength={4} value={form.abbreviation} onChange={(e) => setForm((f) => ({ ...f, abbreviation: e.target.value.toUpperCase() }))} placeholder="MIN" />
             </Field>
             <Field label="Logo Asset ID">
-              <input className={fieldClass} value={form.logoAssetId} onChange={(e) => setForm((f) => ({ ...f, logoAssetId: e.target.value }))} placeholder="teams/mineros-logo" />
+              <div className="flex items-center gap-2">
+                <input className={`${fieldClass} flex-1`} value={form.logoAssetId} onChange={(e) => setForm((f) => ({ ...f, logoAssetId: e.target.value }))} placeholder="teams/mineros-logo" />
+                {form.logoAssetId && (
+                  <AssetImage assetId={form.logoAssetId} alt="Vista previa" size={40} initials={form.abbreviation || form.fullName.slice(0, 2).toUpperCase()} />
+                )}
+              </div>
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">

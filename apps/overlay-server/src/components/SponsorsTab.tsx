@@ -158,7 +158,7 @@ function SponsorCrudSection() {
                   onClick={() => openEdit(s)}
                 >
                   <td className="px-2 py-1 align-middle">
-                    <AssetImage assetId={s.logoAssetId} alt={s.name} size={28} />
+                    <AssetImage assetId={s.logoAssetId} alt={s.name} size={40} />
                   </td>
                   <td className={tableCellClass}>
                     <p className="font-medium text-white/90">{s.name}</p>
@@ -190,9 +190,14 @@ function SponsorCrudSection() {
           ))}
           <label className="flex flex-col gap-1">
             <span className={labelClass}>Logo Asset ID</span>
-            <input className={fieldClass} value={form.logoAssetId}
-              onChange={(e) => setForm((f) => ({ ...f, logoAssetId: e.target.value }))}
-              placeholder="sponsors/acme-logo" />
+            <div className="flex items-center gap-3">
+              <input className={`${fieldClass} flex-1`} value={form.logoAssetId}
+                onChange={(e) => setForm((f) => ({ ...f, logoAssetId: e.target.value }))}
+                placeholder="sponsors/acme-logo" />
+              {form.logoAssetId && (
+                <AssetImage assetId={form.logoAssetId} alt="Vista previa" size={48} />
+              )}
+            </div>
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
