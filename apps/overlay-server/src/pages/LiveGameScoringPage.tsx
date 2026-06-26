@@ -33,11 +33,13 @@ type PitchType =
   | 'Dropball'
   | 'Screwball';
 type PitchResult = 'ball' | 'called_strike' | 'swinging_strike' | 'foul' | 'in_play' | 'hit_by_pitch' | 'wild_pitch' | 'passed_ball';
-type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'home_run';
-type HitDirection = 'LF' | 'CF' | 'RF' | '3B' | 'SS' | '2B' | '1B' | 'P' | 'C';
+type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'pop_up';
+type HitDirection = 'LF' | 'LCF' | 'CF' | 'RCF' | 'RF' | '3B' | 'SS' | '2B' | '1B' | 'P' | 'C';
 type BatterSide = 'R' | 'L' | 'S' | 'unknown';
 type ActiveBatterSide = 'R' | 'L' | null;
 type CatcherTargetMode = 'quick_3x3' | 'advanced_7x7' | 'same_as_location' | 'unknown';
+type HitQuality = 'weak' | 'medium' | 'hard' | 'barrel';
+type RunnerBase = '1B' | '2B' | '3B' | 'HOME' | 'OUT';
 
 interface CatcherTarget {
   mode: CatcherTargetMode;
@@ -50,6 +52,14 @@ interface PitchMetrics {
   umpireId: string;
   videoTimestamp: string;
   note: string;
+}
+
+interface RunnerDetail {
+  runner: 'BR' | 'R1' | 'R2' | 'R3';
+  from: string;
+  to: RunnerBase;
+  runScored: boolean;
+  rbiCredited: boolean;
 }
 
 interface PitcherStats {
@@ -180,23 +190,25 @@ const PITCH_RESULT_OPTIONS: PitchResultOption[] = [
 ];
 
 const CONTACT_OPTIONS: ContactOption[] = [
+  { value: 'ground_ball', label: 'Rolling' },
   { value: 'line_drive', label: 'Línea' },
-  { value: 'fly_ball', label: 'Elevado' },
-  { value: 'ground_ball', label: 'Rodado' },
-  { value: 'bunt', label: 'Bunt' },
-  { value: 'home_run', label: 'Cuadrangular' },
+  { value: 'fly_ball', label: 'Fly' },
+  { value: 'pop_up', label: 'Pop' },
+  { value: 'bunt', label: 'Toque' },
 ];
 
 const DIRECTION_OPTIONS: DirectionOption[] = [
   { value: 'LF', label: 'LF', className: 'col-start-1 row-start-1' },
-  { value: 'CF', label: 'CF', className: 'col-start-2 row-start-1' },
-  { value: 'RF', label: 'RF', className: 'col-start-3 row-start-1' },
+  { value: 'LCF', label: 'LCF', className: 'col-start-2 row-start-1' },
+  { value: 'CF', label: 'CF', className: 'col-start-3 row-start-1' },
+  { value: 'RCF', label: 'RCF', className: 'col-start-4 row-start-1' },
+  { value: 'RF', label: 'RF', className: 'col-start-5 row-start-1' },
   { value: '3B', label: '3B', className: 'col-start-1 row-start-2' },
   { value: 'SS', label: 'SS', className: 'col-start-2 row-start-2' },
-  { value: '2B', label: '2B', className: 'col-start-3 row-start-2' },
-  { value: '1B', label: '1B', className: 'col-start-3 row-start-3' },
-  { value: 'P', label: 'P', className: 'col-start-2 row-start-3' },
-  { value: 'C', label: 'C', className: 'col-start-2 row-start-4' },
+  { value: '2B', label: '2B', className: 'col-start-4 row-start-2' },
+  { value: '1B', label: '1B', className: 'col-start-5 row-start-2' },
+  { value: 'P', label: 'P', className: 'col-start-3 row-start-3' },
+  { value: 'C', label: 'C', className: 'col-start-3 row-start-4' },
 ];
 
 const CONTACT_REQUIRED_RESULTS = new Set<AtBatResult>([
@@ -222,6 +234,13 @@ const QUICK_3X3_ZONES = [
   { label: 'B-C', col: 3, row: 5 },
   { label: 'B-Af', col: 5, row: 5 },
 ] as const;
+
+const HIT_QUALITY_OPTIONS = [
+  { value: 'weak' as HitQuality, label: 'Débil' },
+  { value: 'medium' as HitQuality, label: 'Normal' },
+  { value: 'hard' as HitQuality, label: 'Fuerte' },
+  { value: 'barrel' as HitQuality, label: 'Muy fuerte' },
+];
 
 function resultToneClass(tone: ResultTone, active: boolean): string {
   if (tone === 'hit') {
@@ -327,6 +346,8 @@ export function LiveGameScoringPage() {
   const [selectedResult, setSelectedResult] = useState<AtBatResult | null>(null);
   const [selectedContactType, setSelectedContactType] = useState<ContactType | null>(null);
   const [selectedHitDirection, setSelectedHitDirection] = useState<HitDirection | null>(null);
+  const [selectedHitQuality, setSelectedHitQuality] = useState<HitQuality | null>(null);
+  const [runnerDetails, setRunnerDetails] = useState<RunnerDetail[]>([]);
   const [catcherTarget, setCatcherTarget] = useState<CatcherTarget>({ mode: 'unknown' });
   const [pitchMetrics, setPitchMetrics] = useState<PitchMetrics>({ velocityMph: '', umpireId: '', videoTimestamp: '', note: '' });
   const [showMetrics, setShowMetrics] = useState(false);
@@ -434,6 +455,8 @@ export function LiveGameScoringPage() {
     if (!selectedResult || !CONTACT_REQUIRED_RESULTS.has(selectedResult)) {
       setSelectedContactType(null);
       setSelectedHitDirection(null);
+      setSelectedHitQuality(null);
+      setRunnerDetails([]);
       if (selectedResult) {
         setCurrentStep(2);
       }
@@ -461,6 +484,17 @@ export function LiveGameScoringPage() {
 
     setCatcherTarget({ mode: 'same_as_location', col: selectedPitchCell.col, row: selectedPitchCell.row });
   }, [catcherTarget.mode, selectedPitchCell]);
+
+  useEffect(() => {
+    if (currentStep !== 3 || !context) return;
+    const gs = context.gameState;
+    const initial: RunnerDetail[] = [];
+    initial.push({ runner: 'BR', from: 'HOME', to: '1B', runScored: false, rbiCredited: false });
+    if (gs.bases.first) initial.push({ runner: 'R1', from: '1B', to: '2B', runScored: false, rbiCredited: false });
+    if (gs.bases.second) initial.push({ runner: 'R2', from: '2B', to: '3B', runScored: false, rbiCredited: false });
+    if (gs.bases.third) initial.push({ runner: 'R3', from: '3B', to: 'HOME', runScored: false, rbiCredited: false });
+    setRunnerDetails(initial);
+  }, [currentStep, context]);
 
   const recentHistory = useMemo(() => history.slice(0, 5), [history]);
 
@@ -499,6 +533,8 @@ export function LiveGameScoringPage() {
     setSelectedResult(null);
     setSelectedContactType(null);
     setSelectedHitDirection(null);
+    setSelectedHitQuality(null);
+    setRunnerDetails([]);
     setCatcherTarget({ mode: 'unknown' });
     setPitchMetrics({ velocityMph: '', umpireId: '', videoTimestamp: '', note: '' });
     setShowMetrics(false);
@@ -696,6 +732,8 @@ export function LiveGameScoringPage() {
           runs,
           contactType: selectedContactType ?? undefined,
           hitDirection: selectedHitDirection ?? undefined,
+          hitQuality: selectedHitQuality ?? undefined,
+          runnersJson: runnerDetails.length > 0 ? JSON.stringify(runnerDetails) : undefined,
         }),
       });
 
@@ -707,7 +745,7 @@ export function LiveGameScoringPage() {
     } finally {
       setSavingAtBat(false);
     }
-  }, [catcherTarget, context, loadContext, pitchMetrics, resetAtBatWorkflow, rbi, runs, selectedBatterId, selectedContactType, selectedHitDirection, selectedPitchCell, selectedPitcherId, selectedPitchResult, selectedPitchType, selectedResult, showPitchFeedback]);
+  }, [catcherTarget, context, loadContext, pitchMetrics, resetAtBatWorkflow, rbi, runnerDetails, runs, selectedBatterId, selectedContactType, selectedHitDirection, selectedHitQuality, selectedPitchCell, selectedPitcherId, selectedPitchResult, selectedPitchType, selectedResult, showPitchFeedback]);
 
   if (loading && !context) {
     return <div className="min-h-screen bg-broadcast-black px-4 py-4 text-white">Cargando live scoring…</div>;
@@ -1290,8 +1328,105 @@ export function LiveGameScoringPage() {
               </div>
 
               <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Calidad del batazo</p>
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  {HIT_QUALITY_OPTIONS.map((option) => {
+                    const active = selectedHitQuality === option.value;
+                    const colorClass =
+                      option.value === 'weak'
+                        ? active ? 'border-slate-200 bg-slate-500 text-white' : 'border-slate-400/30 bg-slate-500/10 text-slate-200'
+                        : option.value === 'medium'
+                          ? active ? 'border-blue-300 bg-blue-500 text-white' : 'border-blue-400/30 bg-blue-500/10 text-blue-200'
+                          : option.value === 'hard'
+                            ? active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-mineros-gold/30 bg-mineros-gold/10 text-amber-200'
+                            : active ? 'border-mineros-red bg-mineros-red text-white' : 'border-mineros-red/30 bg-mineros-red/10 text-red-200';
+
+                    return (
+                      <button
+                        key={option.value}
+                        className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${colorClass}`}
+                        onClick={() => setSelectedHitQuality(option.value)}
+                        type="button"
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Corredores detallados</p>
+                <div className="space-y-2">
+                  {runnerDetails.map((detail, index) => (
+                    <div key={`${detail.runner}-${detail.from}`} className="grid gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 xl:grid-cols-[auto_minmax(0,1fr)_auto_auto] xl:items-center">
+                      <div className="text-sm font-semibold text-white">
+                        {detail.runner}
+                        <span className="ml-2 text-white/50">{detail.from}</span>
+                      </div>
+                      <select
+                        className="rounded-xl border border-white/10 bg-broadcast-black px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                        onChange={(event) => {
+                          const to = event.target.value as RunnerBase;
+                          setRunnerDetails((current) => current.map((runner, runnerIndex) => (
+                            runnerIndex === index
+                              ? { ...runner, to, runScored: to === 'HOME' ? true : false }
+                              : runner
+                          )));
+                        }}
+                        value={detail.to}
+                      >
+                        <option value="1B">1B</option>
+                        <option value="2B">2B</option>
+                        <option value="3B">3B</option>
+                        <option value="HOME">HOME</option>
+                        <option value="OUT">OUT</option>
+                      </select>
+                      <label className="flex items-center gap-2 text-sm text-white/75">
+                        <input
+                          checked={detail.to === 'HOME' ? true : detail.runScored}
+                          className="h-4 w-4 rounded border-white/20 bg-black/20 text-emerald-500 focus:ring-0"
+                          onChange={(event) => {
+                            const checked = event.target.checked;
+                            setRunnerDetails((current) => current.map((runner, runnerIndex) => (
+                              runnerIndex === index
+                                ? { ...runner, runScored: runner.to === 'HOME' ? true : checked }
+                                : runner
+                            )));
+                          }}
+                          type="checkbox"
+                        />
+                        Carrera
+                        {detail.to === 'HOME' ? (
+                          <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
+                            Carrera
+                          </span>
+                        ) : null}
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-white/75">
+                        <input
+                          checked={detail.rbiCredited}
+                          className="h-4 w-4 rounded border-white/20 bg-black/20 text-mineros-gold focus:ring-0"
+                          onChange={(event) => {
+                            const checked = event.target.checked;
+                            setRunnerDetails((current) => current.map((runner, runnerIndex) => (
+                              runnerIndex === index
+                                ? { ...runner, rbiCredited: checked }
+                                : runner
+                            )));
+                          }}
+                          type="checkbox"
+                        />
+                        RBI acreditado
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Dirección al campo</p>
-                <div className="mx-auto grid max-w-md grid-cols-3 grid-rows-4 gap-2">
+                <div className="mx-auto grid max-w-2xl grid-cols-5 grid-rows-4 gap-2">
                   {DIRECTION_OPTIONS.map((option) => {
                     const active = selectedHitDirection === option.value;
                     return (
@@ -1324,6 +1459,8 @@ export function LiveGameScoringPage() {
                   onClick={() => {
                     setSelectedContactType(null);
                     setSelectedHitDirection(null);
+                    setSelectedHitQuality(null);
+                    setRunnerDetails([]);
                     setCurrentStep(2);
                   }}
                   type="button"
