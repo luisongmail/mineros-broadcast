@@ -27,10 +27,10 @@ function resolveAssetUrl(assetId?: string, assetBaseUrl?: string) {
   }
 
   if (!assetBaseUrl) {
-    return `/assets/${encodeURIComponent(trimmedAssetId)}`;
+    return `/assets/${trimmedAssetId}`;
   }
 
-  return `${assetBaseUrl.replace(/\/$/, '')}/${encodeURIComponent(trimmedAssetId)}`;
+  return `${assetBaseUrl.replace(/\/$/, '')}/${trimmedAssetId}`;
 }
 
 export interface PitcherProfileProps {

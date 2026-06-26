@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { GameEvent, GameTeam } from './types';
 import { GameEngine } from './GameEngine';
+import { BASEBALL5_RULES, DEFAULT_BASEBALL_RULES, SOFTBALL_FAST_RULES } from './types';
 
 const homeTeam: GameTeam = {
   id: 'team-mineros',
@@ -55,7 +56,7 @@ describe('GameEngine', () => {
 
   it('incrementScore incrementa carrera y emite run_scored', () => {
     const engine = createEngine();
-    const handler = vi.fn<(event: GameEvent) => void>();
+    const handler = vi.fn<[GameEvent], void>();
     engine.on('run_scored', handler);
 
     engine.incrementScore('home');
@@ -125,7 +126,7 @@ describe('GameEngine', () => {
 
   it('setCurrentBatter emite batter_changed y reinicia conteo', () => {
     const engine = createEngine();
-    const handler = vi.fn<(event: GameEvent) => void>();
+    const handler = vi.fn<[GameEvent], void>();
     engine.on('batter_changed', handler);
 
     engine.setCount({ balls: 2, strikes: 2 });
@@ -254,7 +255,7 @@ describe('GameEngine', () => {
   describe('endGame', () => {
     it('cambia el estado a final y emite game_finalized', () => {
       const engine = createEngine();
-      const handler = vi.fn<(event: GameEvent) => void>();
+      const handler = vi.fn<[GameEvent], void>();
       engine.on('game_finalized', handler);
       engine.startGame();
       engine.incrementScore('home');
@@ -269,12 +270,70 @@ describe('GameEngine', () => {
 
     it('no emite evento si el juego ya es final', () => {
       const engine = createEngine();
-      const handler = vi.fn<(event: GameEvent) => void>();
+      const handler = vi.fn<[GameEvent], void>();
       engine.on('game_finalized', handler);
       engine.startGame();
       engine.endGame();
       engine.endGame();
       expect(handler).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('GameEngine — GameRules', () => {
+    it('uses DEFAULT_BASEBALL_RULES when no rules provided', () => {
+      const engine = new GameEngine('g1', homeTeam, awayTeam);
+      expect(engine.getRules().inningsCount).toBe(9);
+      expect(engine.getRules().hasPitcher).toBe(true);
+      expect(engine.getRules().maxBalls).toBe(4);
+    });
+
+    it('accepts custom rules in constructor', () => {
+      const engine = new GameEngine('g1', homeTeam, awayTeam, BASEBALL5_RULES);
+      expect(engine.getRules().inningsCount).toBe(5);
+      expect(engine.getRules().hasPitcher).toBe(false);
+      expect(engine.getRules().maxBalls).toBeNull();
+      expect(engine.getRules().batterAttempts).toBe(1);
+    });
+
+    it('merges partial rules with defaults', () => {
+      const engine = new GameEngine('g1', homeTeam, awayTeam, { inningsCount: 7 });
+      expect(engine.getRules().inningsCount).toBe(7);
+      expect(engine.getRules().hasPitcher).toBe(true);
+    });
+
+    it('GameState includes rules', () => {
+      const engine = new GameEngine('g1', homeTeam, awayTeam, SOFTBALL_FAST_RULES);
+      const state = engine.getState();
+      expect(state.rules.continuousBatting).toBe(false);
+      expect(state.rules.dpFlexAllowed).toBe(true);
+      expect(state.rules.mercyRule).toHaveLength(1);
+    });
+
+    it('counts a Baseball5 swing as an immediate out', () => {
+      const engine = new GameEngine('g1', homeTeam, awayTeam, BASEBALL5_RULES);
+
+      engine.setCount({ strikes: 1 });
+
+      expect(engine.getState().outs).toBe(1);
+      expect(engine.getState().count).toEqual({ balls: 0, strikes: 0 });
+    });
+
+    it('ends regulation using configured inningsCount', () => {
+      const engine = new GameEngine('g1', homeTeam, awayTeam, {
+        ...DEFAULT_BASEBALL_RULES,
+        inningsCount: 1,
+      });
+
+      engine.startGame();
+      engine.incrementScore('away');
+      engine.advanceHalfInning();
+      engine.addOut();
+      engine.addOut();
+      engine.addOut();
+
+      expect(engine.getState().status).toBe('final');
+      expect(engine.getState().inning).toBe(1);
+      expect(engine.getState().inningHalf).toBe('bottom');
     });
   });
 });

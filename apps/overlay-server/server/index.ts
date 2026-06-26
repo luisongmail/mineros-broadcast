@@ -1,12 +1,26 @@
+import 'dotenv/config';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import cors, { type CorsOptions } from 'cors';
 import express, { type Request, type Response } from 'express';
 
+import categoriesRouter from './categoriesRouter';
 import { handleCommand, parseCommandRequest } from './commandHandler';
+import { gameConfigRouter } from './gameConfigRouter';
+import { layoutRouter } from './layoutRouter';
+import leaguesTournamentsRouter from './leaguesTournamentsRouter';
+import { matchMetadataRouter } from './matchMetadataRouter';
+import pitchesRouter from './pitchesRouter';
+import { scorerRouter } from './scorerRouter';
+import sponsorsRouter from './sponsorsRouter';
 import { stateStore } from './stateStore';
+import teamsRouter from './teamsRouter';
 import { attachWebSocketServer } from './wsServer';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 interface ServerMetadata {
   name: string;
@@ -43,12 +57,15 @@ function readPackageMetadata(): Pick<ServerMetadata, 'name' | 'version'> {
 }
 
 function getCorsOptions(): CorsOptions {
-  const allowedOrigins = new Set(['http://localhost:5173', 'http://localhost:5174']);
-  const isDev = process.env.NODE_ENV !== 'production';
+  const allowedOrigins = new Set(
+    ['http://localhost:5173', 'http://localhost:5174', process.env.ALLOWED_ORIGIN].filter(Boolean) as string[],
+  );
+  const isProd = process.env.NODE_ENV === 'production';
 
   return {
     origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin) || isDev) {
+      // En producción solo same-origin (no origin) o allowedOrigins explícitos
+      if (!origin || allowedOrigins.has(origin) || !isProd) {
         callback(null, true);
         return;
       }
@@ -100,6 +117,20 @@ app.use((_request, response, next) => {
   setCompatibilityHeaders(response);
   next();
 });
+app.use('/api', categoriesRouter);
+app.use('/api', gameConfigRouter);
+app.use('/api', layoutRouter);
+app.use('/api', leaguesTournamentsRouter);
+app.use('/api', matchMetadataRouter);
+app.use('/api', pitchesRouter);
+app.use('/api', scorerRouter);
+app.use('/api', sponsorsRouter);
+app.use('/api', teamsRouter);
+
+// Assets locales: storage/assets/ → /assets/*
+// En producción se usa ASSETS_BASE_URL apuntando a Azure Blob Storage.
+const localAssetsPath = path.resolve(__dirname, '../storage/assets');
+app.use('/assets', express.static(localAssetsPath, { extensions: ['jpg', 'png', 'webp', 'jpeg', 'gif', 'svg'] }));
 
 app.put('/api/command', (request: Request, response: Response) => {
   try {
@@ -131,8 +162,42 @@ app.get('/api/info', (_request: Request, response: Response) => {
 const server = createServer(app);
 attachWebSocketServer(server);
 
+// En producción (Docker) el server sirve el Vite build como archivos estáticos.
+// En dev, Vite corre por separado en :5173.
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd) {
+  const distPath = path.resolve(__dirname, '../dist');
+  app.use(express.static(distPath));
+  // SPA fallback: todas las rutas que no sean /api van al index.html
+  app.get('*', (_req: Request, res: Response) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
+import { execSync } from 'child_process';
+
 const port = Number(process.env.PORT ?? 3001);
 
-server.listen(port, () => {
-  console.log(`Overlay server listening on http://localhost:${port}`);
+// Liberar el puerto si está ocupado antes de iniciar
+function freePort(p: number): void {
+  try {
+    const pids = execSync(`lsof -ti :${p}`, { encoding: 'utf8' }).trim();
+    if (pids) {
+      pids.split('\n').forEach((pid) => {
+        try { process.kill(Number(pid), 'SIGKILL'); } catch { /* ya terminó */ }
+      });
+      console.log(`[BOOT] Puerto ${p} liberado (PIDs: ${pids.replace(/\n/g, ', ')})`);
+    }
+  } catch {
+    // lsof no encontró nada — puerto libre
+  }
+}
+
+freePort(port);
+
+// Restaurar estado desde DB antes de abrir el puerto
+stateStore.init().finally(() => {
+  server.listen(port, () => {
+    console.log(`Overlay server listening on http://localhost:${port}`);
+  });
 });

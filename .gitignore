@@ -27,3 +27,13 @@ dist/
 
 # OS
 .DS_Store
+
+# Assets locales — binarios no se commitean, subirlos a Azure en producción
+apps/overlay-server/storage/assets/**/*.jpg
+apps/overlay-server/storage/assets/**/*.jpeg
+apps/overlay-server/storage/assets/**/*.png
+apps/overlay-server/storage/assets/**/*.gif
+apps/overlay-server/storage/assets/**/*.svg
+apps/overlay-server/storage/assets/**/*.webp
+# Excepto los .keep (estructura de carpetas)
+!apps/overlay-server/storage/assets/**/.keep

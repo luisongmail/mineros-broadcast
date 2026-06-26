@@ -6,4 +6,28 @@ export default defineConfig({
   css: {
     postcss: './postcss.config.js',
   },
+  server: {
+    port: 5173,
+    strictPort: false,
+    hmr: {
+      host: 'localhost',
+      protocol: 'ws',
+      port: 5173,
+    },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/assets': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: 'ws://localhost:3001',
+        ws: true,
+        changeOrigin: true,
+      },
+    },
+  },
 });

@@ -7,49 +7,67 @@ interface BatterCardProps {
 }
 
 export function BatterCard({ batter, photoUrl }: BatterCardProps) {
-  const details = [
-    batter.position,
-    batter.avg ? `AVG ${batter.avg}` : undefined,
-    batter.bats ? `BATEA ${batter.bats}` : undefined,
-  ].filter(Boolean) as string[];
-
   return (
     <article
       data-testid={`batter-card-${batter.state}`}
       data-batter-state={batter.state}
       className={[
-        'flex min-h-[248px] min-w-[220px] flex-1 flex-col rounded-[8px] border px-4 py-4 shadow-[0px_10px_24px_rgba(0,0,0,0.24)]',
+        'flex min-w-[200px] flex-1 flex-col gap-3 rounded-[8px] border px-4 py-3 shadow-[0px_6px_16px_rgba(0,0,0,0.28)]',
         batter.state === 'current'
-          ? 'border-mineros-red bg-mineros-red/18'
-          : 'border-mineros-gold/40 bg-broadcast-black/35',
+          ? 'border-mineros-red bg-mineros-red/15'
+          : 'border-mineros-gold/40 bg-broadcast-black/40',
       ].join(' ')}
     >
-      <div className="flex items-start justify-between gap-3">
+      {/* Header: estado + turno */}
+      <div className="flex items-center justify-between gap-2">
         <StateLabel state={batter.state} />
-        <span className="rounded-[4px] border border-white/10 bg-white/5 px-2 py-1 font-bebas text-[18px] leading-none text-mineros-gold">
-          {batter.order}
+        <span className="rounded-[4px] border border-white/10 bg-white/5 px-2 py-0.5 font-bebas text-[16px] leading-none text-mineros-gold">
+          #{batter.order}
         </span>
       </div>
 
-      <div className="mt-4 flex h-[112px] w-full items-center justify-center overflow-hidden rounded-[6px] bg-white/10">
-        {photoUrl ? (
-          <img src={photoUrl} alt={batter.name} className="h-full w-full object-cover" />
-        ) : (
-          <div data-testid="photo-placeholder" className="flex flex-col items-center gap-2 text-white/70">
-            <span className="font-bebas text-[20px] uppercase tracking-[0.1em]">Foto</span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.16em]">Sin asset</span>
-          </div>
+      {/* Foto + nombre en fila */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-[72px] w-[56px] shrink-0 items-center justify-center overflow-hidden rounded-[6px] bg-white/10">
+          {photoUrl ? (
+            <img src={photoUrl} alt={batter.name} className="h-full w-full object-cover" />
+          ) : (
+            <span className="font-bebas text-[18px] uppercase text-white/40">
+              {batter.number ?? '?'}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-bebas text-[22px] uppercase leading-none tracking-[0.04em] text-white">{batter.name}</h3>
+          {batter.number && (
+            <span className="font-bebas text-[16px] leading-none text-mineros-gold">#{batter.number}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Stats: posición · avg · hoy */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {batter.position && (
+          <span className="rounded-[3px] border border-white/15 bg-white/5 px-2 py-0.5 font-inter text-[11px] font-bold uppercase tracking-[0.14em] text-white/80">
+            {batter.position}
+          </span>
+        )}
+        {batter.avg && (
+          <span className="font-inter text-[12px] font-semibold text-white/70">
+            AVG <span className="text-mineros-gold">{batter.avg}</span>
+          </span>
+        )}
+        {batter.today && (
+          <span className="font-inter text-[12px] font-semibold text-white/70">
+            HOY <span className="text-white">{batter.today}</span>
+          </span>
+        )}
+        {batter.bats && (
+          <span className="font-inter text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">
+            BATEA {batter.bats}
+          </span>
         )}
       </div>
-
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <h3 className="min-w-0 truncate font-bebas text-[30px] uppercase leading-none tracking-[0.05em] text-white">{batter.name}</h3>
-        {batter.number && <span className="font-bebas text-[28px] leading-none text-mineros-gold">#{batter.number}</span>}
-      </div>
-
-      {details.length > 0 && (
-        <p className="mt-3 text-[13px] font-semibold uppercase tracking-[0.08em] text-white/85">{details.join(' · ')}</p>
-      )}
     </article>
   );
 }

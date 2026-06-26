@@ -11,6 +11,7 @@ export interface NextBatterEntry {
   photoAssetId?: string;
   bats?: 'R' | 'L' | 'S';
   avg?: string;
+  today?: string;  // hits-ab de este juego, e.g. "2-3"
 }
 
 export interface NextBattersOverlayProps {

@@ -16,5 +16,6 @@
     "@types/node": "^20.0.0",
     "typescript": "*",
     "vitest": "^1.0.0"
-  }
+  },
+  "private": true
 }

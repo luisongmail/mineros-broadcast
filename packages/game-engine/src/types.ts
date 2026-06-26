@@ -62,6 +62,7 @@ export interface LineupEntry {
   number: string;
   position: string;
   status: LineupStatus;
+  photoAssetId?: string;
 }
 
 export interface GameLineup {
@@ -88,6 +89,96 @@ export interface AuditEntry {
   newState: Record<string, unknown>;
 }
 
+export interface MercyRuleThreshold {
+  afterInning: number;
+  runDiff: number;
+}
+
+export interface ExtraInningsRule {
+  type: 'standard' | 'runner_on_second' | 'b5_escalating';
+  starterBase?: 'second' | 'third';
+}
+
+export interface GameRules {
+  inningsCount: number;
+  maxOuts: number;
+  maxBalls: number | null;
+  maxStrikes: number;
+  batterAttempts: number | null;
+  hasPitcher: boolean;
+  timeLimitMinutes: number | null;
+  mercyRule: MercyRuleThreshold[];
+  extraInnings: ExtraInningsRule;
+  continuousBatting: boolean;
+  buntsAllowed: boolean;
+  dpFlexAllowed: boolean;
+  pitchClockSeconds: number | null;
+}
+
+export const DEFAULT_BASEBALL_RULES: GameRules = {
+  inningsCount: 9,
+  maxOuts: 3,
+  maxBalls: 4,
+  maxStrikes: 3,
+  batterAttempts: null,
+  hasPitcher: true,
+  timeLimitMinutes: null,
+  mercyRule: [],
+  extraInnings: { type: 'standard' },
+  continuousBatting: false,
+  buntsAllowed: true,
+  dpFlexAllowed: false,
+  pitchClockSeconds: null,
+};
+
+export const SOFTBALL_FAST_RULES: GameRules = {
+  inningsCount: 7,
+  maxOuts: 3,
+  maxBalls: 4,
+  maxStrikes: 3,
+  batterAttempts: null,
+  hasPitcher: true,
+  timeLimitMinutes: null,
+  mercyRule: [{ afterInning: 5, runDiff: 10 }],
+  extraInnings: { type: 'runner_on_second' },
+  continuousBatting: false,
+  buntsAllowed: true,
+  dpFlexAllowed: true,
+  pitchClockSeconds: null,
+};
+
+export const SOFTBALL_SLOW_RULES: GameRules = {
+  inningsCount: 7,
+  maxOuts: 3,
+  maxBalls: 4,
+  maxStrikes: 3,
+  batterAttempts: null,
+  hasPitcher: true,
+  timeLimitMinutes: null,
+  mercyRule: [{ afterInning: 5, runDiff: 10 }],
+  extraInnings: { type: 'runner_on_second' },
+  continuousBatting: true,
+  buntsAllowed: false,
+  dpFlexAllowed: false,
+  pitchClockSeconds: null,
+};
+
+export const BASEBALL5_RULES: GameRules = {
+  inningsCount: 5,
+  maxOuts: 3,
+  maxBalls: null,
+  maxStrikes: 3,
+  batterAttempts: 1,
+  hasPitcher: false,
+  timeLimitMinutes: null,
+  mercyRule: [{ afterInning: 3, runDiff: 10 }],
+  extraInnings: { type: 'b5_escalating' },
+  continuousBatting: true,
+  buntsAllowed: false,
+  dpFlexAllowed: false,
+  pitchClockSeconds: null,
+};
+
 export interface GameState {
   gameId: string;
   status: GameStatus;
@@ -99,6 +190,7 @@ export interface GameState {
   bases: GameBases;
   count: GameCount;
   score: GameScore;
+  rules: GameRules;
   currentBatterId?: string;
   currentPitcherId?: string;
   lineup: GameLineup;

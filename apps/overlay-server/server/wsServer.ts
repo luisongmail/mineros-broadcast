@@ -44,6 +44,7 @@ export function attachWebSocketServer(server: HttpServer): WebSocketServer {
     sendJson(socket, {
       type: 'state',
       payload: stateStore.getState(),
+      visibleOverlays: stateStore.getVisibleOverlays(),
     });
 
     socket.on('message', (rawData) => {

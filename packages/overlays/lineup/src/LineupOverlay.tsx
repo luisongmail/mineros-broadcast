@@ -49,11 +49,11 @@ export function LineupOverlay({ team, players, pitcher, assetBaseUrl }: LineupOv
 
   return (
     <section className="mb-shell relative h-[1080px] w-[1920px] overflow-hidden bg-transparent font-inter text-white">
-      <div className="absolute left-[60px] top-[110px] flex w-[920px] gap-5 rounded-[8px] border border-mineros-gold bg-mineros-navy/90 p-6 shadow-[0px_12px_32px_rgba(0,0,0,0.38)]">
+      <div className="absolute left-[60px] top-[110px] flex w-[920px] gap-5 rounded-[8px] border border-mineros-gold bg-mineros-navy/90 p-5 shadow-[0px_12px_32px_rgba(0,0,0,0.38)]">
         <div className="min-w-0 flex-1">
           <LineupHeader team={team} logoUrl={logoUrl} />
 
-          <div className="mt-5 grid grid-cols-[64px_84px_72px_minmax(0,1fr)_88px_88px] gap-3 border-b border-white/10 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">
+          <div className="mt-4 grid grid-cols-[52px_72px_60px_minmax(0,1fr)_76px_76px] gap-2 border-b border-white/10 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
             <span>Ord</span>
             <span>Foto</span>
             <span>#</span>
@@ -62,7 +62,7 @@ export function LineupOverlay({ team, players, pitcher, assetBaseUrl }: LineupOv
             <span className="text-right">AVG</span>
           </div>
 
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="mt-2 flex flex-col gap-1.5">
             {players.map((player) => (
               <LineupRow
                 key={player.playerId}
