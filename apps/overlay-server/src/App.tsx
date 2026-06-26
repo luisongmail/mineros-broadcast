@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { GameEngine, type GameState } from '@mineros/game-engine';
 import { BatterOverlay } from '@mineros/overlay-batter';
 import { FinalScoreOverlay } from '@mineros/overlay-final-score';
@@ -342,6 +342,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T | null
 function OperatorControlPanel() {
   const engineRef = useRef<GameEngine | null>(null);
   const programTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const location = useLocation();
 
   if (!engineRef.current) {
     engineRef.current = createLocalDemoEngine();
@@ -984,6 +985,25 @@ function OperatorControlPanel() {
               </button>
             </div>
           </div>
+
+          {/* Navegación entre vistas */}
+          <nav className="flex items-center gap-1 shrink-0">
+            {([
+              { to: '/', label: '🎬 Control' },
+              { to: '/live-game-scoring', label: '⚾ Scoring' },
+            ] as const).map(({ to, label }) => {
+              const isActive = to === '/' ? location.pathname === '/' || location.pathname === '/control' : location.pathname === to;
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`rounded-md border px-3 py-1 text-[10px] font-semibold uppercase tracking-widest transition ${isActive ? 'border-mineros-gold/60 bg-mineros-gold/15 text-mineros-gold' : 'border-white/15 bg-white/5 text-white/60 hover:border-white/30 hover:text-white'}`}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
 
           {/* Controles de juego: entrada + marcador + bases + outs + conteo */}
           <div className="flex items-center gap-2 overflow-x-auto">

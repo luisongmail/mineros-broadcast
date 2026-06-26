@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { GameState, LineupEntry } from '@mineros/game-engine';
 
 import { PitchGrid, type PitchGridCell } from '../components/scorer/PitchGrid';
@@ -1043,6 +1044,13 @@ export function LiveGameScoringPage() {
     <div className="flex h-screen min-w-[900px] flex-col overflow-hidden bg-broadcast-black text-white">
       {/* ── HEADER COMPACTO: 1 sola fila ──────────────────────────────── */}
       <header className="flex h-12 flex-none items-center gap-3 border-b border-white/10 bg-mineros-navy px-4">
+        <Link
+          to="/"
+          className="rounded border border-white/15 bg-white/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/60 hover:border-white/30 hover:text-white transition shrink-0"
+          title="Volver al panel de control"
+        >
+          ← Control
+        </Link>
         <span className="font-bebas text-xl uppercase tracking-[0.22em] text-mineros-gold">Live Scoring</span>
         <span className="text-white/20">·</span>
         <span className="text-xs uppercase tracking-wider text-white/55 whitespace-nowrap">{awayName} @ {homeName}</span>
