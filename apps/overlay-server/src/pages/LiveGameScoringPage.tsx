@@ -476,6 +476,9 @@ export function LiveGameScoringPage() {
   }
   const [compoundEvent, setCompoundEvent] = useState<CompoundEventBuilder | null>(null);
 
+  // Mapa de jugadores asignados a cada base (para validar a quién acreditar el SB)
+  const [runnerMap, setRunnerMap] = useState<Partial<Record<'R1' | 'R2' | 'R3', { playerId: string; playerNum: string; playerName: string }>>>({});
+
   const loadHistory = useCallback(async (gameId: string) => {
     const payload = await requestJson<AtBatHistoryItem[]>(`/at-bats/${encodeURIComponent(gameId)}`);
     setHistory(payload);
@@ -867,6 +870,8 @@ export function LiveGameScoringPage() {
     toBase: '1B' | '2B' | '3B' | 'HOME' | 'OUT';
     runScored: boolean;
     earnedRun: boolean;
+    playerId?: string;
+    playerNum?: string;
   };
 
   const handleBaserunningEvent = useCallback(async (
@@ -1720,6 +1725,12 @@ export function LiveGameScoringPage() {
                 return <p className="mb-3 text-center text-xs text-white/40">Sin corredores en base.</p>;
               }
 
+              // Helper: enriquecer un move con datos del jugador asignado
+              const withPlayer = (label: 'R1' | 'R2' | 'R3', move: BaserunningRunnerMove): BaserunningRunnerMove => {
+                const p = runnerMap[label];
+                return p ? { ...move, playerId: p.playerId, playerNum: p.playerNum } : move;
+              };
+
               // Destinos válidos para un corredor según su base de origen
               const validDestsFor = (from: string): ('2B' | '3B' | 'HOME')[] => {
                 const all: ('2B' | '3B' | 'HOME')[] = ['2B', '3B', 'HOME'];
@@ -1831,23 +1842,91 @@ export function LiveGameScoringPage() {
               // ── LISTA NORMAL de corredores ──────────────────────────────────
               return (
                 <div className="mb-3 space-y-2">
+                  {/* Asignación de jugadores a bases */}
+                  <div className="rounded-lg border border-white/8 bg-black/20 p-2">
+                    <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">¿Quién está en base? <span className="normal-case font-normal text-white/25">(para acreditar SB)</span></p>
+                    <div className="space-y-1">
+                      {activeRunners.map((r) => {
+                        const assigned = runnerMap[r.label];
+                        return (
+                          <div key={r.label} className="flex items-center gap-1.5">
+                            <span className="w-7 text-[10px] font-semibold text-mineros-gold">{r.label}</span>
+                            <select
+                              className="flex-1 rounded-md border border-white/10 bg-black/30 px-1.5 py-0.5 text-[10px] text-white outline-none transition focus:border-mineros-gold"
+                              onChange={(e) => {
+                                const player = context.battingLineup.find((p) => p.playerId === e.target.value);
+                                if (player) {
+                                  setRunnerMap((prev) => ({ ...prev, [r.label]: { playerId: player.playerId, playerNum: player.number ?? '', playerName: player.name } }));
+                                } else {
+                                  setRunnerMap((prev) => { const next = { ...prev }; delete next[r.label]; return next; });
+                                }
+                              }}
+                              value={assigned?.playerId ?? ''}
+                            >
+                              <option value="">— sin asignar —</option>
+                              {context.battingLineup.map((p) => (
+                                <option key={p.playerId} value={p.playerId}>#{p.number} {p.name}</option>
+                              ))}
+                            </select>
+                            {assigned ? (
+                              <span className="text-[10px] text-emerald-400">✓</span>
+                            ) : (
+                              <span className="text-[10px] text-white/20">⚠</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {Object.keys(runnerMap).length < activeRunners.length ? (
+                      <p className="mt-1 text-[9px] text-amber-400/70">⚠ Bases sin jugador asignado — el SB se acreditará solo a la posición (R1/R2/R3).</p>
+                    ) : null}
+                  </div>
+
+                  {/* Doble / Triple robo */}
+                  {activeRunners.length >= 2 ? (
+                    <button
+                      className="w-full rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-left text-[12px] font-semibold text-emerald-200 transition hover:bg-emerald-400/20 disabled:opacity-40"
+                      disabled={savingEvent}
+                      title={`Doble robo — ${activeRunners.map((r) => `${r.label} roba ${r.next}`).join(' y ')} simultáneamente. Ambos SB se acreditan. Carreras LIMPIAS si anotan.`}
+                      onClick={() => {
+                        void handleBaserunningEvent(
+                          'stolen_base',
+                          activeRunners.map((r) => withPlayer(r.label, {
+                            runnerLabel: r.label, fromBase: r.from, toBase: r.next,
+                            runScored: r.next === 'HOME', earnedRun: true,
+                          })),
+                        );
+                      }}
+                      type="button"
+                    >⚡ {activeRunners.length === 3 ? 'Triple' : 'Doble'} robo — {activeRunners.map((r) => `${r.label}→${r.next}`).join(' · ')}</button>
+                  ) : null}
+
                   <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Por corredor</p>
-                  {activeRunners.map((r) => (
+                  {activeRunners.map((r) => {
+                    const assignedPlayer = runnerMap[r.label];
+                    return (
                     <div key={r.label} className="rounded-lg border border-white/8 bg-white/3 p-2">
-                      <p className="mb-1.5 text-[10px] font-semibold text-white/70">{r.label} · {r.from}</p>
+                      <div className="mb-1.5 flex items-center gap-1.5">
+                        <p className="text-[10px] font-semibold text-white/70">{r.label} · {r.from}</p>
+                        {assignedPlayer ? (
+                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0 text-[9px] text-emerald-300">#{assignedPlayer.playerNum} {assignedPlayer.playerName}</span>
+                        ) : (
+                          <span className="rounded-full border border-amber-500/20 bg-amber-500/5 px-1.5 py-0 text-[9px] text-amber-400/60">sin jugador</span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-1.5">
                         <button
                           className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-40"
                           disabled={savingEvent}
-                          onClick={() => void handleBaserunningEvent('stolen_base', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true }])}
-                          title={`Stolen Base — ${r.label} roba ${r.next}. Carrera LIMPIA si anota.`}
+                          onClick={() => void handleBaserunningEvent('stolen_base', [withPlayer(r.label, { runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true })])}
+                          title={`Stolen Base — ${assignedPlayer ? `#${assignedPlayer.playerNum} ${assignedPlayer.playerName}` : r.label} roba ${r.next}. Carrera LIMPIA si anota.`}
                           type="button"
                         >SB → {r.next}</button>
                         <button
                           className="rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-200 transition hover:bg-red-500/20 disabled:opacity-40"
                           disabled={savingEvent}
                           onClick={() => void handleBaserunningEvent('caught_stealing', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
-                          title={`Caught Stealing — ${r.label} fue puesto out en intento de robo. +1 out.`}
+                          title={`Caught Stealing — ${assignedPlayer ? `#${assignedPlayer.playerNum} ${assignedPlayer.playerName}` : r.label} fue puesto out en intento de robo. +1 out.`}
                           type="button"
                         >CS</button>
                         <button
@@ -1902,7 +1981,8 @@ export function LiveGameScoringPage() {
                         >SB+E ▾</button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })()}

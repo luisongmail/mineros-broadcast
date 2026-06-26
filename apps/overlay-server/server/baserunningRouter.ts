@@ -27,6 +27,8 @@ interface RunnerMove {
   runScored: boolean;
   earnedRun: boolean;
   fielderPos?: number;
+  playerId?: string;
+  playerNum?: string;
 }
 
 interface BaserunningRequest {
@@ -85,15 +87,17 @@ baserunningRouter.post('/', async (req: Request, res: Response) => {
       const earnedRun = move.runScored ? (isEarnedEvent ? 1 : 0) : 0;
       await pool.query(
         `INSERT INTO baserunning_events
-         (game_id, inning, inning_half, event_type, runner_label, from_base, to_base,
-          run_scored, earned_run, fielder_pos, operator_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (game_id, inning, inning_half, event_type, runner_label, player_id, player_num,
+          from_base, to_base, run_scored, earned_run, fielder_pos, operator_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           body.gameId,
           inning,
           inningHalf,
           body.eventType,
           move.runnerLabel,
+          move.playerId ?? null,
+          move.playerNum ?? null,
           move.fromBase,
           move.toBase,
           move.runScored ? 1 : 0,
