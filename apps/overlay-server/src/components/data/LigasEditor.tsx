@@ -15,6 +15,7 @@ import {
   primaryButtonClass,
   RowDeleteButton,
   searchInputClass,
+  selectedRowStyle,
   secondaryButtonClass,
   tableBodyClass,
   tableClass,
@@ -181,6 +182,7 @@ export function LigasEditor() {
                 <tr
                   key={league.id}
                   className={tableRowClass}
+                  style={drawerOpen && editingId.current === league.id ? selectedRowStyle : undefined}
                   onClick={(e) => openEdit(league, e.currentTarget as HTMLTableRowElement)}
                 >
                   <td className="px-2 py-1 align-middle">

@@ -14,6 +14,7 @@ import {
   fieldClass,
   LoadingState,
   primaryButtonClass,
+  selectedRowStyle,
   secondaryButtonClass,
   tableBodyClass,
   tableClass,
@@ -29,7 +30,7 @@ const positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'UT', 'DH
 const staffRoles: StaffRole[] = ['manager', 'coach_bateo', 'coach_bases', 'pitcher_coach', 'utilero', 'otro'];
 
 const emptyPlayer = (): Player => ({ id: '', fullName: '', nickname: '', number: '', position: 'UT', bats: 'R', throws: 'R', photoAssetId: '', birthDate: '', nationality: '', status: 'active' });
-const emptyStaff  = (): StaffMember => ({ id: '', name: '', role: 'manager', photoAssetId: '' });
+const emptyStaff  = (): StaffMember => ({ id: '', name: '', number: '', role: 'manager', photoAssetId: '' });
 
 export function RosterEditor() {
   const [teams, setTeams]               = useState<Team[]>([]);
@@ -175,7 +176,7 @@ export function RosterEditor() {
     try {
       const isNew = !staffForm.id;
       const path  = isNew ? `/api/teams/${selectedTeamId}/staff` : `/api/staff/${staffForm.id}`;
-      const body  = { name: staffForm.name, role: staffForm.role, photo_asset_id: staffForm.photoAssetId || null, active: true };
+      const body  = { name: staffForm.name, number: staffForm.number || null, role: staffForm.role, photo_asset_id: staffForm.photoAssetId || null, active: true };
       const response = await request<unknown>(path, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = normalizeStaffMember(
         response && typeof response === 'object' && 'staff' in response
@@ -263,7 +264,8 @@ export function RosterEditor() {
                     {players.map((player) => (
                       <tr
                         key={player.id}
-                        className={`${tableRowClass} ${playerDrawerOpen && playerForm.id === player.id ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
+                        className={tableRowClass}
+                        style={playerDrawerOpen && playerForm.id === player.id ? selectedRowStyle : undefined}
                         onClick={(e) => openEditPlayer(player, e.currentTarget as HTMLTableRowElement)}
                       >
                         <td className="px-2 py-1.5">
@@ -309,7 +311,8 @@ export function RosterEditor() {
                     {staff.map((member) => (
                       <tr
                         key={member.id}
-                        className={`${tableRowClass} ${staffDrawerOpen && staffForm.id === member.id ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
+                        className={tableRowClass}
+                        style={staffDrawerOpen && staffForm.id === member.id ? selectedRowStyle : undefined}
                         onClick={(e) => openEditStaff(member, e.currentTarget as HTMLTableRowElement)}
                       >
                         <td className="px-2 py-1.5">
@@ -405,6 +408,10 @@ export function RosterEditor() {
           <Field label="Nombre">
             <input required className={fieldClass} value={staffForm.name}
               onChange={(e) => setStaffForm((f) => ({ ...f, name: e.target.value }))} />
+          </Field>
+          <Field label="Número (dorsal)">
+            <input className={fieldClass} value={staffForm.number ?? ''}
+              onChange={(e) => setStaffForm((f) => ({ ...f, number: e.target.value }))} />
           </Field>
           <Field label="Rol">
             <SearchSelect

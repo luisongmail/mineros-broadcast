@@ -45,6 +45,7 @@ export type StaffRole = 'manager' | 'coach_bateo' | 'coach_bases' | 'pitcher_coa
 export type StaffMember = {
   id: string;
   name: string;
+  number?: string;
   role: StaffRole;
   photoAssetId: string;
 };
@@ -190,6 +191,7 @@ export function normalizeStaffMember(value: unknown): StaffMember {
   return {
     id: asString(raw.id, asString(raw.staff_id, '')),
     name: asString(raw.name, asString(raw.full_name, '')),
+    number: asString(raw.number, ''),
     role: asString(raw.role, 'otro') as StaffRole,
     photoAssetId: asString(raw.photoAssetId, asString(raw.photo_asset_id, '')),
   };

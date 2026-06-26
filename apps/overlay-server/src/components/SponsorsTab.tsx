@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { SearchSelect } from './data/SearchSelect';
 import { normalizeSponsor, type Sponsor } from './data/types';
 import { SlideDrawer } from './data/SlideDrawer';
-import { AssetImage, ConfirmDialog, RowDeleteButton, dangerButtonClass, fieldClass, filterSelectClass, labelClass, primaryButtonClass, searchInputClass, secondaryButtonClass, tableBodyClass, tableClass, tableHeadRowClass, tableHeaderClass, tableRowClass, tableCellClass, type DialogState } from './data/shared';
+import { AssetImage, ConfirmDialog, RowDeleteButton, dangerButtonClass, fieldClass, filterSelectClass, labelClass, primaryButtonClass, searchInputClass, secondaryButtonClass, selectedRowStyle, tableBodyClass, tableClass, tableHeadRowClass, tableHeaderClass, tableRowClass, tableCellClass, type DialogState } from './data/shared';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
@@ -151,7 +151,12 @@ function SponsorCrudSection() {
             </thead>
             <tbody className={tableBodyClass}>
               {filtered.map((s) => (
-                <tr key={s.id} className={tableRowClass} onClick={() => openEdit(s)}>
+                <tr
+                  key={s.id}
+                  className={tableRowClass}
+                  style={drawerOpen && form.id === s.id ? selectedRowStyle : undefined}
+                  onClick={() => openEdit(s)}
+                >
                   <td className="px-2 py-1 align-middle">
                     <AssetImage assetId={s.logoAssetId} alt={s.name} size={28} />
                   </td>

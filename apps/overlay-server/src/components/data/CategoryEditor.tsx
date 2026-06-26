@@ -4,7 +4,7 @@ import { generateId, request, toErrorMessage } from './api';
 import { mockCategories } from './mockData';
 import { SearchSelect } from './SearchSelect';
 import { SlideDrawer } from './SlideDrawer';
-import { EmptyState, Feedback, Field, LoadingState, RowDeleteButton, fieldClass, filterSelectClass, primaryButtonClass, searchInputClass, secondaryButtonClass, tableCellClass, tableHeaderClass, tableClass, tableBodyClass, tableHeadRowClass, tableRowClass } from './shared';
+import { EmptyState, Feedback, Field, LoadingState, RowDeleteButton, fieldClass, filterSelectClass, primaryButtonClass, searchInputClass, secondaryButtonClass, selectedRowStyle, tableCellClass, tableHeaderClass, tableClass, tableBodyClass, tableHeadRowClass, tableRowClass } from './shared';
 import { normalizeCategory, type Category } from './types';
 
 type Sport = { id: string; name: string; gender: string };
@@ -197,7 +197,12 @@ export function CategoryEditor() {
             </thead>
             <tbody className={tableBodyClass}>
               {filtered.map((category) => (
-                <tr key={category.id} className={tableRowClass} onClick={(e) => openEdit(category, e.currentTarget)}>
+                <tr
+                  key={category.id}
+                  className={tableRowClass}
+                  style={drawerOpen && form.id === category.id ? selectedRowStyle : undefined}
+                  onClick={(e) => openEdit(category, e.currentTarget)}
+                >
                   <td className={tableCellClass}>{category.name}</td>
                   <td className={`${tableCellClass} text-white/50`}>{sportName(category.sportId)}</td>
                   <td className={`${tableCellClass} text-white/40`}>{ageLabel(category.ageMin, category.ageMax)}</td>

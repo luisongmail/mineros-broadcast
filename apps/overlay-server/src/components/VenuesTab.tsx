@@ -10,6 +10,7 @@ import {
   primaryButtonClass,
   RowDeleteButton,
   searchInputClass,
+  selectedRowStyle,
   secondaryButtonClass,
   tableBodyClass,
   tableClass,
@@ -288,6 +289,7 @@ export function VenuesTab({ embedded = false }: { embedded?: boolean }) {
                   <tr
                     key={v.id}
                     className={tableRowClass}
+                    style={drawerOpen && editingId.current === v.id ? selectedRowStyle : undefined}
                     onClick={(e) => openEdit(v, e.currentTarget as HTMLTableRowElement)}
                   >
                     <td className="px-2 py-1 align-middle">

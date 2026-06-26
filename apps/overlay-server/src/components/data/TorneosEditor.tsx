@@ -13,6 +13,7 @@ import {
   fieldClass,
   LoadingState,
   primaryButtonClass,
+  selectedRowStyle,
   secondaryButtonClass,
   tableBodyClass,
   tableClass,
@@ -44,6 +45,12 @@ const statusColor: Record<Tournament['status'], string> = {
   active: 'bg-emerald-400/15 text-emerald-300',
   finished: 'bg-white/5 text-white/30',
 };
+const structureLabel: Record<Tournament['structureType'], string> = {
+  round_robin: 'Round Robin',
+  single_elimination: 'Eliminación directa',
+  group_stage: 'Fase de grupos',
+  exhibition: 'Exhibición',
+};
 
 export function TorneosEditor() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -59,6 +66,7 @@ export function TorneosEditor() {
   const [saved, setSaved]             = useState(false);
   const [dialog, setDialog]           = useState<DialogState | null>(null);
   const [standingsModalOpen, setStandingsModalOpen] = useState(false);
+  const [standingsData, setStandingsData] = useState<Tournament | null>(null);
   const [filterLeague, setFilterLeague] = useState('');
   const editingId                     = useRef<string | null>(null);
   const anchorRef                     = useRef<HTMLTableRowElement | null>(null);
@@ -93,6 +101,7 @@ export function TorneosEditor() {
     editingId.current = null;
     anchorRef.current = null;
     setStandingsModalOpen(false);
+    setStandingsData(null);
     setForm(emptyTournament());
     setError(null);
     setSaved(false);
@@ -103,6 +112,7 @@ export function TorneosEditor() {
     editingId.current = t.id;
     anchorRef.current = row;
     setStandingsModalOpen(false);
+    setStandingsData(null);
     setForm({ ...t });
     setError(null);
     setSaved(false);
@@ -215,6 +225,7 @@ export function TorneosEditor() {
                 <th className={tableHeaderClass}>Categoría</th>
                 <th className={tableHeaderClass}>Tipo</th>
                 <th className={tableHeaderClass}>Estado</th>
+                <th className={tableHeaderClass}>Posiciones</th>
               </tr>
             </thead>
             <tbody className={tableBodyClass}>
@@ -222,6 +233,7 @@ export function TorneosEditor() {
                 <tr
                   key={t.id}
                   className={tableRowClass}
+                  style={drawerOpen && editingId.current === t.id ? selectedRowStyle : undefined}
                   onClick={(e) => openEdit(t, e.currentTarget as HTMLTableRowElement)}
                 >
                   <td className={tableCellClass}>
@@ -232,11 +244,22 @@ export function TorneosEditor() {
                     {t.leagueId ? (leagueMap.get(t.leagueId) ?? t.leagueId) : <span className="text-white/25">Independiente</span>}
                   </td>
                   <td className={tableCellClass + ' text-white/50'}>{categoryMap.get(t.categoryId) ?? '—'}</td>
-                  <td className={tableCellClass + ' text-white/40 text-[10px]'}>{t.structureType}</td>
+                  <td className={tableCellClass + ' text-white/40 text-[10px]'}>{structureLabel[t.structureType] ?? t.structureType}</td>
                   <td className={tableCellClass}>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor[t.status]}`}>
                       {statusLabel[t.status]}
                     </span>
+                  </td>
+                  <td className={tableCellClass}>
+                    {t.standings && t.standings.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setStandingsData(t); setStandingsModalOpen(true); }}
+                        className="inline-flex items-center gap-1 rounded border border-white/15 px-2 py-0.5 text-[10px] text-white/60 hover:border-mineros-gold/50 hover:text-mineros-gold transition"
+                      >
+                        📊 {t.standings.length}
+                      </button>
+                    ) : <span className="text-white/20 text-[10px]">—</span>}
                   </td>
                 </tr>
               ))}
@@ -249,7 +272,7 @@ export function TorneosEditor() {
       <SlideDrawer
         open={drawerOpen}
         title={editingId.current ? 'Editar torneo' : 'Nuevo torneo'}
-        onClose={() => { setDrawerOpen(false); setStandingsModalOpen(false); }}
+        onClose={() => { setDrawerOpen(false); setStandingsModalOpen(false); setStandingsData(null); }}
         anchorRef={anchorRef}
       >
         <div className="space-y-3 p-1">
@@ -327,17 +350,6 @@ export function TorneosEditor() {
             </Field>
           </div>
 
-          {/* Standings de solo lectura */}
-          {form.standings.length > 0 && (
-            <button
-              type="button"
-              className={secondaryButtonClass}
-              onClick={() => setStandingsModalOpen(true)}
-            >
-              📊 Ver posiciones ({form.standings.length} equipos)
-            </button>
-          )}
-
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => { void handleSave(); }} disabled={saving} className={primaryButtonClass}>
               {saved ? '✅ Guardado' : saving ? 'Guardando…' : 'Guardar'}
@@ -354,13 +366,13 @@ export function TorneosEditor() {
         </div>
       </SlideDrawer>
 
-      {standingsModalOpen && form.standings.length > 0 && (
+      {standingsModalOpen && standingsData && standingsData.standings.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setStandingsModalOpen(false)} />
+          <div className="absolute inset-0 bg-black/70" onClick={() => { setStandingsModalOpen(false); setStandingsData(null); }} />
           <div className="relative z-10 w-full max-w-lg rounded-xl border border-white/10 bg-[#0f1117] shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <h3 className="text-sm font-semibold text-white">{form.name} — Posiciones</h3>
-              <button type="button" onClick={() => setStandingsModalOpen(false)}
+              <h3 className="text-sm font-semibold text-white">{standingsData.name} — Posiciones</h3>
+              <button type="button" onClick={() => { setStandingsModalOpen(false); setStandingsData(null); }}
                 className="text-white/40 hover:text-white transition text-lg leading-none">✕</button>
             </div>
             <div className="overflow-auto max-h-96">
@@ -373,7 +385,7 @@ export function TorneosEditor() {
                   </tr>
                 </thead>
                 <tbody className={tableBodyClass}>
-                  {[...form.standings]
+                  {[...standingsData.standings]
                     .sort((a, b) => (b.pct - a.pct) || (b.runDiff - a.runDiff))
                     .map((row: TournamentStanding, i) => (
                       <tr key={row.teamId} className="border-b border-white/5 last:border-0">

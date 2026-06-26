@@ -10,6 +10,10 @@ export const tableCellClass = 'px-3 py-2 align-middle text-xs text-white/80';
 export const tableClass = 'w-full text-xs';
 export const tableBodyClass = 'divide-y divide-white/5';
 export const tableRowClass = 'cursor-pointer transition hover:bg-white/[0.04] active:bg-white/[0.07]';
+export const selectedRowStyle = {
+  boxShadow: 'inset 3px 0 0 #D4AF37',
+  backgroundColor: 'rgba(212,175,55,0.06)',
+} as const;
 export const tableHeadRowClass = 'bg-white/[0.03]';
 export const primaryButtonClass = 'rounded-md bg-mineros-gold px-3 py-2 text-xs font-semibold uppercase tracking-wide text-broadcast-black transition hover:bg-mineros-gold/85 disabled:cursor-not-allowed disabled:opacity-50';
 export const secondaryButtonClass = 'rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white/80 transition hover:bg-white/10 hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-50';

@@ -13,6 +13,7 @@ import {
   filterSelectClass,
   Field,
   primaryButtonClass,
+  selectedRowStyle,
   secondaryButtonClass,
   tableBodyClass,
   tableClass,
@@ -261,7 +262,8 @@ export function TeamEditor() {
               {filtered.map((team) => (
                 <tr
                   key={team.id}
-                  className={`${tableRowClass} ${drawerOpen && editingId.current === team.id ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
+                  className={tableRowClass}
+                  style={drawerOpen && editingId.current === team.id ? selectedRowStyle : undefined}
                   onClick={(e) => openEdit(team, e.currentTarget as HTMLTableRowElement)}
                 >
                   <td className={tableCellClass}><TeamBadge team={team} /></td>
