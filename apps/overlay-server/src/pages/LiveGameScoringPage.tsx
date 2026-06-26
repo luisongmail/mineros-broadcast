@@ -324,16 +324,6 @@ function getPitchWarning(
   return null;
 }
 
-function StepBadge({ active, index, title }: { active: boolean; index: number; title: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className={`flex h-8 w-8 items-center justify-center rounded-full border font-bebas text-lg ${active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/15 bg-white/5 text-white/60'}`}>
-        {index}
-      </span>
-      <span className={`font-bebas text-xl uppercase tracking-[0.18em] ${active ? 'text-mineros-gold' : 'text-white/60'}`}>{title}</span>
-    </div>
-  );
-}
 
 export function LiveGameScoringPage() {
   const [context, setContext] = useState<ScorerContextPayload | null>(null);
@@ -768,87 +758,66 @@ export function LiveGameScoringPage() {
   const currentPitcherStats = selectedPitcher ? context.pitcherStats[selectedPitcher.playerId] : null;
 
   return (
-    <div className="flex h-screen min-w-[768px] flex-col overflow-hidden bg-broadcast-black text-white">
-      <header className="flex-none border-b border-white/10 bg-mineros-navy px-4 py-3">
-        <div className="grid gap-3 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-bebas text-2xl uppercase tracking-[0.22em] text-mineros-gold">Live Game Scoring</span>
-            <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.22em] text-white/70">
-              {awayName} @ {homeName}
-            </span>
-            <span className="rounded-full border border-mineros-gold/30 bg-mineros-gold/10 px-3 py-1 text-xs uppercase tracking-[0.22em] text-mineros-gold">
-              {formatInningLabel(context.currentInning, context.inningHalf)}
-            </span>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[auto_1fr_1fr_1fr] xl:justify-end">
-            <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Marcador</p>
-              <p className="mt-1 font-bebas text-3xl text-white">
-                {awayName} <span className="text-mineros-gold">{gs.score.away}</span>
-                <span className="mx-2 text-white/25">·</span>
-                {homeName} <span className="text-mineros-gold">{gs.score.home}</span>
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Outs / Bases</p>
-              <div className="mt-2 flex items-center gap-4">
-                <div className="flex gap-1.5">
-                  {[0, 1, 2].map((index) => (
-                    <span
-                      key={index}
-                      className={`h-3.5 w-3.5 rounded-full border ${index < gs.outs ? 'border-mineros-red bg-mineros-red' : 'border-white/25 bg-transparent'}`}
-                    />
-                  ))}
-                </div>
-                <div className="relative h-9 w-9">
-                  <span className={`absolute left-1/2 top-0 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border ${gs.bases.second ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
-                  <span className={`absolute bottom-0 left-0 h-3.5 w-3.5 rotate-45 border ${gs.bases.third ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
-                  <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rotate-45 border ${gs.bases.first ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Bateador actual</p>
-              <p className="mt-1 truncate font-bebas text-2xl text-white">
-                {selectedBatter ? `#${selectedBatter.number} ${selectedBatter.name}` : '—'}
-              </p>
-              <p className="text-xs text-white/65">
-                Mano: <span className="text-mineros-gold">{formatBatterSideLabel(activeBattingSide ?? batterSide)}</span>
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Lanzador / Conteo</p>
-              <p className="mt-1 truncate font-bebas text-2xl text-white">
-                {selectedPitcher ? `#${selectedPitcher.number} ${selectedPitcher.name}` : '—'}
-              </p>
-              <p className="text-xs text-white/65">
-                Conteo: <span className="text-blue-300">{gs.count.balls}</span> - <span className="text-red-300">{gs.count.strikes}</span>
-              </p>
-            </div>
-          </div>
+    <div className="flex h-screen min-w-[900px] flex-col overflow-hidden bg-broadcast-black text-white">
+      {/* ── HEADER COMPACTO: 1 sola fila ──────────────────────────────── */}
+      <header className="flex h-12 flex-none items-center gap-3 border-b border-white/10 bg-mineros-navy px-4">
+        <span className="font-bebas text-xl uppercase tracking-[0.22em] text-mineros-gold">Live Scoring</span>
+        <span className="text-white/20">·</span>
+        <span className="text-xs uppercase tracking-wider text-white/55 whitespace-nowrap">{awayName} @ {homeName}</span>
+        <span className="rounded-full border border-mineros-gold/30 bg-mineros-gold/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-mineros-gold">
+          {formatInningLabel(context.currentInning, context.inningHalf)}
+        </span>
+        <div className="flex-1" />
+        <span className="text-[10px] uppercase tracking-wider text-white/35">Conteo</span>
+        <span className="font-bebas text-2xl leading-none text-blue-300">{gs.count.balls}</span>
+        <span className="text-white/25">–</span>
+        <span className="font-bebas text-2xl leading-none text-red-300">{gs.count.strikes}</span>
+        <span className="text-white/20">·</span>
+        <div className="flex gap-1">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className={`h-2.5 w-2.5 rounded-full border ${i < gs.outs ? 'border-mineros-red bg-mineros-red' : 'border-white/25 bg-transparent'}`} />
+          ))}
         </div>
+        <div className="relative h-[22px] w-[22px]">
+          <span className={`absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border ${gs.bases.second ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
+          <span className={`absolute bottom-0 left-0 h-2.5 w-2.5 rotate-45 border ${gs.bases.third ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
+          <span className={`absolute bottom-0 right-0 h-2.5 w-2.5 rotate-45 border ${gs.bases.first ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
+        </div>
+        <span className="text-white/20">·</span>
+        <span className="font-bebas text-sm text-white/70 whitespace-nowrap">
+          {awayName} <span className="text-mineros-gold">{gs.score.away}</span>
+          <span className="mx-1 text-white/30">–</span>
+          {homeName} <span className="text-mineros-gold">{gs.score.home}</span>
+        </span>
+        <span className="text-white/20">·</span>
+        <span className="max-w-[130px] truncate text-xs text-white/60">
+          {selectedBatter ? `#${selectedBatter.number} ${selectedBatter.name}` : '—'}
+        </span>
+        {pitchFeedback ? (
+          <span className="ml-1 rounded-full border border-mineros-gold/30 bg-mineros-gold/10 px-3 py-0.5 text-[11px] font-semibold text-mineros-gold whitespace-nowrap">
+            {pitchFeedback}
+          </span>
+        ) : null}
       </header>
 
+
+      {/* ERROR BAR */}
       {error ? (
-        <div className="flex-none px-4 pt-3">
-          <div className="rounded-xl border border-mineros-red/40 bg-mineros-red/10 px-3 py-2 text-sm text-red-100">{error}</div>
+        <div className="flex-none px-3 pt-1.5">
+          <div className="rounded-lg border border-mineros-red/40 bg-mineros-red/10 px-3 py-1.5 text-xs text-red-100">{error}</div>
         </div>
       ) : null}
 
-      <main className="grid flex-1 gap-3 overflow-hidden p-3 md:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_280px]">
-        <aside className="space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-white/5 p-3">
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Bateador ofensivo</p>
+      {/* ── MAIN 3 COLUMNS ──────────────────────────────────────────────── */}
+      <main className="grid flex-1 gap-2 overflow-hidden p-2 grid-cols-[200px_minmax(0,1fr)_180px]">
+
+        {/* ── COLUMNA IZQUIERDA ───────────────────────────────────────── */}
+        <aside className="flex flex-col gap-2 overflow-y-auto">
+          <div>
+            <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Bateador</p>
             <select
-              className="w-full rounded-xl border border-white/10 bg-broadcast-black px-3 py-2.5 text-sm text-white outline-none transition focus:border-mineros-gold"
-              onChange={(event) => {
-                setSelectedBatterId(event.target.value);
-                setBattingSideOverride(null);
-              }}
+              className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white outline-none transition focus:border-mineros-gold"
+              onChange={(e) => { setSelectedBatterId(e.target.value); setBattingSideOverride(null); }}
               value={selectedBatterId}
             >
               <option value="">Seleccionar…</option>
@@ -856,7 +825,7 @@ export function LiveGameScoringPage() {
                 const side = normalizeBatterSide(context.playerMeta[player.playerId]?.bats);
                 return (
                   <option key={player.playerId} value={player.playerId}>
-                    #{player.number} {player.name} {side !== 'unknown' ? `· ${side}` : ''}
+                    #{player.number} {player.name}{side !== 'unknown' ? ` · ${side}` : ''}
                   </option>
                 );
               })}
@@ -864,51 +833,45 @@ export function LiveGameScoringPage() {
           </div>
 
           {gs.rules.hasPitcher ? (
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Pitcher</p>
-              <div className="flex gap-2">
+            <div>
+              <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Pitcher</p>
+              <div className="flex gap-1.5">
                 <select
-                  className="min-w-0 flex-1 rounded-xl border border-white/10 bg-broadcast-black px-3 py-2.5 text-sm text-white outline-none transition focus:border-mineros-gold"
-                  onChange={(event) => setSelectedPitcherId(event.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white outline-none transition focus:border-mineros-gold"
+                  onChange={(e) => setSelectedPitcherId(e.target.value)}
                   value={selectedPitcherId}
                 >
                   <option value="">Seleccionar…</option>
                   {context.pitchingLineup.map((player) => (
-                    <option key={player.playerId} value={player.playerId}>
-                      #{player.number} {player.name}
-                    </option>
+                    <option key={player.playerId} value={player.playerId}>#{player.number} {player.name}</option>
                   ))}
                 </select>
                 <button
-                  className="rounded-xl border border-mineros-gold/40 bg-mineros-gold/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-mineros-gold transition hover:bg-mineros-gold/20 disabled:opacity-40"
+                  className="rounded-lg border border-mineros-gold/40 bg-mineros-gold/10 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-mineros-gold transition hover:bg-mineros-gold/20 disabled:opacity-40"
                   disabled={savingPitcher || !selectedPitcherId || selectedPitcherId === context.currentPitcher?.playerId}
                   onClick={() => void handleApplyPitcherChange()}
                   type="button"
                 >
-                  {savingPitcher ? '...' : 'Cambio'}
+                  {savingPitcher ? '…' : 'Cambio'}
                 </button>
               </div>
             </div>
           ) : null}
 
-          <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Bases manuales</p>
-            <div className="grid grid-cols-3 gap-2">
+          <div>
+            <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Bases</p>
+            <div className="grid grid-cols-3 gap-1.5">
               {(['first', 'second', 'third'] as const).map((base) => {
                 const label = base === 'first' ? '1ª' : base === 'second' ? '2ª' : '3ª';
                 return (
                   <button
                     key={base}
-                    className={`rounded-xl border py-2 text-sm font-bold transition ${
-                      gs.bases[base]
-                        ? 'border-mineros-gold bg-mineros-gold text-mineros-navy'
-                        : 'border-white/15 bg-black/20 text-white/60 hover:border-white/35'
-                    }`}
+                    className={`rounded-lg border py-1.5 text-xs font-bold transition ${gs.bases[base] ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/15 bg-black/20 text-white/60 hover:border-white/35'}`}
                     disabled={savingBase !== null}
                     onClick={() => void handleToggleBase(base)}
                     type="button"
                   >
-                    {savingBase === base ? '...' : label}
+                    {savingBase === base ? '…' : label}
                   </button>
                 );
               })}
@@ -916,116 +879,286 @@ export function LiveGameScoringPage() {
           </div>
 
           {currentPitcherStats ? (
-            <div className="space-y-2 rounded-2xl border border-mineros-gold/20 bg-mineros-gold/5 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-mineros-gold">Stats del pitcher actual</p>
-              <div className="grid grid-cols-2 gap-2 text-xs text-white/80">
-                <div className="rounded-xl bg-black/20 px-3 py-2"><span className="block text-white/40">IP</span>{currentPitcherStats.ip}</div>
-                <div className="rounded-xl bg-black/20 px-3 py-2"><span className="block text-white/40">P</span>{currentPitcherStats.pitches}</div>
-                <div className="rounded-xl bg-black/20 px-3 py-2"><span className="block text-white/40">K</span>{currentPitcherStats.strikeouts}</div>
-                <div className="rounded-xl bg-black/20 px-3 py-2"><span className="block text-white/40">BB</span>{currentPitcherStats.walks}</div>
-                <div className="rounded-xl bg-black/20 px-3 py-2"><span className="block text-white/40">H</span>{currentPitcherStats.hitsAllowed}</div>
-                <div className="rounded-xl bg-black/20 px-3 py-2"><span className="block text-white/40">R</span>{currentPitcherStats.runsAllowed}</div>
+            <div className="rounded-lg border border-mineros-gold/20 bg-mineros-gold/5 p-2">
+              <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] text-mineros-gold">Stats pitcher</p>
+              <div className="grid grid-cols-3 gap-1 text-[11px] text-white/75">
+                {([['IP', currentPitcherStats.ip], ['P', String(currentPitcherStats.pitches)], ['K', String(currentPitcherStats.strikeouts)], ['BB', String(currentPitcherStats.walks)], ['H', String(currentPitcherStats.hitsAllowed)], ['R', String(currentPitcherStats.runsAllowed)]] as [string, string][]).map(([label, value]) => (
+                  <div key={label} className="rounded bg-black/20 px-1.5 py-1 text-center">
+                    <span className="block text-[9px] text-white/35">{label}</span>
+                    {value}
+                  </div>
+                ))}
               </div>
             </div>
           ) : null}
+
         </aside>
 
-        <section className="space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-white/5 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-            <div className="flex items-center gap-4">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">Conteo actual</p>
-                <p className="font-bebas text-4xl text-white">
-                  <span className="text-blue-300">{gs.count.balls}</span>
-                  <span className="mx-2 text-white/25">-</span>
-                  <span className="text-red-300">{gs.count.strikes}</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">Lectura seleccionada</p>
-                <p className="font-bebas text-2xl text-mineros-gold">{selectedPitchReading}</p>
-              </div>
-            </div>
-            {pitchFeedback ? (
-              <div className="rounded-full border border-mineros-gold/30 bg-mineros-gold/10 px-4 py-2 text-sm font-semibold text-mineros-gold">
-                {pitchFeedback}
-              </div>
-            ) : null}
+        {/* ── COLUMNA CENTRAL — PASOS ──────────────────────────────────── */}
+        <section className="flex flex-col gap-2 overflow-y-auto">
+
+          {/* Tabs de paso */}
+          <div className="flex flex-none gap-1 rounded-xl bg-black/25 p-1">
+            {([
+              [1, '① Lanzamiento'],
+              [2, '② Resultado'],
+              [3, '③ En juego'],
+            ] as const).map(([step, label]) => (
+              <button
+                key={step}
+                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold uppercase tracking-wider transition ${currentStep === step ? 'bg-mineros-navy text-mineros-gold shadow' : 'text-white/40 hover:text-white/70'}`}
+                onClick={() => setCurrentStep(step)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-            <StepBadge active={currentStep === 1} index={1} title="Captura de lanzamiento" />
+          {/* ─ PASO 1: CAPTURA DE LANZAMIENTO ─ */}
+          {currentStep === 1 ? (
+            <div className="flex flex-col gap-2">
 
-            {shouldPromptBattingSide ? (
-              <div className="rounded-2xl border border-mineros-gold/20 bg-mineros-gold/5 p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mineros-gold">Corregir lado</p>
-                <p className="mt-1 text-sm text-white/70">
-                  {batterSide === 'S' ? 'Bateador ambidiestro: selecciona el lado activo del turno.' : 'La mano del bateador no está informada. Selecciona un lado para calcular adentro/afuera.'}
-                </p>
-                <div className="mt-3 flex gap-2">
-                  {(['R', 'L'] as const).map((side) => (
+              {/* Mano / Corregir lado */}
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
+                {shouldPromptBattingSide ? (
+                  <>
+                    <span className="text-[11px] font-semibold text-mineros-gold">Corregir lado</span>
+                    <div className="flex gap-1.5">
+                      {(['R', 'L'] as const).map((side) => (
+                        <button
+                          key={side}
+                          className={`rounded-lg border px-3 py-1 text-xs font-semibold transition ${activeBattingSide === side ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/15 bg-white/5 text-white/75 hover:border-white/35'}`}
+                          onClick={() => setBattingSideOverride(side)}
+                          type="button"
+                        >
+                          {side === 'R' ? 'Derecho' : 'Zurdo'}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[11px] text-white/55">
+                      Mano: <span className="font-semibold text-mineros-gold">{formatBatterSideLabel(batterSide)}</span>
+                      <span className="mx-2 text-white/25">·</span>
+                      <span className="text-white/70">{selectedPitchReading}</span>
+                    </span>
+                    <div className="flex gap-1">
+                      {(['R', 'L'] as const).map((side) => (
+                        <button
+                          key={side}
+                          className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition ${activeBattingSide === side ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/15 bg-black/20 text-white/50 hover:border-white/30'}`}
+                          onClick={() => setBattingSideOverride(side === inferredActiveBattingSide ? null : side)}
+                          type="button"
+                        >
+                          {side}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Objetivo receptor + grilla: 2 columnas */}
+              <div className="grid grid-cols-[auto_1fr] gap-2 items-start">
+
+                {/* Grilla de lanzamiento */}
+                <PitchGrid
+                  activeBattingSide={activeBattingSide}
+                  batterSide={batterSide}
+                  onSelect={setSelectedPitchCell}
+                  selectedCell={selectedPitchCell}
+                />
+
+                {/* Panel derecho del paso 1 */}
+                <div className="flex flex-col gap-2">
+
+                  {/* Objetivo receptor compacto */}
+                  <div className="rounded-lg border border-white/10 bg-black/20 p-2">
+                    <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] text-mineros-gold/70">Objetivo receptor</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {([
+                        { mode: 'quick_3x3' as const, label: 'Rápido 3×3' },
+                        { mode: 'advanced_7x7' as const, label: 'Avanzado' },
+                        { mode: 'same_as_location' as const, label: '= Ubicación' },
+                        { mode: 'unknown' as const, label: 'Desconocido' },
+                      ]).map((option) => {
+                        const active = catcherTarget.mode === option.mode;
+                        return (
+                          <button
+                            key={option.mode}
+                            className={`rounded-md border px-1.5 py-1 text-[10px] font-semibold transition ${active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/10 bg-black/20 text-white/50 hover:border-white/25'}`}
+                            onClick={() => {
+                              if (option.mode === 'same_as_location') {
+                                setCatcherTarget({ mode: 'same_as_location', col: selectedPitchCell?.col, row: selectedPitchCell?.row });
+                              } else if (option.mode === 'unknown') {
+                                setCatcherTarget({ mode: 'unknown' });
+                              } else {
+                                setCatcherTarget({ mode: option.mode });
+                              }
+                            }}
+                            type="button"
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {catcherTarget.mode === 'quick_3x3' ? (
+                      <div className="mt-1.5 grid grid-cols-3 gap-1">
+                        {QUICK_3X3_ZONES.map((zone) => {
+                          const active = catcherTarget.col === zone.col && catcherTarget.row === zone.row;
+                          return (
+                            <button
+                              key={zone.label}
+                              className={`rounded-md border py-1 text-[10px] font-semibold transition ${active ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-black/20 text-white/55 hover:border-white/25'}`}
+                              onClick={() => setCatcherTarget({ mode: 'quick_3x3', col: zone.col, row: zone.row })}
+                              type="button"
+                            >
+                              {zone.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Resultado del lanzamiento */}
+                  <div>
+                    <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Resultado</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {PITCH_RESULT_OPTIONS.map((option) => {
+                        const active = selectedPitchResult === option.value;
+                        const colorClass = option.countsAs === 'ball'
+                          ? (active ? 'border-blue-400 bg-blue-500 text-white' : 'border-blue-400/30 bg-blue-500/10 text-blue-200')
+                          : option.countsAs === 'strike'
+                            ? (active ? 'border-mineros-red bg-mineros-red text-white' : 'border-mineros-red/30 bg-mineros-red/10 text-red-200')
+                            : option.value === 'in_play'
+                              ? (active ? 'border-emerald-400 bg-emerald-500 text-white' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200')
+                              : (active ? 'border-white/60 bg-white/15 text-white' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/25');
+                        return (
+                          <button
+                            key={option.value}
+                            className={`rounded-lg border py-1.5 text-[10px] font-semibold leading-tight transition ${colorClass}`}
+                            onClick={() => {
+                              setSelectedPitchResult(option.value);
+                              if (option.value === 'in_play') setCurrentStep(3);
+                            }}
+                            type="button"
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Warning */}
+                  {pitchWarning ? (
+                    <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-2 py-1 text-[10px] font-semibold text-yellow-200">
+                      {pitchWarning}
+                    </div>
+                  ) : null}
+
+                  {/* Tipo de lanzamiento */}
+                  <div>
+                    <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Tipo de lanzamiento</p>
+                    <div className="grid grid-cols-3 gap-1">
+                      {pitchTypes.map((pitchType) => {
+                        const active = selectedPitchType === pitchType;
+                        return (
+                          <button
+                            key={pitchType}
+                            className={`rounded-lg border py-1.5 text-[10px] font-semibold transition ${active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/10 bg-white/5 text-white/65 hover:border-white/30'}`}
+                            onClick={() => setSelectedPitchType(pitchType)}
+                            type="button"
+                          >
+                            {pitchType}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Métricas opcionales */}
+                  <div>
                     <button
-                      key={side}
-                      className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${activeBattingSide === side ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/15 bg-white/5 text-white/75 hover:border-white/35'}`}
-                      onClick={() => setBattingSideOverride(side)}
+                      className="text-[9px] font-semibold text-white/35 transition hover:text-white/60"
+                      onClick={() => setShowMetrics((v) => !v)}
                       type="button"
                     >
-                      {side === 'R' ? 'Derecho' : 'Zurdo'}
+                      {showMetrics ? '▴' : '▾'} Métricas
                     </button>
-                  ))}
+                    {showMetrics ? (
+                      <div className="mt-1 grid grid-cols-2 gap-1">
+                        <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" max="120" min="0" placeholder="km/h" type="number" onChange={(e) => setPitchMetrics((c) => ({ ...c, velocityMph: e.target.value }))} value={pitchMetrics.velocityMph} />
+                        <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" placeholder="HP-01" type="text" onChange={(e) => setPitchMetrics((c) => ({ ...c, umpireId: e.target.value }))} value={pitchMetrics.umpireId} />
+                        <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" placeholder="00:42:18" type="text" onChange={(e) => setPitchMetrics((c) => ({ ...c, videoTimestamp: e.target.value }))} value={pitchMetrics.videoTimestamp} />
+                        <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" placeholder="Nota…" type="text" onChange={(e) => setPitchMetrics((c) => ({ ...c, note: e.target.value }))} value={pitchMetrics.note} />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Botones de acción */}
+                  <div className="flex flex-col gap-1.5 mt-auto">
+                    {selectedPitchResult === 'in_play' ? (
+                      <button
+                        className="rounded-xl bg-emerald-600 px-4 py-2.5 font-bebas text-base uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                        disabled={!selectedPitchCell || !selectedPitchType}
+                        onClick={() => setCurrentStep(3)}
+                        type="button"
+                      >
+                        En juego → Captura ofensiva
+                      </button>
+                    ) : (
+                      <button
+                        className="rounded-xl bg-mineros-red px-4 py-2.5 font-bebas text-base uppercase tracking-[0.16em] text-white transition hover:bg-red-700 disabled:opacity-50"
+                        disabled={!canRegisterPitch || savingPitch}
+                        onClick={() => void handleRegisterPitch()}
+                        type="button"
+                      >
+                        {savingPitch ? 'Registrando…' : selectedPitchResult ? `Registrar · ${pitchResultOption?.label ?? ''}` : 'Registrar pitcheo'}
+                      </button>
+                    )}
+                    <div className="flex gap-1.5">
+                      <button
+                        className="flex-1 rounded-xl border border-mineros-gold/40 bg-mineros-gold/10 px-3 py-2 font-bebas text-base uppercase tracking-[0.16em] text-mineros-gold transition hover:bg-mineros-gold/20 disabled:opacity-50"
+                        disabled={savingPitch}
+                        onClick={() => void handleQuickFoul()}
+                        type="button"
+                      >
+                        Foul
+                      </button>
+                      <button
+                        className="flex-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-white/55 transition hover:border-white/30"
+                        onClick={() => setCurrentStep(2)}
+                        type="button"
+                      >
+                        Resultado directo
+                      </button>
+                    </div>
+                  </div>
+
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white/70">
-                <span>Mano detectada: <span className="font-semibold text-mineros-gold">{formatBatterSideLabel(batterSide)}</span></span>
-                <div className="flex gap-2">
-                  {(['R', 'L'] as const).map((side) => (
-                    <button
-                      key={side}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] transition ${activeBattingSide === side ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/15 bg-black/20 text-white/65 hover:border-white/35'}`}
-                      onClick={() => setBattingSideOverride(side === inferredActiveBattingSide ? null : side)}
-                      type="button"
-                    >
-                      {side === 'R' ? 'Corregir a R' : 'Corregir a L'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-mineros-gold">Objetivo receptor</p>
-              </div>
+            </div>
+          ) : null}
 
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {([
-                  { mode: 'quick_3x3', label: 'Rápido 3×3' },
-                  { mode: 'advanced_7x7', label: 'Avanzado 7×7' },
-                  { mode: 'same_as_location', label: 'Misma ubicación' },
-                  { mode: 'unknown', label: 'Desconocido' },
-                ] as const).map((option) => {
-                  const active = catcherTarget.mode === option.mode;
+          {/* ─ PASO 2: RESULTADO DEL TURNO ─ */}
+          {currentStep === 2 ? (
+            <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-4 gap-1.5">
+                {RESULT_OPTIONS.map((option) => {
+                  const active = selectedResult === option.value;
                   return (
                     <button
-                      key={option.mode}
-                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/10 bg-black/20 text-white/70 hover:border-white/30'}`}
+                      key={option.value}
+                      className={`rounded-lg border py-2 text-[11px] font-semibold uppercase tracking-wider transition ${resultToneClass(option.tone, active)}`}
                       onClick={() => {
-                        if (option.mode === 'same_as_location') {
-                          setCatcherTarget({
-                            mode: 'same_as_location',
-                            col: selectedPitchCell?.col,
-                            row: selectedPitchCell?.row,
-                          });
-                          return;
-                        }
-
-                        if (option.mode === 'unknown') {
-                          setCatcherTarget({ mode: 'unknown' });
-                          return;
-                        }
-
-                        setCatcherTarget({ mode: option.mode });
+                        setSelectedResult(option.value);
+                        setCurrentStep(CONTACT_REQUIRED_RESULTS.has(option.value) ? 3 : 2);
                       }}
                       type="button"
                     >
@@ -1035,475 +1168,198 @@ export function LiveGameScoringPage() {
                 })}
               </div>
 
-              {catcherTarget.mode === 'quick_3x3' ? (
-                <div className="space-y-2">
-                  <p className="text-xs text-white/60">A=Alto · M=Medio · B=Bajo · Ad=Adentro · C=Centro · Af=Afuera</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {QUICK_3X3_ZONES.map((zone) => {
-                      const active = catcherTarget.col === zone.col && catcherTarget.row === zone.row;
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Bateador</p>
+                  <select
+                    className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white outline-none transition focus:border-mineros-gold"
+                    onChange={(e) => setSelectedBatterId(e.target.value)}
+                    value={selectedBatterId}
+                  >
+                    <option value="">Seleccionar…</option>
+                    {context.battingLineup.map((player) => (
+                      <option key={player.playerId} value={player.playerId}>#{player.number} {player.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">RBI</p>
+                  <div className="flex items-center gap-1">
+                    <button className="h-8 w-8 rounded-lg border border-white/10 bg-black/30 text-sm text-white hover:border-white/30" onClick={() => setRbi(Math.max(0, rbi - 1))} type="button">−</button>
+                    <span className="w-8 rounded-lg bg-black/30 py-1 text-center font-bebas text-2xl">{rbi}</span>
+                    <button className="h-8 w-8 rounded-lg border border-white/10 bg-black/30 text-sm text-white hover:border-white/30" onClick={() => setRbi(rbi + 1)} type="button">+</button>
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Carreras</p>
+                  <div className="flex items-center gap-1">
+                    <button className="h-8 w-8 rounded-lg border border-white/10 bg-black/30 text-sm text-white hover:border-white/30" onClick={() => setRuns(Math.max(0, runs - 1))} type="button">−</button>
+                    <span className="w-8 rounded-lg bg-black/30 py-1 text-center font-bebas text-2xl">{runs}</span>
+                    <button className="h-8 w-8 rounded-lg border border-white/10 bg-black/30 text-sm text-white hover:border-white/30" onClick={() => setRuns(runs + 1)} type="button">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-mineros-red px-6 py-2.5 font-bebas text-lg uppercase tracking-[0.16em] text-white transition hover:bg-red-700 disabled:opacity-50"
+                  disabled={!canSubmitAtBat || savingAtBat}
+                  onClick={() => void handleSubmitAtBat()}
+                  type="button"
+                >
+                  {savingAtBat ? 'Registrando…' : 'Confirmar resultado'}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* ─ PASO 3: CAPTURA OFENSIVA ─ */}
+          {currentStep === 3 ? (
+            <div className="flex flex-col gap-2">
+
+              {/* Contacto + Calidad en 2 columnas */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Contacto</p>
+                  <div className="grid grid-cols-3 gap-1">
+                    {CONTACT_OPTIONS.map((option) => {
+                      const active = selectedContactType === option.value;
                       return (
                         <button
-                          key={zone.label}
-                          className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${active ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-black/20 text-white/70 hover:border-white/30'}`}
-                          onClick={() => setCatcherTarget({ mode: 'quick_3x3', col: zone.col, row: zone.row })}
+                          key={option.value}
+                          className={`rounded-lg border py-1.5 text-[11px] font-semibold transition ${active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/10 bg-white/5 text-white/65 hover:border-white/30'}`}
+                          onClick={() => setSelectedContactType(option.value)}
                           type="button"
                         >
-                          <span className="block">{zone.label}</span>
-                          <span className="mt-1 block text-[10px] uppercase tracking-[0.16em] text-white/55">
-                            C{zone.col} · R{zone.row}
-                          </span>
+                          {option.label}
                         </button>
                       );
                     })}
                   </div>
                 </div>
-              ) : null}
-
-              {catcherTarget.mode === 'advanced_7x7' ? (
-                <PitchGrid
-                  activeBattingSide={null}
-                  batterSide="unknown"
-                  onSelect={(cell) => setCatcherTarget({ mode: 'advanced_7x7', ...cell })}
-                  selectedCell={catcherTarget.col !== undefined && catcherTarget.row !== undefined ? { col: catcherTarget.col, row: catcherTarget.row } : null}
-                  showTacticalInfo={false}
-                />
-              ) : null}
-
-              {catcherTarget.mode === 'same_as_location' ? (
-                <p className="text-sm text-white/70">
-                  (Misma ubicación que el lanzamiento real)
-                  {selectedPitchCell ? ` · C${selectedPitchCell.col} · R${selectedPitchCell.row}` : ''}
-                </p>
-              ) : null}
-
-              {catcherTarget.mode === 'unknown' ? (
-                <p className="text-sm text-white/55">(No capturado)</p>
-              ) : null}
-            </div>
-
-            <PitchGrid
-              activeBattingSide={activeBattingSide}
-              batterSide={batterSide}
-              onSelect={setSelectedPitchCell}
-              selectedCell={selectedPitchCell}
-            />
-
-            <div className="space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Resultado del lanzamiento</p>
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {PITCH_RESULT_OPTIONS.filter((o) => o.group === 'count').map((option) => {
-                    const active = selectedPitchResult === option.value;
-                    const colorClass = option.countsAs === 'ball'
-                      ? (active ? 'border-blue-400 bg-blue-500 text-white' : 'border-blue-400/30 bg-blue-500/10 text-blue-200')
-                      : option.countsAs === 'strike'
-                        ? (active ? 'border-mineros-red bg-mineros-red text-white' : 'border-mineros-red/30 bg-mineros-red/10 text-red-200')
-                        : option.value === 'in_play'
-                          ? (active ? 'border-emerald-400 bg-emerald-500 text-white' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200')
-                          : (active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-mineros-gold/30 bg-mineros-gold/10 text-amber-200');
-                    return (
-                      <button
-                        key={option.value}
-                        className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${colorClass}`}
-                        onClick={() => {
-                          setSelectedPitchResult(option.value);
-                          if (option.value === 'in_play') setCurrentStep(3);
-                        }}
-                        type="button"
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {PITCH_RESULT_OPTIONS.filter((o) => o.group === 'special').map((option) => {
-                    const active = selectedPitchResult === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${active ? 'border-white/60 bg-white/15 text-white' : 'border-white/10 bg-white/5 text-white/55 hover:border-white/30'}`}
-                        onClick={() => setSelectedPitchResult(option.value)}
-                        type="button"
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {pitchWarning ? (
-              <div className="rounded-full border border-yellow-500/40 bg-yellow-500/10 px-4 py-2 text-sm font-semibold text-yellow-200">
-                {pitchWarning}
-              </div>
-            ) : null}
-
-            <div className="space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Tipo de lanzamiento</p>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {pitchTypes.map((pitchType) => {
-                  const active = selectedPitchType === pitchType;
-                  return (
-                    <button
-                      key={pitchType}
-                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/10 bg-white/5 text-white/75 hover:border-white/35'}`}
-                      onClick={() => setSelectedPitchType(pitchType)}
-                      type="button"
-                    >
-                      {pitchType}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <button
-                className="text-sm font-semibold text-white/50 transition hover:text-white/80"
-                onClick={() => setShowMetrics((current) => !current)}
-                type="button"
-              >
-                {showMetrics ? '▴ Métricas opcionales' : '▾ Métricas opcionales'}
-              </button>
-              {showMetrics ? (
-                <div className="grid gap-2 xl:grid-cols-4">
-                  <input
-                    className="rounded-xl border border-white/10 bg-broadcast-black px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
-                    max="120"
-                    min="0"
-                    onChange={(event) => setPitchMetrics((current) => ({ ...current, velocityMph: event.target.value }))}
-                    placeholder="—"
-                    type="number"
-                    value={pitchMetrics.velocityMph}
-                  />
-                  <input
-                    className="rounded-xl border border-white/10 bg-broadcast-black px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
-                    onChange={(event) => setPitchMetrics((current) => ({ ...current, umpireId: event.target.value }))}
-                    placeholder="HP-01"
-                    type="text"
-                    value={pitchMetrics.umpireId}
-                  />
-                  <input
-                    className="rounded-xl border border-white/10 bg-broadcast-black px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
-                    onChange={(event) => setPitchMetrics((current) => ({ ...current, videoTimestamp: event.target.value }))}
-                    placeholder="00:42:18"
-                    type="text"
-                    value={pitchMetrics.videoTimestamp}
-                  />
-                  <input
-                    className="rounded-xl border border-white/10 bg-broadcast-black px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
-                    onChange={(event) => setPitchMetrics((current) => ({ ...current, note: event.target.value }))}
-                    placeholder="Observación..."
-                    type="text"
-                    value={pitchMetrics.note}
-                  />
-                </div>
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {selectedPitchResult === 'in_play' ? (
-                <button
-                  className="flex-1 rounded-2xl bg-emerald-600 px-5 py-3 font-bebas text-xl uppercase tracking-[0.18em] text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!selectedPitchCell || !selectedPitchType}
-                  onClick={() => setCurrentStep(3)}
-                  type="button"
-                >
-                  En juego → Captura ofensiva
-                </button>
-              ) : (
-                <button
-                  className="flex-1 rounded-2xl bg-mineros-red px-5 py-3 font-bebas text-xl uppercase tracking-[0.18em] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!canRegisterPitch || savingPitch}
-                  onClick={() => void handleRegisterPitch()}
-                  type="button"
-                >
-                  {savingPitch
-                    ? 'Registrando...'
-                    : selectedPitchResult
-                      ? `Registrar · ${pitchResultOption?.label ?? ''}`
-                      : 'Registrar pitcheo'}
-                </button>
-              )}
-              <button
-                className="rounded-2xl border border-mineros-gold/40 bg-mineros-gold/10 px-5 py-3 font-bebas text-xl uppercase tracking-[0.18em] text-mineros-gold transition hover:bg-mineros-gold/20 disabled:opacity-50"
-                disabled={savingPitch}
-                onClick={() => void handleQuickFoul()}
-                type="button"
-              >
-                Foul rápido
-              </button>
-              <button
-                className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white/75 transition hover:border-white/35 hover:bg-white/10"
-                onClick={() => setCurrentStep(2)}
-                type="button"
-              >
-                Resultado directo
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-            <StepBadge active={currentStep === 2} index={2} title="Resultado del turno" />
-
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {RESULT_OPTIONS.map((option) => {
-                const active = selectedResult === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] transition ${resultToneClass(option.tone, active)}`}
-                    onClick={() => {
-                      setSelectedResult(option.value);
-                      setCurrentStep(CONTACT_REQUIRED_RESULTS.has(option.value) ? 3 : 2);
-                    }}
-                    type="button"
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="sm:col-span-1">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Bateador</p>
-                <select
-                  className="w-full rounded-xl border border-white/10 bg-broadcast-black px-3 py-2.5 text-sm text-white outline-none transition focus:border-mineros-gold"
-                  onChange={(event) => setSelectedBatterId(event.target.value)}
-                  value={selectedBatterId}
-                >
-                  <option value="">Seleccionar…</option>
-                  {context.battingLineup.map((player) => (
-                    <option key={player.playerId} value={player.playerId}>
-                      #{player.number} {player.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">RBI</p>
-                <div className="flex items-center gap-2">
-                  <button className="h-10 w-10 rounded-xl border border-white/10 bg-black/30 text-white hover:border-white/35" onClick={() => setRbi(Math.max(0, rbi - 1))} type="button">-</button>
-                  <span className="flex-1 rounded-xl bg-black/30 py-2 text-center font-bebas text-3xl">{rbi}</span>
-                  <button className="h-10 w-10 rounded-xl border border-white/10 bg-black/30 text-white hover:border-white/35" onClick={() => setRbi(rbi + 1)} type="button">+</button>
+                <div>
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Calidad</p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {HIT_QUALITY_OPTIONS.map((option) => {
+                      const active = selectedHitQuality === option.value;
+                      const colorClass =
+                        option.value === 'weak' ? (active ? 'border-slate-200 bg-slate-500 text-white' : 'border-slate-400/30 bg-slate-500/10 text-slate-200')
+                        : option.value === 'medium' ? (active ? 'border-blue-300 bg-blue-500 text-white' : 'border-blue-400/30 bg-blue-500/10 text-blue-200')
+                        : option.value === 'hard' ? (active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-mineros-gold/30 bg-mineros-gold/10 text-amber-200')
+                        : (active ? 'border-mineros-red bg-mineros-red text-white' : 'border-mineros-red/30 bg-mineros-red/10 text-red-200');
+                      return (
+                        <button
+                          key={option.value}
+                          className={`rounded-lg border py-1.5 text-[11px] font-semibold transition ${colorClass}`}
+                          onClick={() => setSelectedHitQuality(option.value)}
+                          type="button"
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Carreras</p>
-                <div className="flex items-center gap-2">
-                  <button className="h-10 w-10 rounded-xl border border-white/10 bg-black/30 text-white hover:border-white/35" onClick={() => setRuns(Math.max(0, runs - 1))} type="button">-</button>
-                  <span className="flex-1 rounded-xl bg-black/30 py-2 text-center font-bebas text-3xl">{runs}</span>
-                  <button className="h-10 w-10 rounded-xl border border-white/10 bg-black/30 text-white hover:border-white/35" onClick={() => setRuns(runs + 1)} type="button">+</button>
+              {/* Dirección + Corredores en 2 columnas */}
+              <div className="grid grid-cols-2 gap-2 items-start">
+                <div>
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Dirección al campo</p>
+                  <div className="grid grid-cols-5 grid-rows-4 gap-1">
+                    {DIRECTION_OPTIONS.map((option) => {
+                      const active = selectedHitDirection === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          className={`${option.className} rounded-lg border py-2 text-[11px] font-semibold transition ${active ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-white/5 text-white/65 hover:border-white/30'}`}
+                          onClick={() => setSelectedHitDirection(option.value)}
+                          type="button"
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          {selectedResult && CONTACT_REQUIRED_RESULTS.has(selectedResult) ? (
-            <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-              <StepBadge active={currentStep === 3} index={3} title="Captura ofensiva" />
-
-              <div className="space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Tipo de contacto</p>
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                  {CONTACT_OPTIONS.map((option) => {
-                    const active = selectedContactType === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/10 bg-white/5 text-white/75 hover:border-white/35'}`}
-                        onClick={() => setSelectedContactType(option.value)}
-                        type="button"
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Calidad del batazo</p>
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  {HIT_QUALITY_OPTIONS.map((option) => {
-                    const active = selectedHitQuality === option.value;
-                    const colorClass =
-                      option.value === 'weak'
-                        ? active ? 'border-slate-200 bg-slate-500 text-white' : 'border-slate-400/30 bg-slate-500/10 text-slate-200'
-                        : option.value === 'medium'
-                          ? active ? 'border-blue-300 bg-blue-500 text-white' : 'border-blue-400/30 bg-blue-500/10 text-blue-200'
-                          : option.value === 'hard'
-                            ? active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-mineros-gold/30 bg-mineros-gold/10 text-amber-200'
-                            : active ? 'border-mineros-red bg-mineros-red text-white' : 'border-mineros-red/30 bg-mineros-red/10 text-red-200';
-
-                    return (
-                      <button
-                        key={option.value}
-                        className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${colorClass}`}
-                        onClick={() => setSelectedHitQuality(option.value)}
-                        type="button"
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Corredores detallados</p>
-                <div className="space-y-2">
-                  {runnerDetails.map((detail, index) => (
-                    <div key={`${detail.runner}-${detail.from}`} className="grid gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 xl:grid-cols-[auto_minmax(0,1fr)_auto_auto] xl:items-center">
-                      <div className="text-sm font-semibold text-white">
-                        {detail.runner}
-                        <span className="ml-2 text-white/50">{detail.from}</span>
-                      </div>
-                      <select
-                        className="rounded-xl border border-white/10 bg-broadcast-black px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
-                        onChange={(event) => {
-                          const to = event.target.value as RunnerBase;
-                          setRunnerDetails((current) => current.map((runner, runnerIndex) => (
-                            runnerIndex === index
-                              ? { ...runner, to, runScored: to === 'HOME' ? true : false }
-                              : runner
-                          )));
-                        }}
-                        value={detail.to}
-                      >
-                        <option value="1B">1B</option>
-                        <option value="2B">2B</option>
-                        <option value="3B">3B</option>
-                        <option value="HOME">HOME</option>
-                        <option value="OUT">OUT</option>
-                      </select>
-                      <label className="flex items-center gap-2 text-sm text-white/75">
-                        <input
-                          checked={detail.to === 'HOME' ? true : detail.runScored}
-                          className="h-4 w-4 rounded border-white/20 bg-black/20 text-emerald-500 focus:ring-0"
-                          onChange={(event) => {
-                            const checked = event.target.checked;
-                            setRunnerDetails((current) => current.map((runner, runnerIndex) => (
-                              runnerIndex === index
-                                ? { ...runner, runScored: runner.to === 'HOME' ? true : checked }
-                                : runner
-                            )));
-                          }}
-                          type="checkbox"
-                        />
-                        Carrera
-                        {detail.to === 'HOME' ? (
-                          <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
-                            Carrera
-                          </span>
-                        ) : null}
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-white/75">
-                        <input
-                          checked={detail.rbiCredited}
-                          className="h-4 w-4 rounded border-white/20 bg-black/20 text-mineros-gold focus:ring-0"
-                          onChange={(event) => {
-                            const checked = event.target.checked;
-                            setRunnerDetails((current) => current.map((runner, runnerIndex) => (
-                              runnerIndex === index
-                                ? { ...runner, rbiCredited: checked }
-                                : runner
-                            )));
-                          }}
-                          type="checkbox"
-                        />
-                        RBI acreditado
-                      </label>
+                {runnerDetails.length > 0 ? (
+                  <div>
+                    <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Corredores</p>
+                    <div className="space-y-1">
+                      {runnerDetails.map((detail, index) => (
+                        <div key={`${detail.runner}-${detail.from}`} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/20 px-2 py-1.5">
+                          <span className="w-6 text-[10px] font-bold text-white">{detail.runner}</span>
+                          <span className="text-[9px] text-white/35">{detail.from}→</span>
+                          <select
+                            className="flex-1 rounded-md border border-white/10 bg-black/30 px-1 py-0.5 text-[10px] text-white outline-none focus:border-mineros-gold"
+                            onChange={(e) => {
+                              const to = e.target.value as RunnerBase;
+                              setRunnerDetails((current) => current.map((r, i) => i === index ? { ...r, to, runScored: to === 'HOME' } : r));
+                            }}
+                            value={detail.to}
+                          >
+                            {['1B', '2B', '3B', 'HOME', 'OUT'].map((b) => <option key={b} value={b}>{b}</option>)}
+                          </select>
+                          <label className="flex items-center gap-0.5 text-[9px] text-white/50 cursor-pointer">
+                            <input checked={detail.to === 'HOME' ? true : detail.runScored} className="h-3 w-3" onChange={(e) => setRunnerDetails((current) => current.map((r, i) => i === index ? { ...r, runScored: r.to === 'HOME' ? true : e.target.checked } : r))} type="checkbox" />
+                            R
+                          </label>
+                          <label className="flex items-center gap-0.5 text-[9px] text-white/50 cursor-pointer">
+                            <input checked={detail.rbiCredited} className="h-3 w-3" onChange={(e) => setRunnerDetails((current) => current.map((r, i) => i === index ? { ...r, rbiCredited: e.target.checked } : r))} type="checkbox" />
+                            RBI
+                          </label>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ) : null}
               </div>
 
-              <div className="space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Dirección al campo</p>
-                <div className="mx-auto grid max-w-2xl grid-cols-5 grid-rows-4 gap-2">
-                  {DIRECTION_OPTIONS.map((option) => {
-                    const active = selectedHitDirection === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        className={`${option.className} rounded-xl border px-3 py-3 text-sm font-semibold transition ${
-                          active ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-white/5 text-white/75 hover:border-white/35'
-                        }`}
-                        onClick={() => setSelectedHitDirection(option.value)}
-                        type="button"
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-2">
                 <button
-                  className="flex-1 rounded-2xl bg-mineros-red px-5 py-3 font-bebas text-xl uppercase tracking-[0.18em] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-mineros-red px-4 py-2.5 font-bebas text-lg uppercase tracking-[0.16em] text-white transition hover:bg-red-700 disabled:opacity-50"
                   disabled={!canSubmitAtBat || savingAtBat}
                   onClick={() => void handleSubmitAtBat()}
                   type="button"
                 >
-                  {savingAtBat ? 'Confirmando...' : 'Confirmar'}
+                  {savingAtBat ? 'Confirmando…' : 'Confirmar jugada'}
                 </button>
                 <button
-                  className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white/75 transition hover:border-white/35 hover:bg-white/10"
-                  onClick={() => {
-                    setSelectedContactType(null);
-                    setSelectedHitDirection(null);
-                    setSelectedHitQuality(null);
-                    setRunnerDetails([]);
-                    setCurrentStep(2);
-                  }}
+                  className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/55 transition hover:border-white/30"
+                  onClick={() => { setSelectedContactType(null); setSelectedHitDirection(null); setSelectedHitQuality(null); setRunnerDetails([]); setCurrentStep(2); }}
                   type="button"
                 >
                   Cancelar
                 </button>
               </div>
+
             </div>
-          ) : (
-            <div className="flex justify-end">
-              <button
-                className="rounded-2xl bg-mineros-red px-5 py-3 font-bebas text-xl uppercase tracking-[0.18em] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!canSubmitAtBat || savingAtBat}
-                onClick={() => void handleSubmitAtBat()}
-                type="button"
-              >
-                {savingAtBat ? 'Registrando...' : 'Confirmar resultado'}
-              </button>
-            </div>
-          )}
+          ) : null}
+
         </section>
 
-        <aside className="space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-white/5 p-3 md:col-span-2 xl:col-span-1">
-          <p className="font-bebas text-2xl uppercase tracking-[0.18em] text-mineros-gold">Historial</p>
+        {/* ── COLUMNA DERECHA — HISTORIAL ──────────────────────────────── */}
+        <aside className="flex flex-col gap-2 overflow-y-auto rounded-xl border border-white/8 bg-white/3 p-2">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-mineros-gold/70">Historial</p>
           {recentHistory.length === 0 ? (
-            <p className="text-sm text-white/45">Sin at-bats registrados.</p>
+            <p className="text-[10px] text-white/30">Sin at-bats.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {recentHistory.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
-                  <p className="truncate text-sm font-semibold text-white">
-                    {item.batter_name ?? item.batter_player_id ?? item.player_id} · {formatHistoryResult(item.result)}
+                <div key={item.id} className="rounded-lg border border-white/8 bg-black/20 px-2.5 py-1.5">
+                  <p className="truncate text-[11px] font-semibold text-white">
+                    {item.batter_name ?? item.player_id} · {formatHistoryResult(item.result)}
                   </p>
-                  <p className="mt-1 text-xs text-white/55">
-                    {item.inning_half === 'top' ? 'Alta' : 'Baja'} {item.inning}
-                    {item.rbi > 0 ? ` · ${item.rbi} RBI` : ''}
-                    {item.runs > 0 ? ` · ${item.runs} R` : ''}
+                  <p className="mt-0.5 text-[9px] text-white/40">
+                    {item.inning_half === 'top' ? 'A' : 'B'}{item.inning}{item.rbi > 0 ? ` · ${item.rbi}RBI` : ''}{item.runs > 0 ? ` · ${item.runs}R` : ''}
                   </p>
                 </div>
               ))}
             </div>
           )}
         </aside>
+
       </main>
     </div>
   );
