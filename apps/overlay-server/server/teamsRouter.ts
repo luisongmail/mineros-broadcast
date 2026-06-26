@@ -50,6 +50,7 @@ interface TeamRow extends RowDataPacket {
   active: 0 | 1;
   created_at: string | Date;
   updated_at: string | Date;
+  category_ids_csv: string | null;
 }
 
 interface CategoryRow extends RowDataPacket {
@@ -131,6 +132,7 @@ interface TeamPayload {
   active: boolean;
   created_at: string;
   updated_at: string;
+  category_ids: string[];
 }
 
 interface CategoryPayload {
@@ -245,6 +247,7 @@ function mapTeam(row: TeamRow | DemoTeam): TeamPayload {
     active: Boolean(row.active),
     created_at: toIsoString(row.created_at),
     updated_at: toIsoString(row.updated_at),
+    category_ids: r.category_ids_csv ? r.category_ids_csv.split(',').filter(Boolean) : [],
   };
 }
 
@@ -529,7 +532,8 @@ async function loadTeamDetail(teamId: string): Promise<TeamDetailPayload | null>
       `SELECT t.id, t.name, t.short_name, t.abbreviation, t.logo_asset_id, t.logo_wordmark_asset_id, t.logo_alternate_asset_id,
               t.city, t.country, t.club_id, c.name AS club_name, c.federated AS club_federated,
               c.association_id AS club_association_id, a.name AS club_association_name,
-              t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at
+              t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at,
+              (SELECT GROUP_CONCAT(tc2.category_id SEPARATOR ',') FROM team_categories tc2 WHERE tc2.team_id = t.id) AS category_ids_csv
        FROM teams t
        LEFT JOIN clubs c ON c.id = t.club_id
        LEFT JOIN associations a ON a.id = c.association_id
@@ -587,7 +591,8 @@ router.get('/teams', async (request: Request, response: Response) => {
               t.logo_alternate_asset_id, t.city, t.country, t.club_id,
               c.name AS club_name, c.federated AS club_federated,
               c.association_id AS club_association_id, a.name AS club_association_name,
-              t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at
+              t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at,
+              (SELECT GROUP_CONCAT(tc2.category_id SEPARATOR ',') FROM team_categories tc2 WHERE tc2.team_id = t.id) AS category_ids_csv
        FROM teams t
        LEFT JOIN clubs c ON c.id = t.club_id
        LEFT JOIN associations a ON a.id = c.association_id
