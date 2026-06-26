@@ -463,6 +463,11 @@ gameConfigRouter.post('/games/:id/load', async (request: Request, response: Resp
     const result = await getGameDetail(request.params.id);
     const { game } = result;
 
+    // Marcar el partido como en curso en la DB
+    if (pool) {
+      await pool.query(`UPDATE games SET status = 'live' WHERE id = ?`, [game.id]);
+    }
+
     stateStore.loadGameSnapshot(toGameLoadSnapshot(game));
     stateStore.sendCommand('SetLineupHome', JSON.stringify(toLineupEntries(game.lineups.home)));
     stateStore.sendCommand('SetLineupAway', JSON.stringify(toLineupEntries(game.lineups.away)));
@@ -479,7 +484,7 @@ gameConfigRouter.post('/games/:id/load', async (request: Request, response: Resp
     stateStore.broadcast();
 
     sendSuccess(response, {
-      game,
+      game: { ...game, status: 'live' },
       state: stateStore.getState(),
       source: result.source,
       usingDemo: result.usingDemo,

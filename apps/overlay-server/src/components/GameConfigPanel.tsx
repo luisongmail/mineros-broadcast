@@ -63,6 +63,21 @@ function formatSchedule(value: string): string {
   });
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  scheduled: 'Programado',
+  pre_game: 'Pre-juego',
+  live: '🔴 En juego',
+  paused: 'Pausado',
+  between_innings: 'Entre entradas',
+  final: 'Final',
+  cancelled: 'Cancelado',
+  suspended: 'Suspendido',
+};
+
+function formatStatus(status: string): string {
+  return STATUS_LABEL[status] ?? status;
+}
+
 export function GameConfigPanel({ onGameLoaded, activeGameId }: GameConfigPanelProps) {
   const [games, setGames] = useState<GameConfigSummary[]>([]);
   const [selectedGameId, setSelectedGameId] = useState('');
@@ -242,7 +257,7 @@ export function GameConfigPanel({ onGameLoaded, activeGameId }: GameConfigPanelP
                 )}
               </p>
               <p className="mt-0.5 text-[10px] text-white/50">{formatSchedule(selectedGame.scheduledAt)}</p>
-              <p className="mt-0.5 text-[10px] text-white/50">{selectedGame.venue ?? 'Sede por confirmar'} · {selectedGame.status}</p>
+              <p className="mt-0.5 text-[10px] text-white/50">{selectedGame.venue ?? 'Sede por confirmar'} · {formatStatus(selectedGame.status)}</p>
             </>
           ) : null}
         </div>
