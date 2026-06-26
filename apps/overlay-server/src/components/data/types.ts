@@ -15,10 +15,15 @@ export type Team = {
   abbreviation: string;
   city: string;
   country: string;
+  clubId: string;
+  clubName: string;
+  clubFederated: boolean;
+  clubAssociationId: string;
+  clubAssociationName: string;
   primaryColor: string;
   secondaryColor: string;
   logoAssetId: string;
-  categoryIds: string[];
+  categoryId: string;   // Una sola categoría por equipo
 };
 
 export type Player = {
@@ -40,6 +45,7 @@ export type StaffRole = 'manager' | 'coach_bateo' | 'coach_bases' | 'pitcher_coa
 export type StaffMember = {
   id: string;
   name: string;
+  number?: string;
   role: StaffRole;
   photoAssetId: string;
 };
@@ -130,7 +136,7 @@ export function normalizeCategory(value: unknown): Category {
 
 export function normalizeTeam(value: unknown): Team {
   const raw = (value ?? {}) as Record<string, unknown>;
-  const categories = Array.isArray(raw.categoryIds)
+  const rawCategories = Array.isArray(raw.categoryIds)
     ? raw.categoryIds
     : Array.isArray(raw.category_ids)
       ? raw.category_ids
@@ -142,6 +148,8 @@ export function normalizeTeam(value: unknown): Team {
           })
         : [];
 
+  const validCategories = rawCategories.filter((item): item is string => typeof item === 'string' && item.length > 0);
+
   return {
     id: asString(raw.id, asString(raw.team_id, '')),
     fullName: asString(raw.fullName, asString(raw.full_name, asString(raw.name, ''))),
@@ -149,10 +157,15 @@ export function normalizeTeam(value: unknown): Team {
     abbreviation: asString(raw.abbreviation, asString(raw.abbr, '')),
     city: asString(raw.city),
     country: asString(raw.country),
+    clubId: asString(raw.clubId, asString(raw.club_id, '')),
+    clubName: asString(raw.clubName, asString(raw.club_name, '')),
+    clubFederated: Boolean(raw.clubFederated ?? raw.club_federated ?? false),
+    clubAssociationId: asString(raw.clubAssociationId, asString(raw.club_association_id, '')),
+    clubAssociationName: asString(raw.clubAssociationName, asString(raw.club_association_name, '')),
     primaryColor: asString(raw.primaryColor, asString(raw.primary_color, '#D71920')),
     secondaryColor: asString(raw.secondaryColor, asString(raw.secondary_color, '#1B2F5B')),
     logoAssetId: asString(raw.logoAssetId, asString(raw.logo_asset_id, '')),
-    categoryIds: categories.filter((item): item is string => typeof item === 'string' && item.length > 0),
+    categoryId: validCategories[0] ?? '',
   };
 }
 
@@ -178,6 +191,7 @@ export function normalizeStaffMember(value: unknown): StaffMember {
   return {
     id: asString(raw.id, asString(raw.staff_id, '')),
     name: asString(raw.name, asString(raw.full_name, '')),
+    number: asString(raw.number, ''),
     role: asString(raw.role, 'otro') as StaffRole,
     photoAssetId: asString(raw.photoAssetId, asString(raw.photo_asset_id, '')),
   };
@@ -261,7 +275,7 @@ export function normalizeSponsor(value: unknown): Sponsor {
     id: asString(raw.id, asString(raw.sponsor_id, '')),
     name: asString(raw.name),
     brand: asString(raw.brand),
-    logoAssetId: asString(raw.logoAssetId, asString(raw.assetId, asString(raw.logo_asset_id, ''))),
+    logoAssetId: asString(raw.logoAssetId, asString(raw.assetId, asString(raw.asset_id, asString(raw.logo_asset_id, '')))),
     priority: asNumber(raw.priority, 1),
     status: asString(raw.status, 'draft') as Sponsor['status'],
     startDate: asString(raw.startDate, asString(raw.start_date, '')),

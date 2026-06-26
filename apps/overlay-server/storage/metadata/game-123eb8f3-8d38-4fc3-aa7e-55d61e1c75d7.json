@@ -1,0 +1,26 @@
+{
+  "gameId": "game-123eb8f3-8d38-4fc3-aa7e-55d61e1c75d7",
+  "sponsors": [
+    {
+      "sponsorId": "sponsor-merchise",
+      "displayName": "Merchise",
+      "logoAssetId": "brands/merchise-logo",
+      "priority": 90,
+      "active": true
+    },
+    {
+      "sponsorId": "sponsor-merchise-online",
+      "displayName": "Merchise Online Services",
+      "logoAssetId": "brands/mols-logo",
+      "priority": 85,
+      "active": true
+    },
+    {
+      "sponsorId": "sponsor-storeware",
+      "displayName": "Storeware",
+      "logoAssetId": "brands/storeware-logo",
+      "priority": 80,
+      "active": true
+    }
+  ]
+}

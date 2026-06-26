@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { GameState, LineupEntry } from '@mineros/game-engine';
 
 import { PitchGrid, type PitchGridCell } from '../components/scorer/PitchGrid';
@@ -460,6 +461,80 @@ export function LiveGameScoringPage() {
   const [error, setError] = useState<string | null>(null);
   const [pitchFeedback, setPitchFeedback] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+  const [showEventsPanel, setShowEventsPanel] = useState(false);
+  const [savingEvent, setSavingEvent] = useState(false);
+  const [eventFeedback, setEventFeedback] = useState<string | null>(null);
+  const [legendKey, setLegendKey] = useState<string | null>(null);
+
+  // Builder para jugadas con múltiples corredores (E tiro, SB+E)
+  type CompoundDest = '2B' | '3B' | 'HOME' | 'OUT' | 'same';
+  interface CompoundEventBuilder {
+    triggerRunner: 'R1' | 'R2' | 'R3';
+    from: string;
+    eventType: 'throwing_error' | 'sb_error';
+    primaryDest: '2B' | '3B' | 'HOME' | null;
+    sideRunners: { label: 'R1' | 'R2' | 'R3'; from: string; dest: CompoundDest }[];
+  }
+  const [compoundEvent, setCompoundEvent] = useState<CompoundEventBuilder | null>(null);
+
+  // Mapa de jugadores en base — inferido automáticamente del historial
+  const [runnerMap, setRunnerMap] = useState<Partial<Record<'R1' | 'R2' | 'R3', { playerId: string; playerNum: string; playerName: string }>>>({});
+
+  // Inferir quién está en cada base a partir del historial de at-bats
+  // Lógica: procesar at-bats más recientes primero y asignar jugadores a bases ocupadas
+  const inferRunnersFromHistory = useCallback((
+    atBats: AtBatHistoryItem[],
+    bases: { first: boolean; second: boolean; third: boolean },
+    playerMeta: Record<string, { bats?: string; throws?: string }>,
+    lineup: LineupEntry[],
+  ): Partial<Record<'R1' | 'R2' | 'R3', { playerId: string; playerNum: string; playerName: string }>> => {
+    // Resultados que ponen al bateador en base
+    const BASE_RESULTS: Partial<Record<AtBatResult, '1B' | '2B' | '3B'>> = {
+      single: '1B', walk: '1B', hbp: '1B', error: '1B', fielders_choice: '1B',
+      double: '2B',
+      triple: '3B',
+    };
+    // Resultados que garantizan que el jugador está en una base específica
+    // Tomamos los at-bats del half-inning actual (mismo inning + half)
+    const result: Partial<Record<'R1' | 'R2' | 'R3', { playerId: string; playerNum: string; playerName: string }>> = {};
+
+    // Necesitamos al menos los últimos at-bats suficientes para llenar las bases ocupadas
+    const occupied = (bases.first ? 1 : 0) + (bases.second ? 1 : 0) + (bases.third ? 1 : 0);
+    if (occupied === 0) return result;
+
+    // Procesar de más reciente a más antiguo, asignando jugadores a bases vacantes
+    const assigned = new Set<'R1' | 'R2' | 'R3'>();
+    const usedPlayers = new Set<string>();
+
+    for (const ab of atBats) {
+      if (assigned.size >= occupied) break;
+      const targetBase = BASE_RESULTS[ab.result];
+      if (!targetBase) continue; // out — no está en base
+
+      const pid = ab.batter_player_id ?? ab.player_id;
+      if (!pid || usedPlayers.has(pid)) continue;
+
+      // Mapear base del at-bat a la etiqueta R1/R2/R3
+      let label: 'R1' | 'R2' | 'R3' | null = null;
+      if (targetBase === '1B' && bases.first && !assigned.has('R1')) label = 'R1';
+      else if (targetBase === '2B' && bases.second && !assigned.has('R2')) label = 'R2';
+      else if (targetBase === '3B' && bases.third && !assigned.has('R3')) label = 'R3';
+
+      if (!label) continue;
+
+      const player = lineup.find((p) => p.playerId === pid);
+      const name = ab.batter_name ?? player?.name ?? pid;
+      const num = ab.batter_number ?? player?.number ?? '';
+
+      result[label] = { playerId: pid, playerNum: num, playerName: name };
+      assigned.add(label);
+      usedPlayers.add(pid);
+    }
+
+    // Si hay bases ocupadas sin asignar (por avances), intentar con el lineup general
+    void playerMeta; // usado externamente si se quiere extender
+    return result;
+  }, []);
 
   const loadHistory = useCallback(async (gameId: string) => {
     const payload = await requestJson<AtBatHistoryItem[]>(`/at-bats/${encodeURIComponent(gameId)}`);
@@ -486,6 +561,18 @@ export function LiveGameScoringPage() {
     });
     await loadHistory(payload.gameState.gameId);
   }, [loadHistory]);
+
+  // Auto-inferir corredores cuando cambia el historial o el estado de bases
+  useEffect(() => {
+    if (!context || history.length === 0) return;
+    const inferred = inferRunnersFromHistory(
+      history,
+      context.gameState.bases,
+      context.playerMeta,
+      context.battingLineup,
+    );
+    setRunnerMap(inferred);
+  }, [context, history, inferRunnersFromHistory]);
 
   useEffect(() => {
     let cancelled = false;
@@ -841,6 +928,46 @@ export function LiveGameScoringPage() {
     }
   }, [catcherTarget, context, loadContext, pitchMetrics, resetAtBatWorkflow, rbi, runnerDetails, outSequence, runs, selectedBatterId, selectedContactType, selectedHitDirection, selectedHitQuality, selectedPitchCell, selectedPitcherId, selectedPitchResult, selectedPitchType, selectedResult, showPitchFeedback]);
 
+  // ── BASERUNNING EVENT HANDLER ────────────────────────────────────────
+  type BaserunningEventType =
+    | 'stolen_base' | 'caught_stealing' | 'wild_pitch_advance' | 'passed_ball_advance'
+    | 'balk' | 'throwing_error' | 'receiving_error' | 'pickoff_out' | 'pickoff_error';
+
+  type BaserunningRunnerMove = {
+    runnerLabel: 'R1' | 'R2' | 'R3';
+    fromBase: string;
+    toBase: '1B' | '2B' | '3B' | 'HOME' | 'OUT';
+    runScored: boolean;
+    earnedRun: boolean;
+    playerId?: string;
+    playerNum?: string;
+  };
+
+  const handleBaserunningEvent = useCallback(async (
+    eventType: BaserunningEventType,
+    moves: BaserunningRunnerMove[],
+  ) => {
+    if (!context || savingEvent) return;
+    setSavingEvent(true);
+    setEventFeedback(null);
+    try {
+      const resp = await fetch(`${SERVER_BASE_URL}/baserunning-events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId: context.gameState.gameId, eventType, runners: moves }),
+      });
+      const json = (await resp.json()) as { runsScored?: number; error?: string };
+      if (!resp.ok) throw new Error(json.error ?? 'Error al registrar evento');
+      setEventFeedback(`✓ ${eventType.replace(/_/g, ' ')}${json.runsScored ? ` · ${json.runsScored}R` : ''}`);
+      setTimeout(() => setEventFeedback(null), 3000);
+      await loadContext();
+    } catch (evtErr) {
+      setError(evtErr instanceof Error ? evtErr.message : 'Error al registrar evento');
+    } finally {
+      setSavingEvent(false);
+    }
+  }, [context, loadContext, savingEvent]);
+
   if (loading && !context) {
     return <div className="min-h-screen bg-broadcast-black px-4 py-4 text-white">Cargando live scoring…</div>;
   }
@@ -861,10 +988,69 @@ export function LiveGameScoringPage() {
   const homeName = gs.homeTeam.shortName ?? gs.homeTeam.name;
   const currentPitcherStats = selectedPitcher ? context.pitcherStats[selectedPitcher.playerId] : null;
 
+  const BASERUNNING_LEGEND: Record<string, { title: string; emoji: string; description: string; consequence: string; earnedRun: boolean }> = {
+    stolen_base: {
+      title: 'Stolen Base (SB)',
+      emoji: '🏃',
+      description: 'El corredor intenta avanzar a la siguiente base mientras el pitcher lanza, sin acción del bateador.',
+      consequence: 'El corredor avanza 1 base. Si llega a HOME anota carrera limpia. No se registra error ni hit — la responsabilidad es del corredor.',
+      earnedRun: true,
+    },
+    caught_stealing: {
+      title: 'Caught Stealing (CS)',
+      emoji: '🛑',
+      description: 'El corredor intentó robar base pero fue puesto out por el receptor u otro fildeador.',
+      consequence: 'Se registra 1 out. El corredor sale del juego. Carrera no anotada.',
+      earnedRun: false,
+    },
+    wild_pitch_advance: {
+      title: 'Wild Pitch — Avance (WP)',
+      emoji: '🌀',
+      description: 'El pitcher lanza un pitcheo tan descontrolado que el receptor no puede detenerlo razonablemente.',
+      consequence: 'Corredor avanza 1 base. La carrera que anota por WP se considera LIMPIA (responsabilidad del pitcher). Se registra error al pitcher.',
+      earnedRun: true,
+    },
+    passed_ball_advance: {
+      title: 'Passed Ball — Avance (PB)',
+      emoji: '🥎',
+      description: 'El receptor falla en detener un pitcheo que debía haber controlado razonablemente.',
+      consequence: 'Corredor avanza 1 base. La carrera que anota por PB es SUCIA (responsabilidad del receptor, no del pitcher). Se registra error al catcher.',
+      earnedRun: false,
+    },
+    throwing_error: {
+      title: 'Error de Tiro (E tiro)',
+      emoji: '💥',
+      description: 'Un fildeador hace un tiro errado que permite al corredor avanzar más allá de lo esperado.',
+      consequence: 'Corredor avanza 1 base adicional. La carrera anotada por error es SUCIA. No se carga como earned run al pitcher.',
+      earnedRun: false,
+    },
+    pickoff_out: {
+      title: 'Pickoff — Out (PO out)',
+      emoji: '🎯',
+      description: 'El pitcher o receptor tira a la base para sorprender y poner out al corredor que está demasiado lejos.',
+      consequence: 'Se registra 1 out. El corredor sale del juego. No hay carrera ni avance.',
+      earnedRun: false,
+    },
+    balk: {
+      title: 'Balk',
+      emoji: '🚨',
+      description: 'Movimiento ilegal del pitcher mientras hay corredores en base. Lo decreta el árbitro.',
+      consequence: 'TODOS los corredores avanzan 1 base automáticamente. Si R3 anota, es carrera LIMPIA. No se puede evitar — es penalidad al pitcher.',
+      earnedRun: true,
+    },
+  };
+
   return (
     <div className="flex h-screen min-w-[900px] flex-col overflow-hidden bg-broadcast-black text-white">
       {/* ── HEADER COMPACTO: 1 sola fila ──────────────────────────────── */}
       <header className="flex h-12 flex-none items-center gap-3 border-b border-white/10 bg-mineros-navy px-4">
+        <Link
+          to="/"
+          className="rounded border border-white/15 bg-white/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/60 hover:border-white/30 hover:text-white transition shrink-0"
+          title="Volver al panel de control"
+        >
+          ← Control
+        </Link>
         <span className="font-bebas text-xl uppercase tracking-[0.22em] text-mineros-gold">Live Scoring</span>
         <span className="text-white/20">·</span>
         <span className="text-xs uppercase tracking-wider text-white/55 whitespace-nowrap">{awayName} @ {homeName}</span>
@@ -902,6 +1088,18 @@ export function LiveGameScoringPage() {
             {pitchFeedback}
           </span>
         ) : null}
+        {eventFeedback ? (
+          <span className="ml-1 rounded-full border border-blue-400/30 bg-blue-400/10 px-3 py-0.5 text-[11px] font-semibold text-blue-200 whitespace-nowrap">
+            {eventFeedback}
+          </span>
+        ) : null}
+        <button
+          className="ml-1 rounded-lg border border-blue-400/30 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-blue-200 transition hover:bg-blue-500/20"
+          onClick={() => setShowEventsPanel((v) => !v)}
+          type="button"
+        >
+          Eventos
+        </button>
       </header>
 
 
@@ -1043,7 +1241,8 @@ export function LiveGameScoringPage() {
                 ) : (
                   <>
                     <span className="text-[11px] text-white/55">
-                      Mano: <span className="font-semibold text-mineros-gold">{formatBatterSideLabel(batterSide)}</span>
+                      Mano: <span className="font-semibold text-mineros-gold">{formatBatterSideLabel(activeBattingSide)}</span>
+                      {battingSideOverride !== null ? <span className="ml-1 text-[10px] text-white/35">(manual)</span> : null}
                       <span className="mx-2 text-white/25">·</span>
                       <span className="text-white/70">{selectedPitchReading}</span>
                     </span>
@@ -1526,6 +1725,376 @@ export function LiveGameScoringPage() {
         </aside>
 
       </main>
+
+      {/* ── PANEL EVENTOS BASERUNNING ─────────────────────────────────── */}
+      {showEventsPanel ? (
+        <div className="fixed inset-0 z-50 flex items-stretch justify-end">
+          {/* Overlay backdrop */}
+          <button
+            aria-label="Cerrar panel"
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowEventsPanel(false)}
+            type="button"
+          />
+          <aside className="relative z-10 flex w-[320px] flex-col overflow-y-auto border-l border-white/10 bg-mineros-navy p-3 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="font-bebas text-lg uppercase tracking-[0.18em] text-blue-200">Eventos Baserunning</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  className={`rounded-lg border px-2 py-1 text-[11px] transition ${legendKey !== null ? 'border-mineros-gold/50 bg-mineros-gold/10 text-mineros-gold' : 'border-white/15 text-white/40 hover:border-white/35'}`}
+                  onClick={() => setLegendKey((k) => (k !== null ? null : 'stolen_base'))}
+                  title="Ver descripción y consecuencias de cada tipo de evento"
+                  type="button"
+                >? Leyenda</button>
+                <button
+                  className="rounded-lg border border-white/15 px-2 py-1 text-[11px] text-white/50 hover:border-white/35"
+                  onClick={() => { setShowEventsPanel(false); setLegendKey(null); }}
+                  type="button"
+                >✕</button>
+              </div>
+            </div>
+
+            {/* ── PANEL LEYENDA ── */}
+            {legendKey !== null ? (
+              <div className="mb-3 rounded-xl border border-mineros-gold/25 bg-mineros-gold/5 p-3">
+                <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.22em] text-mineros-gold/70">Leyenda de acciones</p>
+                {/* Tabs de selección */}
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {Object.entries(BASERUNNING_LEGEND).map(([key, info]) => (
+                    <button
+                      className={`rounded-md px-2 py-0.5 text-[10px] font-semibold transition ${legendKey === key ? 'bg-mineros-gold text-mineros-navy' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+                      key={key}
+                      onClick={() => setLegendKey(key)}
+                      type="button"
+                    >{info.emoji} {info.title.split(' ')[0]}</button>
+                  ))}
+                </div>
+                {/* Contenido del item seleccionado */}
+                {(() => {
+                  const item = BASERUNNING_LEGEND[legendKey];
+                  if (!item) return null;
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-[13px] font-semibold text-white">{item.emoji} {item.title}</p>
+                      <p className="text-[11px] leading-relaxed text-white/70">{item.description}</p>
+                      <div className="rounded-lg border border-blue-400/20 bg-blue-400/8 p-2">
+                        <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wider text-blue-300/70">Consecuencia</p>
+                        <p className="text-[11px] leading-relaxed text-blue-100/80">{item.consequence}</p>
+                      </div>
+                      <p className={`text-[10px] font-semibold ${item.earnedRun ? 'text-red-300' : 'text-emerald-300'}`}>
+                        {item.earnedRun ? '🔴 Carrera LIMPIA (earned run) — carga al pitcher' : '🟢 Carrera SUCIA (unearned) — no carga al pitcher'}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : null}
+
+            {/* Corredores activos */}
+            {(() => {
+              const activeRunners: { label: 'R1' | 'R2' | 'R3'; from: string; next: '2B' | '3B' | 'HOME' }[] = [];
+              if (gs.bases.first) activeRunners.push({ label: 'R1', from: '1B', next: '2B' });
+              if (gs.bases.second) activeRunners.push({ label: 'R2', from: '2B', next: '3B' });
+              if (gs.bases.third) activeRunners.push({ label: 'R3', from: '3B', next: 'HOME' });
+
+              if (activeRunners.length === 0) {
+                return <p className="mb-3 text-center text-xs text-white/40">Sin corredores en base.</p>;
+              }
+
+              // Helper: enriquecer un move con datos del jugador asignado
+              const withPlayer = (label: 'R1' | 'R2' | 'R3', move: BaserunningRunnerMove): BaserunningRunnerMove => {
+                const p = runnerMap[label];
+                return p ? { ...move, playerId: p.playerId, playerNum: p.playerNum } : move;
+              };
+
+              // Destinos válidos para un corredor según su base de origen
+              const validDestsFor = (from: string): ('2B' | '3B' | 'HOME')[] => {
+                const all: ('2B' | '3B' | 'HOME')[] = ['2B', '3B', 'HOME'];
+                if (from === '1B') return all;
+                if (from === '2B') return ['3B', 'HOME'];
+                return ['HOME'];
+              };
+
+              // ── BUILDER ACTIVO: compound event con múltiples corredores ──────
+              if (compoundEvent !== null) {
+                const isSbError = compoundEvent.eventType === 'sb_error';
+                return (
+                  <div className="mb-3 rounded-xl border border-yellow-400/25 bg-yellow-400/5 p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold text-yellow-200">
+                        {isSbError ? '🏃 SB + E tiro' : '💥 E tiro'} — {compoundEvent.triggerRunner} ({compoundEvent.from})
+                      </p>
+                      <button className="text-[11px] text-white/35 hover:text-white/60" onClick={() => setCompoundEvent(null)} type="button">✕</button>
+                    </div>
+
+                    {/* Destino del corredor principal */}
+                    <div>
+                      <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wider text-yellow-200/60">
+                        {compoundEvent.triggerRunner} llega a:
+                      </p>
+                      <div className="flex gap-1.5">
+                        {validDestsFor(compoundEvent.from).map((dest) => (
+                          <button
+                            key={dest}
+                            className={`rounded-md border px-3 py-1.5 text-[12px] font-bold transition ${compoundEvent.primaryDest === dest ? 'border-yellow-300 bg-yellow-300/30 text-white' : 'border-yellow-400/30 bg-yellow-400/10 text-yellow-100 hover:bg-yellow-400/20'}`}
+                            onClick={() => setCompoundEvent((prev) => prev ? { ...prev, primaryDest: dest } : null)}
+                            type="button"
+                          >{dest}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Otros corredores afectados */}
+                    {compoundEvent.sideRunners.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-white/35">Otros corredores en la jugada:</p>
+                        {compoundEvent.sideRunners.map((sr) => {
+                          const sideDests: ('same' | '2B' | '3B' | 'HOME' | 'OUT')[] = ['same', ...validDestsFor(sr.from), 'OUT'];
+                          const destLabel = (d: string) => d === 'same' ? `Se queda (${sr.from})` : d;
+                          return (
+                            <div key={sr.label}>
+                              <p className="mb-1 text-[10px] text-white/55">{sr.label} · {sr.from}:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {sideDests.map((dest) => (
+                                  <button
+                                    key={dest}
+                                    className={`rounded-md border px-2 py-1 text-[11px] transition ${sr.dest === dest ? 'border-blue-300 bg-blue-300/20 text-white font-semibold' : 'border-white/15 bg-white/3 text-white/55 hover:border-white/30'}`}
+                                    onClick={() => setCompoundEvent((prev) => {
+                                      if (!prev) return null;
+                                      return {
+                                        ...prev,
+                                        sideRunners: prev.sideRunners.map((s) => s.label === sr.label ? { ...s, dest } : s),
+                                      };
+                                    })}
+                                    type="button"
+                                  >{destLabel(dest)}</button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
+                    {/* Confirmar jugada */}
+                    <button
+                      className="w-full rounded-lg border border-yellow-300/50 bg-yellow-400/15 px-3 py-2 text-[12px] font-semibold text-yellow-100 transition hover:bg-yellow-400/25 disabled:opacity-40"
+                      disabled={savingEvent || compoundEvent.primaryDest === null}
+                      onClick={() => {
+                        if (!compoundEvent.primaryDest) return;
+                        const moves: { runnerLabel: 'R1' | 'R2' | 'R3'; fromBase: string; toBase: '2B' | '3B' | 'HOME' | 'OUT'; runScored: boolean; earnedRun: boolean }[] = [];
+                        // Corredor principal
+                        moves.push({
+                          runnerLabel: compoundEvent.triggerRunner,
+                          fromBase: compoundEvent.from,
+                          toBase: compoundEvent.primaryDest,
+                          runScored: compoundEvent.primaryDest === 'HOME',
+                          earnedRun: false,
+                        });
+                        // Corredores secundarios
+                        for (const sr of compoundEvent.sideRunners) {
+                          if (sr.dest === 'same') continue;
+                          moves.push({
+                            runnerLabel: sr.label,
+                            fromBase: sr.from,
+                            toBase: sr.dest as '2B' | '3B' | 'HOME' | 'OUT',
+                            runScored: sr.dest === 'HOME',
+                            earnedRun: false,
+                          });
+                        }
+                        void handleBaserunningEvent('throwing_error', moves);
+                        setCompoundEvent(null);
+                      }}
+                      type="button"
+                    >{savingEvent ? 'Registrando…' : '✓ Confirmar jugada'}</button>
+
+                    <p className="text-[9px] leading-relaxed text-white/30">
+                      {isSbError ? 'SB se acredita al corredor · ' : ''}Carreras anotadas en esta jugada son SUCIAS (unearned — no cargan al pitcher).
+                    </p>
+                  </div>
+                );
+              }
+
+              // ── LISTA NORMAL de corredores ──────────────────────────────────
+              return (
+                <div className="mb-3 space-y-2">
+                  {/* Corredores inferidos automáticamente */}
+                  <div className="rounded-lg border border-white/8 bg-black/20 p-2">
+                    <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">
+                      En base <span className="normal-case font-normal text-white/20">(inferido del historial)</span>
+                    </p>
+                    <div className="space-y-1">
+                      {activeRunners.map((r) => {
+                        const inferred = runnerMap[r.label];
+                        return (
+                          <div key={r.label} className="flex items-center gap-1.5">
+                            <span className="w-7 text-[10px] font-semibold text-mineros-gold">{r.label}</span>
+                            {inferred ? (
+                              <span className="flex-1 text-[10px] text-white/80">#{inferred.playerNum} {inferred.playerName}</span>
+                            ) : (
+                              <span className="flex-1 text-[10px] text-amber-400/60">No identificado</span>
+                            )}
+                            {/* Override manual */}
+                            <select
+                              className="w-24 rounded-md border border-white/8 bg-black/30 px-1 py-0.5 text-[9px] text-white/50 outline-none transition focus:border-mineros-gold focus:text-white"
+                              onChange={(e) => {
+                                const player = context.battingLineup.find((p) => p.playerId === e.target.value);
+                                if (player) {
+                                  setRunnerMap((prev) => ({ ...prev, [r.label]: { playerId: player.playerId, playerNum: player.number ?? '', playerName: player.name } }));
+                                } else {
+                                  setRunnerMap((prev) => { const next = { ...prev }; delete next[r.label]; return next; });
+                                }
+                              }}
+                              title="Corregir jugador en base si la inferencia es incorrecta"
+                              value={inferred?.playerId ?? ''}
+                            >
+                              <option value="">corregir…</option>
+                              {context.battingLineup.map((p) => (
+                                <option key={p.playerId} value={p.playerId}>#{p.number} {p.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {activeRunners.some((r) => !runnerMap[r.label]) ? (
+                      <p className="mt-1 text-[9px] text-amber-400/60">⚠ Jugadores no identificados — usa el selector para corregir antes de registrar SB.</p>
+                    ) : null}
+                  </div>
+
+                  {/* Doble / Triple robo */}
+                  {activeRunners.length >= 2 ? (
+                    <button
+                      className="w-full rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-left text-[12px] font-semibold text-emerald-200 transition hover:bg-emerald-400/20 disabled:opacity-40"
+                      disabled={savingEvent}
+                      title={`Doble robo — ${activeRunners.map((r) => `${r.label} roba ${r.next}`).join(' y ')} simultáneamente. Ambos SB se acreditan. Carreras LIMPIAS si anotan.`}
+                      onClick={() => {
+                        void handleBaserunningEvent(
+                          'stolen_base',
+                          activeRunners.map((r) => withPlayer(r.label, {
+                            runnerLabel: r.label, fromBase: r.from, toBase: r.next,
+                            runScored: r.next === 'HOME', earnedRun: true,
+                          })),
+                        );
+                      }}
+                      type="button"
+                    >⚡ {activeRunners.length === 3 ? 'Triple' : 'Doble'} robo — {activeRunners.map((r) => `${r.label}→${r.next}`).join(' · ')}</button>
+                  ) : null}
+
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Por corredor</p>
+                  {activeRunners.map((r) => {
+                    const assignedPlayer = runnerMap[r.label];
+                    return (
+                    <div key={r.label} className="rounded-lg border border-white/8 bg-white/3 p-2">
+                      <div className="mb-1.5 flex items-center gap-1.5">
+                        <p className="text-[10px] font-semibold text-white/70">{r.label} · {r.from}</p>
+                        {assignedPlayer ? (
+                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0 text-[9px] text-emerald-300">#{assignedPlayer.playerNum} {assignedPlayer.playerName}</span>
+                        ) : (
+                          <span className="rounded-full border border-amber-500/20 bg-amber-500/5 px-1.5 py-0 text-[9px] text-amber-400/60">sin jugador</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('stolen_base', [withPlayer(r.label, { runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true })])}
+                          title={`Stolen Base — ${assignedPlayer ? `#${assignedPlayer.playerNum} ${assignedPlayer.playerName}` : r.label} roba ${r.next}. Carrera LIMPIA si anota.`}
+                          type="button"
+                        >SB → {r.next}</button>
+                        <button
+                          className="rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-200 transition hover:bg-red-500/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('caught_stealing', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
+                          title={`Caught Stealing — ${assignedPlayer ? `#${assignedPlayer.playerNum} ${assignedPlayer.playerName}` : r.label} fue puesto out en intento de robo. +1 out.`}
+                          type="button"
+                        >CS</button>
+                        <button
+                          className="rounded-md border border-blue-400/40 bg-blue-400/10 px-2 py-1 text-[11px] text-blue-200 transition hover:bg-blue-400/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('wild_pitch_advance', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true }])}
+                          title={`Wild Pitch — el pitcher lanzó descontrolado y ${r.label} avanza a ${r.next}. Carrera LIMPIA (carga al pitcher).`}
+                          type="button"
+                        >WP → {r.next}</button>
+                        <button
+                          className="rounded-md border border-purple-400/40 bg-purple-400/10 px-2 py-1 text-[11px] text-purple-200 transition hover:bg-purple-400/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('passed_ball_advance', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: false }])}
+                          title={`Passed Ball — el receptor no detuvo un pitch que debía controlar y ${r.label} avanza a ${r.next}. Carrera SUCIA (error del catcher, no carga al pitcher).`}
+                          type="button"
+                        >PB → {r.next}</button>
+                        <button
+                          className="rounded-md border border-orange-400/40 bg-orange-400/10 px-2 py-1 text-[11px] text-orange-200 transition hover:bg-orange-400/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('pickoff_out', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
+                          title={`Pickoff Out — el pitcher o receptor tira a ${r.from} y pone out a ${r.label} que estaba muy lejos de la base. +1 out.`}
+                          type="button"
+                        >PO out</button>
+                        {/* E tiro y SB+E abren el compound builder */}
+                        <button
+                          className="rounded-md border border-yellow-400/40 bg-yellow-400/10 px-2 py-1 text-[11px] text-yellow-200 transition hover:bg-yellow-400/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => {
+                            const others = activeRunners.filter((ar) => ar.label !== r.label);
+                            setCompoundEvent({
+                              triggerRunner: r.label, from: r.from,
+                              eventType: 'throwing_error', primaryDest: null,
+                              sideRunners: others.map((o) => ({ label: o.label, from: o.from, dest: 'same' })),
+                            });
+                          }}
+                          title={`Error de tiro — un fildeador tira mal y ${r.label} avanza más de lo esperado. Permite definir destino y el efecto sobre otros corredores. Carrera SUCIA.`}
+                          type="button"
+                        >E tiro ▾</button>
+                        <button
+                          className="rounded-md border border-emerald-400/30 bg-emerald-400/5 px-2 py-1 text-[11px] text-emerald-300/70 transition hover:bg-emerald-400/15 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => {
+                            const others = activeRunners.filter((ar) => ar.label !== r.label);
+                            setCompoundEvent({
+                              triggerRunner: r.label, from: r.from,
+                              eventType: 'sb_error', primaryDest: null,
+                              sideRunners: others.map((o) => ({ label: o.label, from: o.from, dest: 'same' })),
+                            });
+                          }}
+                          title={`SB + Error de tiro — ${r.label} intenta robar, el receptor tira y comete error. Se acredita el robo (SB) y se define hasta dónde llega el corredor y qué pasa con los demás. Carrera SUCIA.`}
+                          type="button"
+                        >SB+E ▾</button>
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {/* Eventos globales */}
+            <div className="space-y-1.5">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Global</p>
+              {/* Balk: todos los corredores avanzan 1 base */}
+              <button
+                className="w-full rounded-lg border border-yellow-400/40 bg-yellow-400/10 px-3 py-2 text-left text-[12px] font-semibold text-yellow-200 transition hover:bg-yellow-400/20 disabled:opacity-40"
+                disabled={savingEvent || (!gs.bases.first && !gs.bases.second && !gs.bases.third)}
+                title="Balk — movimiento ilegal del pitcher con corredores en base. Todos los corredores avanzan 1 base automáticamente. Carreras LIMPIAS (carga al pitcher)."
+                onClick={() => {
+                  const moves: { runnerLabel: 'R1' | 'R2' | 'R3'; fromBase: string; toBase: '1B' | '2B' | '3B' | 'HOME' | 'OUT'; runScored: boolean; earnedRun: boolean }[] = [];
+                  if (gs.bases.third) moves.push({ runnerLabel: 'R3', fromBase: '3B', toBase: 'HOME', runScored: true, earnedRun: true });
+                  if (gs.bases.second) moves.push({ runnerLabel: 'R2', fromBase: '2B', toBase: '3B', runScored: false, earnedRun: true });
+                  if (gs.bases.first) moves.push({ runnerLabel: 'R1', fromBase: '1B', toBase: '2B', runScored: false, earnedRun: true });
+                  void handleBaserunningEvent('balk', moves);
+                }}
+                type="button"
+              >🚨 Balk — todos avanzan</button>
+
+              <button
+                className="w-full rounded-lg border border-white/10 bg-white/3 px-3 py-2 text-left text-[11px] text-white/50 transition hover:border-white/20"
+                onClick={() => { setShowEventsPanel(false); setLegendKey(null); }}
+                type="button"
+              >Cerrar</button>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
     </div>
   );
 }

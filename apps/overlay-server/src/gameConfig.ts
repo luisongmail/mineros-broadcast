@@ -49,6 +49,7 @@ export interface GameConfigSummary {
   venue?: string;
   season?: string;
   gameNumber?: number;
+  gameName?: string;
   homeTeam: GameConfigTeam;
   awayTeam: GameConfigTeam;
   source: GameConfigSource;
@@ -307,11 +308,12 @@ export function buildGameSummary(detail: GameConfigDetail, source: GameConfigSou
     venue: detail.venue,
     season: detail.season,
     gameNumber: detail.gameNumber,
+    gameName: detail.gameName,
     homeTeam: detail.homeTeam,
     awayTeam: detail.awayTeam,
     source,
     isDemo: source === 'demo',
-    label: formatGameLabel(detail.homeTeam, detail.awayTeam),
+    label: detail.gameName ?? formatGameLabel(detail.homeTeam, detail.awayTeam),
   };
 }
 

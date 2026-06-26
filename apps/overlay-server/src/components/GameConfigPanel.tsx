@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { GameState } from '@mineros/game-engine';
 
 import type { GameConfigDetail, GameConfigSource, GameConfigSummary } from '../gameConfig';
+import { ConfirmDialog, type DialogState } from './data/shared';
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
@@ -41,6 +42,7 @@ type LoadGameResponsePayload = {
 
 export interface GameConfigPanelProps {
   onGameLoaded: (payload: LoadGameResponsePayload) => void;
+  activeGameId?: string;
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -61,7 +63,24 @@ function formatSchedule(value: string): string {
   });
 }
 
-export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
+const STATUS_LABEL: Record<string, string> = {
+  scheduled: 'Programado',
+  pre_game: 'Pre-juego',
+  live: '🔴 En juego',
+  paused: 'Pausado',
+  between_innings: 'Entre entradas',
+  final: 'Final',
+  cancelled: 'Cancelado',
+  suspended: 'Suspendido',
+};
+
+function formatStatus(status: string): string {
+  return STATUS_LABEL[status] ?? status;
+}
+
+const ACTIVE_GAME_KEY = 'mineros_active_game_id';
+
+export function GameConfigPanel({ onGameLoaded, activeGameId }: GameConfigPanelProps) {
   const [games, setGames] = useState<GameConfigSummary[]>([]);
   const [selectedGameId, setSelectedGameId] = useState('');
   const [selectedGame, setSelectedGame] = useState<GameConfigDetail | null>(null);
@@ -70,7 +89,27 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
   const [loadingAction, setLoadingAction] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+
+  // Auto-cargar el partido que el operador tenía activo en la sesión anterior
+  useEffect(() => {
+    const saved = localStorage.getItem(ACTIVE_GAME_KEY);
+    if (!saved) return;
+    requestJson<LoadGameResponsePayload>(`/games/${saved}/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((payload) => {
+        setSelectedGameId(saved);
+        setSelectedGame(payload.game);
+        onGameLoaded(payload);
+      })
+      .catch(() => {
+        localStorage.removeItem(ACTIVE_GAME_KEY);
+      });
+  // Solo al montar
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,21 +188,17 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
   }, [selectedGameId]);
 
   const handleLoadGame = async () => {
-    if (!selectedGameId) {
-      return;
-    }
-
+    if (!selectedGameId) return;
     setLoadingAction(true);
     setErrorMessage(null);
-
     try {
       const payload = await requestJson<LoadGameResponsePayload>(`/games/${selectedGameId}/load`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
-
       setSelectedGame(payload.game);
       setFeedback(payload.usingDemo ? `${payload.message} · Usando datos demo` : payload.message);
+      localStorage.setItem(ACTIVE_GAME_KEY, selectedGameId);
       onGameLoaded(payload);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'No se pudo cargar el partido.');
@@ -172,18 +207,50 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
     }
   };
 
-  const handleResetGame = async () => {
-    if (!selectedGameId) {
-      return;
-    }
+  const handleFinishGame = () => {
+    if (!selectedGameId) return;
+    setDialog({
+      title: 'Finalizar partido',
+      message: '¿Confirmas el fin del partido? El estado cambiará a Final y no se podrán registrar más jugadas.',
+      tone: 'danger',
+      confirmLabel: 'Finalizar',
+      onConfirm: () => void confirmFinish(),
+    });
+  };
 
-    setShowResetConfirm(true);
+  const confirmFinish = async () => {
+    if (!selectedGameId) return;
+    setLoadingAction(true);
+    setErrorMessage(null);
+    try {
+      await requestJson<{ gameId: string; message: string }>(`/games/${selectedGameId}/finish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      setSelectedGame((prev) => prev ? { ...prev, status: 'final' } : prev);
+      setFeedback('🏁 Partido finalizado.');
+      localStorage.removeItem(ACTIVE_GAME_KEY);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'No se pudo finalizar el partido.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleResetGame = async () => {
+    if (!selectedGameId) return;
+    setDialog({
+      title: 'Reiniciar partido',
+      message: 'Se borrarán todos los at-bats e historial. Esta acción no se puede deshacer.',
+      tone: 'danger',
+      confirmLabel: 'Reiniciar',
+      onConfirm: () => void confirmReset(),
+    });
   };
 
   const confirmReset = async () => {
     if (!selectedGameId) return;
 
-    setShowResetConfirm(false);
     setLoadingAction(true);
     setErrorMessage(null);
 
@@ -216,7 +283,7 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
         >
           {games.map((game) => (
             <option key={game.id} value={game.id}>
-              {game.label}
+              {game.id === activeGameId ? '● ' : ''}{game.label}{game.id === activeGameId ? ' — EN VIVO' : ''}
             </option>
           ))}
         </select>
@@ -238,7 +305,7 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
                 )}
               </p>
               <p className="mt-0.5 text-[10px] text-white/50">{formatSchedule(selectedGame.scheduledAt)}</p>
-              <p className="mt-0.5 text-[10px] text-white/50">{selectedGame.venue ?? 'Sede por confirmar'} · {selectedGame.status}</p>
+              <p className="mt-0.5 text-[10px] text-white/50">{selectedGame.venue ?? 'Sede por confirmar'} · {formatStatus(selectedGame.status)}</p>
             </>
           ) : null}
         </div>
@@ -265,6 +332,18 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
         </button>
       </div>
 
+      {/* Finalizar partido — solo cuando está en curso */}
+      {selectedGame?.status === 'live' && (
+        <button
+          type="button"
+          onClick={handleFinishGame}
+          disabled={loadingAction}
+          className="w-full rounded border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold uppercase text-white/60 transition hover:border-emerald-400/50 hover:bg-emerald-400/10 hover:text-emerald-200 disabled:opacity-50"
+        >
+          🏁 Finalizar partido
+        </button>
+      )}
+
       {/* Feedback */}
       {feedback && (
         <div className="rounded border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-2 text-[10px] text-emerald-200">
@@ -277,29 +356,7 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
         </div>
       )}
 
-      {/* Confirmación de reset */}
-      {showResetConfirm && (
-        <div className="rounded border border-orange-400/40 bg-orange-400/10 p-3 space-y-2">
-          <p className="text-xs font-semibold text-orange-200">⚠️ ¿Reiniciar el partido?</p>
-          <p className="text-[10px] text-white/60">Se borrarán todos los at-bats e historial. Esta acción no se puede deshacer.</p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => { void confirmReset(); }}
-              className="flex-1 rounded bg-orange-500 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white transition hover:bg-orange-600"
-            >
-              Confirmar
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowResetConfirm(false)}
-              className="rounded border border-white/20 bg-white/5 px-3 py-1.5 text-[10px] font-semibold text-white/60 transition hover:bg-white/10"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog state={dialog} onClose={() => setDialog(null)} />
     </div>
   );
 }
