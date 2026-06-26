@@ -54,10 +54,9 @@ export function LigasEditor() {
 
   useEffect(() => {
     setLoading(true);
-    request<{ leagues?: unknown[] }>(`${API}/leagues`)
+    request<unknown[]>(`${API}/leagues`)
       .then((data) => {
-        const raw = data.leagues ?? [];
-        setLeagues(raw.length > 0 ? raw.map(normalizeLeague) : mockLeagues);
+        setLeagues(data.length > 0 ? data.map(normalizeLeague) : mockLeagues);
       })
       .catch(() => setLeagues(mockLeagues))
       .finally(() => setLoading(false));

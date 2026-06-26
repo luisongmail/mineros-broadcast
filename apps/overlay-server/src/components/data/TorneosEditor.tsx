@@ -74,18 +74,18 @@ export function TorneosEditor() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      request<{ tournaments?: unknown[] }>(`${API}/tournaments`).catch(() => ({ tournaments: [] as unknown[] })),
-      request<{ leagues?: unknown[] }>(`${API}/leagues`).catch(() => ({ leagues: [] as unknown[] })),
-      request<{ categories?: unknown[] }>(`${API}/categories`).catch(() => ({ categories: [] as unknown[] })),
-      request<{ teams?: unknown[] }>(`${API}/teams`).catch(() => ({ teams: [] as unknown[] })),
+      request<unknown[]>(`${API}/tournaments`).catch(() => [] as unknown[]),
+      request<unknown[]>(`${API}/leagues`).catch(() => [] as unknown[]),
+      request<unknown[]>(`${API}/categories`).catch(() => [] as unknown[]),
+      request<unknown[]>(`${API}/teams`).catch(() => [] as unknown[]),
     ]).then(([t, l, c, tm]) => {
-      const raw = (t.tournaments ?? []).map(normalizeTournament);
+      const raw = t.map(normalizeTournament);
       setTournaments(raw.length > 0 ? raw : mockTournaments);
-      const rl = (l.leagues ?? []).map(normalizeLeague);
+      const rl = l.map(normalizeLeague);
       setLeagues(rl.length > 0 ? rl : mockLeagues);
-      const rc = (c.categories ?? []).map(normalizeCategory);
+      const rc = c.map(normalizeCategory);
       setCategories(rc.length > 0 ? rc : mockCategories);
-      setTeams((tm.teams ?? []).map(normalizeTeam));
+      setTeams(tm.map(normalizeTeam));
     }).finally(() => setLoading(false));
   }, []);
 
