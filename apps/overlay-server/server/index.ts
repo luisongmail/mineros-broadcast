@@ -14,6 +14,7 @@ import { layoutRouter } from './layoutRouter';
 import leaguesTournamentsRouter from './leaguesTournamentsRouter';
 import { matchMetadataRouter } from './matchMetadataRouter';
 import pitchesRouter from './pitchesRouter';
+import { baserunningRouter } from './baserunningRouter';
 import { scorerRouter } from './scorerRouter';
 import sponsorsRouter from './sponsorsRouter';
 import { stateStore } from './stateStore';
@@ -117,7 +118,8 @@ app.use((_request, response, next) => {
   setCompatibilityHeaders(response);
   next();
 });
-app.use('/api', categoriesRouter);
+app.use('/api/baserunning-events', baserunningRouter);
+  app.use('/api', categoriesRouter);
 app.use('/api', gameConfigRouter);
 app.use('/api', layoutRouter);
 app.use('/api', leaguesTournamentsRouter);

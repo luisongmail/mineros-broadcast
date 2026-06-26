@@ -460,6 +460,9 @@ export function LiveGameScoringPage() {
   const [error, setError] = useState<string | null>(null);
   const [pitchFeedback, setPitchFeedback] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+  const [showEventsPanel, setShowEventsPanel] = useState(false);
+  const [savingEvent, setSavingEvent] = useState(false);
+  const [eventFeedback, setEventFeedback] = useState<string | null>(null);
 
   const loadHistory = useCallback(async (gameId: string) => {
     const payload = await requestJson<AtBatHistoryItem[]>(`/at-bats/${encodeURIComponent(gameId)}`);
@@ -841,6 +844,44 @@ export function LiveGameScoringPage() {
     }
   }, [catcherTarget, context, loadContext, pitchMetrics, resetAtBatWorkflow, rbi, runnerDetails, outSequence, runs, selectedBatterId, selectedContactType, selectedHitDirection, selectedHitQuality, selectedPitchCell, selectedPitcherId, selectedPitchResult, selectedPitchType, selectedResult, showPitchFeedback]);
 
+  // ── BASERUNNING EVENT HANDLER ────────────────────────────────────────
+  type BaserunningEventType =
+    | 'stolen_base' | 'caught_stealing' | 'wild_pitch_advance' | 'passed_ball_advance'
+    | 'balk' | 'throwing_error' | 'receiving_error' | 'pickoff_out' | 'pickoff_error';
+
+  type BaserunningRunnerMove = {
+    runnerLabel: 'R1' | 'R2' | 'R3';
+    fromBase: string;
+    toBase: '1B' | '2B' | '3B' | 'HOME' | 'OUT';
+    runScored: boolean;
+    earnedRun: boolean;
+  };
+
+  const handleBaserunningEvent = useCallback(async (
+    eventType: BaserunningEventType,
+    moves: BaserunningRunnerMove[],
+  ) => {
+    if (!context || savingEvent) return;
+    setSavingEvent(true);
+    setEventFeedback(null);
+    try {
+      const resp = await fetch(`${SERVER_BASE_URL}/baserunning-events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId: context.gameState.gameId, eventType, runners: moves }),
+      });
+      const json = (await resp.json()) as { runsScored?: number; error?: string };
+      if (!resp.ok) throw new Error(json.error ?? 'Error al registrar evento');
+      setEventFeedback(`✓ ${eventType.replace(/_/g, ' ')}${json.runsScored ? ` · ${json.runsScored}R` : ''}`);
+      setTimeout(() => setEventFeedback(null), 3000);
+      await loadContext();
+    } catch (evtErr) {
+      setError(evtErr instanceof Error ? evtErr.message : 'Error al registrar evento');
+    } finally {
+      setSavingEvent(false);
+    }
+  }, [context, loadContext, savingEvent]);
+
   if (loading && !context) {
     return <div className="min-h-screen bg-broadcast-black px-4 py-4 text-white">Cargando live scoring…</div>;
   }
@@ -902,6 +943,18 @@ export function LiveGameScoringPage() {
             {pitchFeedback}
           </span>
         ) : null}
+        {eventFeedback ? (
+          <span className="ml-1 rounded-full border border-blue-400/30 bg-blue-400/10 px-3 py-0.5 text-[11px] font-semibold text-blue-200 whitespace-nowrap">
+            {eventFeedback}
+          </span>
+        ) : null}
+        <button
+          className="ml-1 rounded-lg border border-blue-400/30 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-blue-200 transition hover:bg-blue-500/20"
+          onClick={() => setShowEventsPanel((v) => !v)}
+          type="button"
+        >
+          Eventos
+        </button>
       </header>
 
 
@@ -1526,6 +1579,115 @@ export function LiveGameScoringPage() {
         </aside>
 
       </main>
+
+      {/* ── PANEL EVENTOS BASERUNNING ─────────────────────────────────── */}
+      {showEventsPanel ? (
+        <div className="fixed inset-0 z-50 flex items-stretch justify-end">
+          {/* Overlay backdrop */}
+          <button
+            aria-label="Cerrar panel"
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowEventsPanel(false)}
+            type="button"
+          />
+          <aside className="relative z-10 flex w-[320px] flex-col overflow-y-auto border-l border-white/10 bg-mineros-navy p-3 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="font-bebas text-lg uppercase tracking-[0.18em] text-blue-200">Eventos Baserunning</span>
+              <button
+                className="rounded-lg border border-white/15 px-2 py-1 text-[11px] text-white/50 hover:border-white/35"
+                onClick={() => setShowEventsPanel(false)}
+                type="button"
+              >✕</button>
+            </div>
+
+            {/* Corredores activos */}
+            {(() => {
+              const activeRunners: { label: 'R1' | 'R2' | 'R3'; from: string; next: '2B' | '3B' | 'HOME' }[] = [];
+              if (gs.bases.first) activeRunners.push({ label: 'R1', from: '1B', next: '2B' });
+              if (gs.bases.second) activeRunners.push({ label: 'R2', from: '2B', next: '3B' });
+              if (gs.bases.third) activeRunners.push({ label: 'R3', from: '3B', next: 'HOME' });
+
+              if (activeRunners.length === 0) {
+                return <p className="mb-3 text-center text-xs text-white/40">Sin corredores en base.</p>;
+              }
+
+              return (
+                <div className="mb-3 space-y-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Por corredor</p>
+                  {activeRunners.map((r) => (
+                    <div key={r.label} className="rounded-lg border border-white/8 bg-white/3 p-2">
+                      <p className="mb-1.5 text-[10px] font-semibold text-white/70">{r.label} · {r.from}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('stolen_base', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true }])}
+                          type="button"
+                        >SB → {r.next}</button>
+                        <button
+                          className="rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-200 transition hover:bg-red-500/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('caught_stealing', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
+                          type="button"
+                        >CS</button>
+                        <button
+                          className="rounded-md border border-blue-400/40 bg-blue-400/10 px-2 py-1 text-[11px] text-blue-200 transition hover:bg-blue-400/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('wild_pitch_advance', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true }])}
+                          type="button"
+                        >WP → {r.next}</button>
+                        <button
+                          className="rounded-md border border-purple-400/40 bg-purple-400/10 px-2 py-1 text-[11px] text-purple-200 transition hover:bg-purple-400/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('passed_ball_advance', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: false }])}
+                          type="button"
+                        >PB → {r.next}</button>
+                        <button
+                          className="rounded-md border border-orange-400/40 bg-orange-400/10 px-2 py-1 text-[11px] text-orange-200 transition hover:bg-orange-400/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('pickoff_out', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
+                          type="button"
+                        >PO out</button>
+                        <button
+                          className="rounded-md border border-yellow-400/40 bg-yellow-400/10 px-2 py-1 text-[11px] text-yellow-200 transition hover:bg-yellow-400/20 disabled:opacity-40"
+                          disabled={savingEvent}
+                          onClick={() => void handleBaserunningEvent('throwing_error', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: false }])}
+                          type="button"
+                        >E tiro → {r.next}</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Eventos globales */}
+            <div className="space-y-1.5">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Global</p>
+              {/* Balk: todos los corredores avanzan 1 base */}
+              <button
+                className="w-full rounded-lg border border-yellow-400/40 bg-yellow-400/10 px-3 py-2 text-left text-[12px] font-semibold text-yellow-200 transition hover:bg-yellow-400/20 disabled:opacity-40"
+                disabled={savingEvent || (!gs.bases.first && !gs.bases.second && !gs.bases.third)}
+                onClick={() => {
+                  const moves: { runnerLabel: 'R1' | 'R2' | 'R3'; fromBase: string; toBase: '1B' | '2B' | '3B' | 'HOME' | 'OUT'; runScored: boolean; earnedRun: boolean }[] = [];
+                  if (gs.bases.third) moves.push({ runnerLabel: 'R3', fromBase: '3B', toBase: 'HOME', runScored: true, earnedRun: true });
+                  if (gs.bases.second) moves.push({ runnerLabel: 'R2', fromBase: '2B', toBase: '3B', runScored: false, earnedRun: true });
+                  if (gs.bases.first) moves.push({ runnerLabel: 'R1', fromBase: '1B', toBase: '2B', runScored: false, earnedRun: true });
+                  void handleBaserunningEvent('balk', moves);
+                }}
+                type="button"
+              >🚨 Balk — todos avanzan</button>
+
+              <button
+                className="w-full rounded-lg border border-white/10 bg-white/3 px-3 py-2 text-left text-[11px] text-white/50 transition hover:border-white/20"
+                onClick={() => setShowEventsPanel(false)}
+                type="button"
+              >Cerrar</button>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
     </div>
   );
 }
