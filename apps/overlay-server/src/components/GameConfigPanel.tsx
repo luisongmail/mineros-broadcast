@@ -78,6 +78,8 @@ function formatStatus(status: string): string {
   return STATUS_LABEL[status] ?? status;
 }
 
+const ACTIVE_GAME_KEY = 'mineros_active_game_id';
+
 export function GameConfigPanel({ onGameLoaded, activeGameId }: GameConfigPanelProps) {
   const [games, setGames] = useState<GameConfigSummary[]>([]);
   const [selectedGameId, setSelectedGameId] = useState('');
@@ -88,6 +90,26 @@ export function GameConfigPanel({ onGameLoaded, activeGameId }: GameConfigPanelP
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
+
+  // Auto-cargar el partido que el operador tenía activo en la sesión anterior
+  useEffect(() => {
+    const saved = localStorage.getItem(ACTIVE_GAME_KEY);
+    if (!saved) return;
+    requestJson<LoadGameResponsePayload>(`/games/${saved}/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((payload) => {
+        setSelectedGameId(saved);
+        setSelectedGame(payload.game);
+        onGameLoaded(payload);
+      })
+      .catch(() => {
+        localStorage.removeItem(ACTIVE_GAME_KEY);
+      });
+  // Solo al montar
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,24 +188,50 @@ export function GameConfigPanel({ onGameLoaded, activeGameId }: GameConfigPanelP
   }, [selectedGameId]);
 
   const handleLoadGame = async () => {
-    if (!selectedGameId) {
-      return;
-    }
-
+    if (!selectedGameId) return;
     setLoadingAction(true);
     setErrorMessage(null);
-
     try {
       const payload = await requestJson<LoadGameResponsePayload>(`/games/${selectedGameId}/load`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
-
       setSelectedGame(payload.game);
       setFeedback(payload.usingDemo ? `${payload.message} · Usando datos demo` : payload.message);
+      localStorage.setItem(ACTIVE_GAME_KEY, selectedGameId);
       onGameLoaded(payload);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'No se pudo cargar el partido.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleFinishGame = () => {
+    if (!selectedGameId) return;
+    setDialog({
+      title: 'Finalizar partido',
+      message: '¿Confirmas el fin del partido? El estado cambiará a Final y no se podrán registrar más jugadas.',
+      tone: 'danger',
+      confirmLabel: 'Finalizar',
+      onConfirm: () => void confirmFinish(),
+    });
+  };
+
+  const confirmFinish = async () => {
+    if (!selectedGameId) return;
+    setLoadingAction(true);
+    setErrorMessage(null);
+    try {
+      await requestJson<{ gameId: string; message: string }>(`/games/${selectedGameId}/finish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      setSelectedGame((prev) => prev ? { ...prev, status: 'final' } : prev);
+      setFeedback('🏁 Partido finalizado.');
+      localStorage.removeItem(ACTIVE_GAME_KEY);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'No se pudo finalizar el partido.');
     } finally {
       setLoadingAction(false);
     }
@@ -283,6 +331,18 @@ export function GameConfigPanel({ onGameLoaded, activeGameId }: GameConfigPanelP
           ↺ Reset
         </button>
       </div>
+
+      {/* Finalizar partido — solo cuando está en curso */}
+      {selectedGame?.status === 'live' && (
+        <button
+          type="button"
+          onClick={handleFinishGame}
+          disabled={loadingAction}
+          className="w-full rounded border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold uppercase text-white/60 transition hover:border-emerald-400/50 hover:bg-emerald-400/10 hover:text-emerald-200 disabled:opacity-50"
+        >
+          🏁 Finalizar partido
+        </button>
+      )}
 
       {/* Feedback */}
       {feedback && (

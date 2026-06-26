@@ -495,13 +495,40 @@ gameConfigRouter.post('/games/:id/load', async (request: Request, response: Resp
   }
 });
 
+gameConfigRouter.post('/games/:id/finish', async (request: Request, response: Response) => {
+  try {
+    const gameId = request.params.id;
+
+    if (pool) {
+      await pool.query(`UPDATE games SET status = 'final' WHERE id = ?`, [gameId]);
+    }
+
+    // Finaliza el engine solo si tiene este partido cargado
+    const currentState = stateStore.getState();
+    if (currentState.gameId === gameId) {
+      try {
+        stateStore.sendCommand('EndGame');
+      } catch {
+        // Ya estaba finalizado
+      }
+      stateStore.broadcast();
+    }
+
+    sendSuccess(response, {
+      gameId,
+      message: 'Partido finalizado.',
+    });
+  } catch (error) {
+    sendError(response, error);
+  }
+});
+
 gameConfigRouter.post('/games/:id/reset', async (request: Request, response: Response) => {
   try {
     const result = await getGameDetail(request.params.id);
     const { game } = result;
     const gameId = game.id;
 
-    // Borrar historial de at-bats y sesión guardada del partido
     if (pool) {
       await pool.query('DELETE FROM at_bats WHERE game_id = ?', [gameId]);
       await pool.query('DELETE FROM broadcast_sessions WHERE game_id = ?', [gameId]);
