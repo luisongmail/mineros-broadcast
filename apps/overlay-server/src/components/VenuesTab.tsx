@@ -293,7 +293,7 @@ export function VenuesTab({ embedded = false }: { embedded?: boolean }) {
                     style={drawerOpen && editingId.current === v.id ? selectedRowStyle : undefined}
                     onClick={(e) => openEdit(v, e.currentTarget as HTMLTableRowElement)}
                   >
-                    <td className="p-2 align-middle">
+                    <td className="p-1 align-middle">
                       <AssetImage assetId={v.photoAssetId} alt={v.name} size={48} />
                     </td>
                     <td className={tableCellClass + ' font-medium'}>{v.name}</td>

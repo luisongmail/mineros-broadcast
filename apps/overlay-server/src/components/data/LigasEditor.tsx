@@ -185,7 +185,7 @@ export function LigasEditor() {
                   style={drawerOpen && editingId.current === league.id ? selectedRowStyle : undefined}
                   onClick={(e) => openEdit(league, e.currentTarget as HTMLTableRowElement)}
                 >
-                  <td className="p-2 align-middle">
+                  <td className="p-1 align-middle">
                     <AssetImage assetId={league.logoAssetId} alt={league.name} size={40} initials={league.shortName?.slice(0, 2) ?? undefined} />
                   </td>
                   <td className={tableCellClass + ' font-medium'}>{league.name}</td>

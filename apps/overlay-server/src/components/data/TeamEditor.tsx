@@ -266,7 +266,7 @@ export function TeamEditor() {
                   style={drawerOpen && editingId.current === team.id ? selectedRowStyle : undefined}
                   onClick={(e) => openEdit(team, e.currentTarget as HTMLTableRowElement)}
                 >
-                  <td className="p-2 align-middle"><TeamBadge team={team} /></td>
+                  <td className="p-1 align-middle"><TeamBadge team={team} /></td>
                   <td className={tableCellClass}>
                     <p className="font-medium">{team.fullName}</p>
                     {team.shortName && <p className="text-[10px] text-white/40">{team.shortName}</p>}
