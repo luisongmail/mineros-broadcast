@@ -218,6 +218,118 @@ const RESULT_AUTO_CONTACT: Partial<Record<AtBatResult, ContactType>> = {
   home_run: 'fly_ball',
 };
 
+function applyResultAutoLogic(
+  result: AtBatResult,
+  bases: { first: boolean; second: boolean; third: boolean },
+): { runners: RunnerDetail[]; rbi: number; runs: number; contactType: ContactType | null } {
+  const runners: RunnerDetail[] = [];
+  const r1 = bases.first;
+  const r2 = bases.second;
+  const r3 = bases.third;
+
+  const mk = (runner: RunnerDetail['runner'], from: string, to: RunnerBase, rbiCredited = false): RunnerDetail =>
+    ({ runner, from, to, runScored: to === 'HOME', rbiCredited });
+
+  switch (result) {
+    case 'home_run': {
+      if (r3) runners.push(mk('R3', '3B', 'HOME', true));
+      if (r2) runners.push(mk('R2', '2B', 'HOME', true));
+      if (r1) runners.push(mk('R1', '1B', 'HOME', true));
+      runners.push(mk('BR', 'HOME', 'HOME', true));
+      const scored = (r1 ? 1 : 0) + (r2 ? 1 : 0) + (r3 ? 1 : 0) + 1;
+      return { runners, rbi: scored, runs: scored, contactType: 'fly_ball' };
+    }
+    case 'triple': {
+      if (r3) runners.push(mk('R3', '3B', 'HOME', true));
+      if (r2) runners.push(mk('R2', '2B', 'HOME', true));
+      if (r1) runners.push(mk('R1', '1B', 'HOME', true));
+      runners.push(mk('BR', 'HOME', '3B'));
+      const scored = (r1 ? 1 : 0) + (r2 ? 1 : 0) + (r3 ? 1 : 0);
+      return { runners, rbi: scored, runs: scored, contactType: null };
+    }
+    case 'double': {
+      if (r3) runners.push(mk('R3', '3B', 'HOME', true));
+      if (r2) runners.push(mk('R2', '2B', 'HOME', true));
+      if (r1) runners.push(mk('R1', '1B', '3B'));
+      runners.push(mk('BR', 'HOME', '2B'));
+      const scored = (r2 ? 1 : 0) + (r3 ? 1 : 0);
+      return { runners, rbi: scored, runs: scored, contactType: null };
+    }
+    case 'single': {
+      if (r3) runners.push(mk('R3', '3B', 'HOME', true));
+      if (r2) runners.push(mk('R2', '2B', '3B'));
+      if (r1) runners.push(mk('R1', '1B', '2B'));
+      runners.push(mk('BR', 'HOME', '1B'));
+      const scored = r3 ? 1 : 0;
+      return { runners, rbi: scored, runs: scored, contactType: null };
+    }
+    case 'walk':
+    case 'hbp': {
+      const loaded = r1 && r2 && r3;
+      const r1r2 = r1 && r2 && !r3;
+      if (loaded) { runners.push(mk('R3', '3B', 'HOME', true)); runners.push(mk('R2', '2B', '3B')); runners.push(mk('R1', '1B', '2B')); }
+      else if (r1r2) { runners.push(mk('R2', '2B', '3B')); runners.push(mk('R1', '1B', '2B')); }
+      else if (r1) { runners.push(mk('R1', '1B', '2B')); }
+      runners.push(mk('BR', 'HOME', '1B'));
+      return { runners, rbi: loaded ? 1 : 0, runs: loaded ? 1 : 0, contactType: null };
+    }
+    case 'sacrifice_fly': {
+      if (r3) runners.push(mk('R3', '3B', 'HOME', true));
+      if (r2) runners.push(mk('R2', '2B', '2B'));
+      if (r1) runners.push(mk('R1', '1B', '1B'));
+      runners.push(mk('BR', 'HOME', 'OUT'));
+      return { runners, rbi: r3 ? 1 : 0, runs: r3 ? 1 : 0, contactType: 'fly_ball' };
+    }
+    case 'sacrifice_bunt': {
+      if (r3) runners.push(mk('R3', '3B', 'HOME', true));
+      if (r2) runners.push(mk('R2', '2B', '3B'));
+      if (r1) runners.push(mk('R1', '1B', '2B'));
+      runners.push(mk('BR', 'HOME', 'OUT'));
+      const scored = r3 ? 1 : 0;
+      return { runners, rbi: scored, runs: scored, contactType: 'bunt' };
+    }
+    case 'double_play': {
+      if (r1) runners.push(mk('R1', '1B', 'OUT'));
+      if (r2) runners.push(mk('R2', '2B', '2B'));
+      if (r3) runners.push(mk('R3', '3B', '3B'));
+      runners.push(mk('BR', 'HOME', 'OUT'));
+      return { runners, rbi: 0, runs: 0, contactType: 'ground_ball' };
+    }
+    case 'groundout': {
+      if (r1) runners.push(mk('R1', '1B', '1B'));
+      if (r2) runners.push(mk('R2', '2B', '2B'));
+      if (r3) runners.push(mk('R3', '3B', '3B'));
+      runners.push(mk('BR', 'HOME', 'OUT'));
+      return { runners, rbi: 0, runs: 0, contactType: 'ground_ball' };
+    }
+    case 'flyout': {
+      if (r1) runners.push(mk('R1', '1B', '1B'));
+      if (r2) runners.push(mk('R2', '2B', '2B'));
+      if (r3) runners.push(mk('R3', '3B', '3B'));
+      runners.push(mk('BR', 'HOME', 'OUT'));
+      return { runners, rbi: 0, runs: 0, contactType: 'fly_ball' };
+    }
+    case 'fielders_choice': {
+      if (r1) runners.push(mk('R1', '1B', 'OUT'));
+      if (r2) runners.push(mk('R2', '2B', '2B'));
+      if (r3) runners.push(mk('R3', '3B', '3B'));
+      runners.push(mk('BR', 'HOME', '1B'));
+      return { runners, rbi: 0, runs: 0, contactType: 'ground_ball' };
+    }
+    case 'error': {
+      if (r3) runners.push(mk('R3', '3B', 'HOME', false));
+      if (r2) runners.push(mk('R2', '2B', '3B'));
+      if (r1) runners.push(mk('R1', '1B', '2B'));
+      runners.push(mk('BR', 'HOME', '1B'));
+      return { runners, rbi: 0, runs: r3 ? 1 : 0, contactType: null };
+    }
+    default:
+      return { runners: [], rbi: 0, runs: 0, contactType: null };
+  }
+}
+
+
+
 const QUICK_3X3_ZONES = [
   { label: 'A-Ad', col: 1, row: 1 },
   { label: 'A-C', col: 3, row: 1 },
@@ -437,19 +549,24 @@ export function LiveGameScoringPage() {
     };
   }, [loadContext]);
 
+  // Auto-populate runners, rbi, runs, contactType when result is chosen in step 3
   useEffect(() => {
-    if (!selectedResult || !CONTACT_REQUIRED_RESULTS.has(selectedResult)) {
+    if (!selectedResult || !context) return;
+    const isContactResult = CONTACT_REQUIRED_RESULTS.has(selectedResult);
+    if (!isContactResult) {
       setSelectedContactType(null);
       setSelectedHitDirection(null);
       setSelectedHitQuality(null);
       setRunnerDetails([]);
-      if (selectedResult) {
-        setCurrentStep(2);
-      }
-    } else {
-      setCurrentStep(3);
+      if (selectedResult) setCurrentStep(2);
+      return;
     }
-  }, [selectedResult]);
+    const auto = applyResultAutoLogic(selectedResult, context.gameState.bases);
+    setRunnerDetails(auto.runners);
+    setRbi(auto.rbi);
+    setRuns(auto.runs);
+    if (auto.contactType) setSelectedContactType(auto.contactType);
+  }, [selectedResult, context]);
 
   useEffect(() => {
     if (!selectedPitchType) {
@@ -471,16 +588,7 @@ export function LiveGameScoringPage() {
     setCatcherTarget({ mode: 'same_as_location', col: selectedPitchCell.col, row: selectedPitchCell.row });
   }, [catcherTarget.mode, selectedPitchCell]);
 
-  useEffect(() => {
-    if (currentStep !== 3 || !context) return;
-    const gs = context.gameState;
-    const initial: RunnerDetail[] = [];
-    initial.push({ runner: 'BR', from: 'HOME', to: '1B', runScored: false, rbiCredited: false });
-    if (gs.bases.first) initial.push({ runner: 'R1', from: '1B', to: '2B', runScored: false, rbiCredited: false });
-    if (gs.bases.second) initial.push({ runner: 'R2', from: '2B', to: '3B', runScored: false, rbiCredited: false });
-    if (gs.bases.third) initial.push({ runner: 'R3', from: '3B', to: 'HOME', runScored: false, rbiCredited: false });
-    setRunnerDetails(initial);
-  }, [currentStep, context]);
+
 
   const recentHistory = useMemo(() => history.slice(0, 5), [history]);
 
@@ -1304,110 +1412,132 @@ export function LiveGameScoringPage() {
                 </div>
               </div>
 
-              {/* Campo + Corredores + Via del out */}
-              <div className="grid grid-cols-2 gap-2 items-start">
+              {/* ── CAMPO VISUAL + VIA DEL OUT ─────────────────────────────── */}
+              <div className="flex gap-3 items-start">
 
-                {/* Diagrama de campo con referencia visual */}
-                <div>
-                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Dirección al campo</p>
-                  {/* Outfield: fila 1 */}
-                  <div className="grid grid-cols-5 gap-1 mb-0.5">
-                    {(['LF','LCF','CF','RCF','RF'] as const).map((z) => {
+                {/* SVG Baseball Field con botones superpuestos */}
+                <div className="flex-shrink-0">
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">
+                    Dirección al campo
+                    {!selectedHitDirection ? <span className="ml-2 text-mineros-red">← requerido</span> : null}
+                  </p>
+                  <div className="relative" style={{ width: 224, height: 204 }}>
+                    {/* SVG del campo */}
+                    <svg viewBox="0 0 224 204" className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                      {/* Fondo general */}
+                      <rect width="224" height="204" fill="#0d1f0a" rx="6"/>
+                      {/* Outfield grass */}
+                      <path d="M 112,194 L 4,12 Q 112,-8 220,12 Z" fill="#1a5c0f"/>
+                      {/* Infield dirt */}
+                      <path d="M 112,194 L 182,128 L 112,62 L 42,128 Z" fill="#7a5512" opacity="0.9"/>
+                      {/* Infield inner grass */}
+                      <circle cx="112" cy="130" r="42" fill="#1d6b10" opacity="0.8"/>
+                      {/* Foul lines */}
+                      <line x1="112" y1="194" x2="4" y2="12" stroke="white" strokeWidth="1.2" opacity="0.35"/>
+                      <line x1="112" y1="194" x2="220" y2="12" stroke="white" strokeWidth="1.2" opacity="0.35"/>
+                      {/* Outfield fence */}
+                      <path d="M 4,12 Q 112,-6 220,12" stroke="#666" strokeWidth="2" fill="none" opacity="0.5"/>
+                      {/* Warning track */}
+                      <path d="M 10,22 Q 112,5 214,22" stroke="#8B6914" strokeWidth="5" fill="none" opacity="0.35"/>
+                      {/* Base paths */}
+                      <path d="M 112,194 L 182,128 L 112,62 L 42,128 L 112,194" stroke="white" strokeWidth="1.2" fill="none" opacity="0.4"/>
+                      {/* Pitcher mound */}
+                      <ellipse cx="112" cy="126" rx="10" ry="7" fill="#9c7820"/>
+                      {/* Bases */}
+                      <rect x="108.5" y="58.5" width="7" height="7" fill="white" opacity="0.85" transform="rotate(45 112 62)"/>
+                      <rect x="178.5" y="124.5" width="7" height="7" fill="white" opacity="0.85" transform="rotate(45 182 128)"/>
+                      <rect x="38.5" y="124.5" width="7" height="7" fill="white" opacity="0.85" transform="rotate(45 42 128)"/>
+                      {/* Home plate */}
+                      <polygon points="112,188 118,194 118,200 106,200 106,194" fill="white" opacity="0.8"/>
+                    </svg>
+
+                    {/* Botones de zona superpuestos (centrados en sus coordenadas) */}
+                    {([
+                      { z: 'LF'  as HitDirection, x: 22,  y: 52,  label: 'LF'   },
+                      { z: 'LCF' as HitDirection, x: 62,  y: 24,  label: 'LCF'  },
+                      { z: 'CF'  as HitDirection, x: 112, y: 10,  label: 'CF'   },
+                      { z: 'RCF' as HitDirection, x: 162, y: 24,  label: 'RCF'  },
+                      { z: 'RF'  as HitDirection, x: 202, y: 52,  label: 'RF'   },
+                      { z: '3B'  as HitDirection, x: 34,  y: 120, label: '3B'   },
+                      { z: 'SS'  as HitDirection, x: 72,  y: 92,  label: 'SS'   },
+                      { z: '2B'  as HitDirection, x: 130, y: 68,  label: '2B'   },
+                      { z: '1B'  as HitDirection, x: 190, y: 120, label: '1B'   },
+                      { z: 'P'   as HitDirection, x: 112, y: 118, label: 'P'    },
+                      { z: 'C'   as HitDirection, x: 112, y: 164, label: 'C'    },
+                    ] as const).map(({ z, x, y, label }) => {
                       const active = selectedHitDirection === z;
                       return (
-                        <button key={z} className={`rounded-t-full border py-2 text-[10px] font-bold transition ${active ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-white/5 text-white/55 hover:border-white/30'}`}
-                          onClick={() => setSelectedHitDirection(z)} type="button">{z}
+                        <button
+                          key={z}
+                          className={`absolute rounded-md border text-[10px] font-bold leading-none transition px-1.5 py-1 ${active ? 'border-mineros-red bg-mineros-red text-white shadow-lg shadow-red-900/50' : 'border-white/25 bg-black/50 text-white/75 hover:border-white/60 hover:bg-black/70'}`}
+                          style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}
+                          onClick={() => setSelectedHitDirection(z)}
+                          type="button"
+                        >
+                          {label}
                         </button>
                       );
                     })}
                   </div>
-                  {/* Infield: fila 2 */}
-                  <div className="grid grid-cols-5 gap-1 mb-0.5">
-                    {(['3B','SS',null,'2B','1B'] as const).map((z, i) =>
-                      z ? (
-                        <button key={z} className={`rounded-lg border py-2 text-[10px] font-bold transition ${selectedHitDirection === z ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-white/5 text-white/55 hover:border-white/30'}`}
-                          onClick={() => setSelectedHitDirection(z)} type="button">{z}
-                        </button>
-                      ) : (
-                        <div key={`gap-${i}`} className="rounded-lg border border-white/5 bg-white/2 py-2 text-center text-[9px] text-white/20">◆</div>
-                      )
-                    )}
-                  </div>
-                  {/* Pitcher + Home: fila 3 */}
-                  <div className="grid grid-cols-5 gap-1">
-                    <div className="col-span-2" />
-                    {(['P','C'] as const).map((z) => {
-                      const active = selectedHitDirection === z;
-                      return (
-                        <button key={z} className={`rounded-lg border py-2 text-[10px] font-bold transition ${active ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-white/5 text-white/55 hover:border-white/30'}`}
-                          onClick={() => setSelectedHitDirection(z)} type="button">{z === 'P' ? 'Lanz.' : 'C'}</button>
-                      );
-                    })}
-                    <div />
-                  </div>
 
-                  {/* Via del out / secuencia de fildeadores */}
-                  <div className="mt-2">
+                  {/* Vía del out */}
+                  <div className="mt-1.5">
                     <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">
-                      Vía del out <span className="text-white/25 normal-case">(ej: 6-4-3, 5-3, 1-3)</span>
+                      Vía del out <span className="text-white/20 normal-case">(ej: 6-4-3)</span>
                     </p>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex gap-1 flex-wrap">
+                      {['6-3','5-3','4-3','6-4-3','5-4-3','1-3','3U','4U'].map((seq) => (
+                        <button key={seq} className={`rounded-md border px-1.5 py-0.5 text-[9px] font-bold transition ${outSequence === seq ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/10 bg-black/25 text-white/45 hover:border-white/25'}`}
+                          onClick={() => setOutSequence(outSequence === seq ? '' : seq)} type="button">{seq}</button>
+                      ))}
                       <input
-                        className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white outline-none placeholder-white/25 focus:border-mineros-gold"
-                        placeholder="6-4-3"
+                        className="w-14 rounded-md border border-white/10 bg-black/30 px-1.5 py-0.5 text-[9px] text-white outline-none placeholder-white/25 focus:border-mineros-gold"
+                        placeholder="otro…"
                         type="text"
-                        value={outSequence}
+                        value={['6-3','5-3','4-3','6-4-3','5-4-3','1-3','3U','4U'].includes(outSequence) ? '' : outSequence}
                         onChange={(e) => setOutSequence(e.target.value)}
                       />
-                      <div className="flex flex-wrap gap-1">
-                        {['6-3','5-3','4-3','6-4-3','5-4-3','1-3'].map((seq) => (
-                          <button key={seq} className={`rounded-md border px-1.5 py-0.5 text-[9px] font-bold transition ${outSequence === seq ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/10 bg-black/30 text-white/45 hover:border-white/25'}`}
-                            onClick={() => setOutSequence(outSequence === seq ? '' : seq)} type="button">{seq}</button>
-                        ))}
-                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Corredores */}
-                <div>
+                {/* Corredores — ajustar si difiere del auto */}
+                <div className="flex-1 min-w-0">
                   <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">
-                    Corredores
-                    <span className="ml-1 text-[8px] text-white/25 normal-case">— ajusta destino si difiere</span>
+                    Corredores <span className="text-white/20 normal-case">— ajusta si difiere</span>
                   </p>
                   {runnerDetails.length === 0 ? (
-                    <p className="text-[10px] text-white/30">Sin corredores en base.</p>
+                    <p className="mt-2 text-[10px] text-white/30">Sin corredores.</p>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {runnerDetails.map((detail, index) => {
-                        const runnerLabel = detail.runner === 'BR' ? 'BR (bateador)' : `${detail.runner} (${detail.from})`;
+                        const labels: Record<string, string> = { BR: 'Bateador', R1: 'Corredor 1B', R2: 'Corredor 2B', R3: 'Corredor 3B' };
                         return (
-                          <div key={`${detail.runner}-${detail.from}`} className="rounded-lg border border-white/10 bg-black/20 px-2 py-1.5">
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <span className="text-[10px] font-bold text-mineros-gold w-[90px] truncate">{runnerLabel}</span>
+                          <div key={`${detail.runner}-${detail.from}`} className={`rounded-lg border px-2 py-1.5 ${detail.to === 'OUT' ? 'border-mineros-red/30 bg-mineros-red/5' : detail.to === 'HOME' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 bg-black/20'}`}>
+                            <div className="flex items-center gap-1 mb-1">
+                              <span className={`text-[10px] font-bold ${detail.to === 'OUT' ? 'text-red-300' : detail.to === 'HOME' ? 'text-emerald-300' : 'text-mineros-gold'}`}>
+                                {labels[detail.runner] ?? detail.runner}
+                              </span>
+                              <span className="text-[8px] text-white/25 ml-auto">{detail.from}</span>
                               <span className="text-[9px] text-white/30">→</span>
-                              <div className="flex gap-0.5 flex-1">
-                                {(['1B','2B','3B','HOME','OUT'] as const).map((base) => (
-                                  <button
-                                    key={base}
-                                    className={`flex-1 rounded border py-0.5 text-[9px] font-bold transition ${detail.to === base ? (base === 'OUT' ? 'border-mineros-red bg-mineros-red text-white' : base === 'HOME' ? 'border-emerald-400 bg-emerald-500 text-white' : 'border-mineros-gold bg-mineros-gold text-mineros-navy') : 'border-white/10 bg-black/20 text-white/40 hover:border-white/25'}`}
-                                    onClick={() => setRunnerDetails((cur) => cur.map((r, i) => i === index ? { ...r, to: base, runScored: base === 'HOME' } : r))}
-                                    type="button"
-                                  >{base}</button>
-                                ))}
-                              </div>
                             </div>
-                            <div className="flex gap-3">
-                              <label className="flex items-center gap-1 text-[9px] text-white/50 cursor-pointer">
-                                <input checked={detail.runScored} className="h-3 w-3" type="checkbox"
-                                  onChange={(e) => setRunnerDetails((cur) => cur.map((r, i) => i === index ? { ...r, runScored: e.target.checked } : r))} />
-                                Anotó (R)
-                              </label>
-                              <label className="flex items-center gap-1 text-[9px] text-white/50 cursor-pointer">
-                                <input checked={detail.rbiCredited} className="h-3 w-3" type="checkbox"
-                                  onChange={(e) => setRunnerDetails((cur) => cur.map((r, i) => i === index ? { ...r, rbiCredited: e.target.checked } : r))} />
-                                RBI
-                              </label>
+                            <div className="flex gap-0.5">
+                              {(['1B','2B','3B','HOME','OUT'] as const).map((base) => (
+                                <button
+                                  key={base}
+                                  className={`flex-1 rounded border py-1 text-[9px] font-bold transition ${detail.to === base
+                                    ? base === 'OUT' ? 'border-mineros-red bg-mineros-red text-white'
+                                    : base === 'HOME' ? 'border-emerald-400 bg-emerald-500 text-white'
+                                    : 'border-mineros-gold bg-mineros-gold text-mineros-navy'
+                                    : 'border-white/10 bg-black/20 text-white/40 hover:border-white/25'}`}
+                                  onClick={() => {
+                                    setRunnerDetails((cur) => cur.map((r, i) => i === index ? { ...r, to: base, runScored: base === 'HOME', rbiCredited: base === 'HOME' && r.runner !== 'BR' ? detail.rbiCredited : r.rbiCredited } : r));
+                                    if (base === 'HOME') setRuns((v) => v + (detail.to === 'HOME' ? 0 : 1));
+                                    if (base !== 'HOME' && detail.to === 'HOME') setRuns((v) => Math.max(0, v - 1));
+                                  }}
+                                  type="button"
+                                >{base}</button>
+                              ))}
                             </div>
                           </div>
                         );
