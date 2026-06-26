@@ -259,11 +259,11 @@ export function CategoryEditor() {
           <Field label="Descripción">
             <textarea className={`${fieldClass} min-h-20`} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
           </Field>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-white/70">
             <input type="checkbox" checked={form.active} onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))} />
             Activa
           </label>
-          <div className="flex gap-2 border-t border-gray-700 pt-4">
+          <div className="flex gap-2 border-t border-white/10 pt-4">
             <button type="submit" disabled={saving} className={primaryButtonClass}>
               {saving ? 'Guardando...' : 'Guardar'}
             </button>

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { MatchMetadata, SponsorEntry } from '../matchMetadata';
 import { SearchSelect } from './data/SearchSelect';
 import { SlideDrawer } from './data/SlideDrawer';
-import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableHeaderClass, tableCellClass, tableClass, tableBodyClass, tableHeadRowClass } from './data/shared';
+import { EmptyState, Feedback, Field, LoadingState, fieldClass, filterSelectClass, searchInputClass, primaryButtonClass, secondaryButtonClass, tableHeaderClass, tableCellClass, tableClass, tableBodyClass, tableHeadRowClass } from './data/shared';
 import { normalizeSponsor, type Sponsor } from './data/types';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
@@ -159,6 +159,8 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
   const [message, setMessage]     = useState<string | null>(null);
+  const [filterName, setFilterName] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
 
   const [drawerOpen, setDrawerOpen]         = useState(false);
   const [editingId, setEditingId]           = useState<string | null>(null);
@@ -222,6 +224,15 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
       .catch(() => setAllTeams([]));
   }, []);
 
+  function openNew() {
+    anchorRef.current = null;
+    setEditingId(null);
+    setError(null);
+    setMessage(null);
+    setForm(emptyForm());
+    setDrawerOpen(true);
+  }
+
   function openEdit(game: GameSummary, rowEl: HTMLTableRowElement) {
     anchorRef.current = rowEl;
     setEditingId(game.id);
@@ -249,11 +260,50 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
   }
 
   async function handleSave() {
-    if (!editingId) return;
     setSaving(true);
     setError(null);
+    const homeTeam = allTeams.find((t) => t.id === form.homeTeamId);
+    const awayTeam = allTeams.find((t) => t.id === form.awayTeamId);
     try {
-      // 1. Actualizar nombre, venue, status y equipos en games
+      if (!editingId) {
+        // ── CREAR ──────────────────────────────────────────────────────────
+        const createRes = await fetch(`${API}/games`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameName:    form.gameName    || null,
+            venue:       form.venue       || null,
+            scheduledAt: form.scheduledAt || null,
+            homeTeamId:  form.homeTeamId  || null,
+            awayTeamId:  form.awayTeamId  || null,
+            status:      form.status      || 'scheduled',
+          }),
+        });
+        const createBody = await createRes.json() as { result?: string; payload?: { id?: string } };
+        const newId = createBody.payload?.id;
+        if (!newId) throw new Error('No se recibió ID del partido creado');
+
+        setGames((prev) => [
+          ...prev,
+          {
+            id:           newId,
+            label:        form.gameName || `${homeTeam?.shortName ?? '?'} vs ${awayTeam?.shortName ?? '?'}`,
+            gameName:     form.gameName || undefined,
+            status:       form.status  || 'scheduled',
+            venue:        form.venue   || undefined,
+            scheduledAt:  form.scheduledAt || undefined,
+            homeTeamId:   form.homeTeamId  || undefined,
+            homeTeamName: homeTeam?.name,
+            awayTeamId:   form.awayTeamId  || undefined,
+            awayTeamName: awayTeam?.name,
+          },
+        ]);
+        setMessage('Partido creado.');
+        closeDrawer();
+        return;
+      }
+
+      // ── ACTUALIZAR ─────────────────────────────────────────────────────
       await fetch(`${API}/games/${editingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -266,7 +316,7 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
         }),
       });
 
-      // 2. Guardar sponsors en la metadata del partido
+      // Guardar sponsors en la metadata del partido
       const metaRes = await fetch(`${API}/games/${editingId}/metadata`);
       const metaBody = await metaRes.json() as { result?: string; payload?: Partial<MatchMetadata> };
       const current: MatchMetadata = (metaBody.result === 'ok' && metaBody.payload)
@@ -279,9 +329,6 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
         body: JSON.stringify({ ...current, sponsors: form.sponsors }),
       });
 
-      // Actualizar lista local
-      const homeTeam = allTeams.find((t) => t.id === form.homeTeamId);
-      const awayTeam = allTeams.find((t) => t.id === form.awayTeamId);
       setGames((prev) => prev.map((g) => g.id === editingId
         ? {
             ...g,
@@ -304,6 +351,13 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
     }
   }
 
+  const filtered = games.filter((g) => {
+    const q = filterName.toLowerCase();
+    if (q && !(g.gameName ?? g.label).toLowerCase().includes(q)) return false;
+    if (filterStatus && g.status !== filterStatus) return false;
+    return true;
+  });
+
   if (loading) return <LoadingState />;
 
   return (
@@ -311,72 +365,78 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
       {error   && <Feedback tone="error"   message={error}   />}
       {message && <Feedback tone="success" message={message} />}
 
-      <SectionCard
-        title="Partidos"
-        actions={
-          <span className="text-[10px] text-white/30">
-            {games.length} partido{games.length !== 1 ? 's' : ''}
-            {currentGameId && (
-              <span className="ml-2 rounded bg-mineros-gold/15 border border-mineros-gold/30 px-1.5 py-0.5 text-mineros-gold">
-                En vivo: {games.find((g) => g.id === currentGameId)?.gameName ?? games.find((g) => g.id === currentGameId)?.label ?? currentGameId}
-              </span>
-            )}
-          </span>
-        }
-      >
-        {games.length === 0 ? (
-          <EmptyState message="No hay partidos disponibles." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className={tableClass}>
-              <thead>
-                <tr className={tableHeadRowClass}>
-                  <th className={tableHeaderClass}>Nombre</th>
-                  <th className={tableHeaderClass}>Fecha</th>
-                  <th className={tableHeaderClass}>Sede</th>
-                  <th className={tableHeaderClass}>Local</th>
-                  <th className={tableHeaderClass}>Visitante</th>
-                  <th className={tableHeaderClass}>Estado</th>
-                  <th className={tableHeaderClass}></th>
+      {/* ── Header: título + búsqueda + filtro + nuevo ── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">
+          ⚾ Partidos
+          {currentGameId && (
+            <span className="ml-2 rounded bg-mineros-gold/15 border border-mineros-gold/30 px-1.5 py-0.5 text-mineros-gold normal-case font-normal">
+              En vivo: {games.find((g) => g.id === currentGameId)?.gameName ?? games.find((g) => g.id === currentGameId)?.label ?? currentGameId}
+            </span>
+          )}
+        </h3>
+        <input
+          className={searchInputClass}
+          placeholder="Buscar partido…"
+          value={filterName}
+          onChange={(e) => setFilterName(e.target.value)}
+        />
+        <select
+          className={filterSelectClass}
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+        >
+          <option value="">Todos los estados</option>
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+        <button type="button" onClick={() => openNew()} className={primaryButtonClass}>+ Nuevo partido</button>
+      </div>
+
+      {/* ── Tabla ── */}
+      {filtered.length === 0 ? (
+        <EmptyState message={games.length === 0 ? 'No hay partidos registrados.' : 'Sin resultados para el filtro aplicado.'} />
+      ) : (
+        <div className="rounded border border-white/10 overflow-x-auto">
+          <table className={tableClass}>
+            <thead>
+              <tr className={tableHeadRowClass}>
+                <th className={tableHeaderClass}>Nombre</th>
+                <th className={tableHeaderClass}>Fecha</th>
+                <th className={tableHeaderClass}>Sede</th>
+                <th className={tableHeaderClass}>Local</th>
+                <th className={tableHeaderClass}>Visitante</th>
+                <th className={tableHeaderClass}>Estado</th>
+              </tr>
+            </thead>
+            <tbody className={tableBodyClass}>
+              {filtered.map((game) => (
+                <tr
+                  key={game.id}
+                  className={`transition cursor-pointer hover:bg-white/[0.04] active:bg-white/[0.07] ${game.id === currentGameId ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
+                  onClick={(e) => openEdit(game, e.currentTarget as HTMLTableRowElement)}
+                >
+                  <td className={tableCellClass}>
+                    <p className="font-semibold text-white/90">{game.gameName ?? game.label}</p>
+                    {game.gameName && <p className="text-[10px] text-white/35">{game.label}</p>}
+                  </td>
+                  <td className={`${tableCellClass} whitespace-nowrap text-white/50`}>{formatDate(game.scheduledAt)}</td>
+                  <td className={`${tableCellClass} text-white/50`}>{game.venue ?? '—'}</td>
+                  <td className={`${tableCellClass} text-white/70`}>{game.homeTeamName ?? '—'}</td>
+                  <td className={`${tableCellClass} text-white/70`}>{game.awayTeamName ?? '—'}</td>
+                  <td className={tableCellClass}>{statusBadge(game.status)}</td>
                 </tr>
-              </thead>
-              <tbody className={tableBodyClass}>
-                {games.map((game) => (
-                  <tr
-                    key={game.id}
-                    className={`transition cursor-pointer hover:bg-white/[0.04] active:bg-white/[0.07] ${game.id === currentGameId ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
-                    onClick={(e) => openEdit(game, e.currentTarget as HTMLTableRowElement)}
-                  >
-                    <td className={tableCellClass}>
-                      <p className="font-semibold text-white/90">{game.gameName ?? game.label}</p>
-                      {game.gameName && <p className="text-[10px] text-white/35">{game.label}</p>}
-                    </td>
-                    <td className={`${tableCellClass} whitespace-nowrap text-white/50`}>{formatDate(game.scheduledAt)}</td>
-                    <td className={`${tableCellClass} text-white/50`}>{game.venue ?? '—'}</td>
-                    <td className={`${tableCellClass} text-white/70`}>{game.homeTeamName ?? '—'}</td>
-                    <td className={`${tableCellClass} text-white/70`}>{game.awayTeamName ?? '—'}</td>
-                    <td className={tableCellClass}>{statusBadge(game.status)}</td>
-                    <td className={`${tableCellClass} text-right`} onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={(e) => openEdit(game, (e.currentTarget.closest('tr') as HTMLTableRowElement))}
-                        className={secondaryButtonClass}
-                      >
-                        ✏️ Editar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </SectionCard>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* SlideDrawer de edición */}
       <SlideDrawer
         open={drawerOpen}
-        title={editingId ? 'Editar partido' : 'Partido'}
+        title={editingId ? 'Editar partido' : 'Nuevo partido'}
         onClose={closeDrawer}
         anchorRef={anchorRef}
       >
@@ -452,7 +512,7 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
             >
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
-            <button type="button" onClick={closeDrawer} className={dangerButtonClass}>
+            <button type="button" onClick={closeDrawer} className={secondaryButtonClass}>
               Cancelar
             </button>
           </div>

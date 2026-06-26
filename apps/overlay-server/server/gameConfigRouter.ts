@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import { randomUUID } from 'node:crypto';
 import type { RowDataPacket } from 'mysql2';
 
 import {
@@ -575,6 +576,42 @@ gameConfigRouter.put('/games/:id', async (request: Request, response: Response) 
     await pool.query(`UPDATE games SET ${updates.join(', ')} WHERE id = ?`, values);
 
     sendSuccess(response, { id, message: 'Partido actualizado' });
+  } catch (error) {
+    sendError(response, error);
+  }
+});
+
+// POST /games — crear un nuevo partido
+gameConfigRouter.post('/games', async (request: Request, response: Response) => {
+  const { gameName, venue, scheduledAt, homeTeamId, awayTeamId, status } = request.body as {
+    gameName?: string | null;
+    venue?: string | null;
+    scheduledAt?: string | null;
+    homeTeamId?: string | null;
+    awayTeamId?: string | null;
+    status?: string;
+  };
+
+  try {
+    const pool = getDatabasePool();
+    const id = `game-${randomUUID()}`;
+    const at = scheduledAt ?? new Date().toISOString();
+
+    await pool.query(
+      `INSERT INTO games (id, game_name, venue, scheduled_at, home_team_id, away_team_id, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        gameName?.trim() || null,
+        venue?.trim() || null,
+        at,
+        homeTeamId?.trim() || null,
+        awayTeamId?.trim() || null,
+        status ?? 'scheduled',
+      ],
+    );
+
+    sendSuccess(response, { id, message: 'Partido creado' });
   } catch (error) {
     sendError(response, error);
   }

@@ -8,6 +8,8 @@ import {
   dangerButtonClass,
   Feedback,
   fieldClass,
+  searchInputClass,
+  filterSelectClass,
   Field,
   primaryButtonClass,
   secondaryButtonClass,
@@ -213,15 +215,15 @@ export function TeamEditor() {
     <div className="p-4">
       {/* Cabecera y filtros */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">⚾ Equipos</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">🏅 Equipos</h3>
         <input
-          className="flex-1 min-w-[140px] rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+          className={searchInputClass}
           placeholder="Buscar por nombre…"
           value={filterName}
           onChange={(e) => setFilterName(e.target.value)}
         />
         <select
-          className="rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none"
+          className={filterSelectClass}
           value={filterCat}
           onChange={(e) => setFilterCat(e.target.value)}
         >

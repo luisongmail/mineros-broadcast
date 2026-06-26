@@ -5,6 +5,7 @@ import {
   ConfirmDialog,
   dangerButtonClass,
   Feedback,
+  fieldClass,
   primaryButtonClass,
   secondaryButtonClass,
   tableBodyClass,
@@ -106,7 +107,6 @@ function mapsUrl(v: Venue): string {
 
 // ── Helpers UI ─────────────────────────────────────────────────────────────
 
-const fieldClass = 'block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none';
 const labelClass = 'text-[10px] font-semibold uppercase tracking-widest text-white/40';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

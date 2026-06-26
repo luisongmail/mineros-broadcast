@@ -2,6 +2,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
 
 export const cardClass = 'rounded-lg border border-white/10 bg-white/[0.03]';
 export const fieldClass = 'w-full rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-mineros-gold focus:bg-white/[0.06]';
+export const searchInputClass = 'flex-1 min-w-[140px] rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white outline-none transition placeholder:text-white/25 focus:border-mineros-gold focus:bg-white/[0.06]';
+export const filterSelectClass = 'rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white outline-none transition focus:border-mineros-gold appearance-none cursor-pointer';
 export const labelClass = 'mb-1 block text-[11px] font-semibold uppercase tracking-widest text-white/40';
 export const tableHeaderClass = 'px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-widest text-white/40';
 export const tableCellClass = 'px-3 py-2 align-middle text-xs text-white/80';
@@ -45,13 +47,13 @@ export function Feedback({ tone, message }: { tone: 'error' | 'info' | 'success'
 }
 
 export function EmptyState({ message }: { message: string }) {
-  return <div className="rounded-md border border-dashed border-gray-700 px-4 py-6 text-center text-sm text-gray-400">{message}</div>;
+  return <div className="rounded-md border border-dashed border-white/10 px-4 py-6 text-center text-sm text-white/30">{message}</div>;
 }
 
 export function LoadingState({ message = 'Cargando...' }: { message?: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-900 px-3 py-3 text-sm text-gray-300">
-      <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-500 border-t-white" />
+    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-white/40">
+      <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
       {message}
     </div>
   );
@@ -153,7 +155,7 @@ export function ConfirmDialog({ state, onClose }: ConfirmDialogProps) {
       aria-modal="true"
       aria-labelledby="dialog-title"
     >
-      <div className={`w-full max-w-sm rounded-xl border ${accentBorder[tone]} bg-zinc-900 shadow-2xl mx-4`}>
+      <div className={`w-full max-w-sm rounded-xl border ${accentBorder[tone]} bg-[#0f1117] shadow-2xl mx-4`}>
         {/* Header */}
         <div className="flex items-start gap-3 p-5 pb-3">
           <span className="text-lg leading-none mt-0.5" aria-hidden="true">{icons[tone]}</span>

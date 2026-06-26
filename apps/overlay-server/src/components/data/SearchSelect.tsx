@@ -72,7 +72,7 @@ export function SearchSelect({
   }
 
   const base =
-    'relative w-full rounded border border-zinc-700 bg-zinc-800 text-sm text-white transition focus-within:border-amber-400';
+    'relative w-full rounded-md border border-white/10 bg-white/[0.04] text-sm text-white transition focus-within:border-mineros-gold';
 
   return (
     <div ref={containerRef} className={`${base} ${className}`} onKeyDown={handleKeyDown}>
@@ -82,9 +82,9 @@ export function SearchSelect({
           type="button"
           disabled={disabled}
           onClick={handleOpen}
-          className="flex w-full items-center justify-between px-3 py-1.5 text-left disabled:opacity-40"
+          className="flex w-full items-center justify-between px-3 py-2 text-left disabled:opacity-40"
         >
-          <span className={selected ? 'text-white' : 'text-zinc-500'}>
+          <span className={selected ? 'text-white/90' : 'text-white/25'}>
             {selected ? (
               <>
                 {selected.label}
@@ -103,7 +103,7 @@ export function SearchSelect({
         <input
           ref={inputRef}
           type="text"
-          className="w-full bg-transparent px-3 py-1.5 text-white placeholder-zinc-500 outline-none"
+          className="w-full bg-transparent px-3 py-2 text-white placeholder-white/25 outline-none"
           placeholder="Buscar…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -112,7 +112,7 @@ export function SearchSelect({
 
       {/* Dropdown */}
       {open && (
-        <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded border border-zinc-700 bg-zinc-900 shadow-xl">
+        <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-md border border-white/10 bg-[#0f1117] shadow-xl">
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-xs text-white/30">Sin resultados</li>
           ) : (
