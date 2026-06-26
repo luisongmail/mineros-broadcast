@@ -4,6 +4,7 @@ import { request } from './api';
 import { SearchSelect } from './SearchSelect';
 import { SlideDrawer } from './SlideDrawer';
 import {
+  AssetImage,
   ConfirmDialog,
   dangerButtonClass,
   Feedback,
@@ -64,9 +65,13 @@ function emptyTeam(): Team {
 // ── Badge de equipo ───────────────────────────────────────────────────────
 
 function TeamBadge({ team, size = 'sm' }: { team: Team; size?: 'sm' | 'lg' }) {
-  const dim = size === 'lg' ? 'h-10 w-10 text-sm' : 'h-7 w-7 text-[10px]';
+  const dim = size === 'lg' ? 40 : 28;
+  if (team.logoAssetId) {
+    return <AssetImage assetId={team.logoAssetId} alt={team.abbreviation || team.fullName} size={dim} initials={team.abbreviation || team.fullName.slice(0, 2).toUpperCase()} />;
+  }
+  const dimClass = size === 'lg' ? 'h-10 w-10 text-sm' : 'h-7 w-7 text-[10px]';
   return (
-    <div className={`${dim} shrink-0 rounded flex items-center justify-center font-bold text-white`} style={{ backgroundColor: team.primaryColor || '#1B2F5B' }}>
+    <div className={`${dimClass} shrink-0 rounded flex items-center justify-center font-bold text-white`} style={{ backgroundColor: team.primaryColor || '#1B2F5B' }}>
       {team.abbreviation || team.fullName.slice(0, 2).toUpperCase() || '?'}
     </div>
   );
@@ -158,6 +163,7 @@ export function TeamEditor() {
       const payload = {
         name:            form.fullName,
         short_name:      form.shortName,
+        abbreviation:    form.abbreviation ? form.abbreviation.slice(0, 4).toUpperCase() : null,
         logo_asset_id:   form.logoAssetId  || null,
         city:            form.city         || null,
         country:         form.country      || null,
@@ -255,7 +261,7 @@ export function TeamEditor() {
               {filtered.map((team) => (
                 <tr
                   key={team.id}
-                  className={tableRowClass}
+                  className={`${tableRowClass} ${drawerOpen && editingId.current === team.id ? 'bg-mineros-gold/[0.06] border-l-2 border-l-mineros-gold' : ''}`}
                   onClick={(e) => openEdit(team, e.currentTarget as HTMLTableRowElement)}
                 >
                   <td className={tableCellClass}><TeamBadge team={team} /></td>
@@ -401,10 +407,14 @@ export function TeamEditor() {
               <TeamBadge team={form} size="lg" />
               <div>
                 <p className="text-sm font-semibold text-white">{form.fullName}</p>
+                <p className="text-[10px] text-white/60 font-mono">{form.abbreviation || '—'}</p>
                 <p className="text-[10px] text-white/40">
                   {form.categoryId ? (categoryMap.get(form.categoryId)?.name ?? form.categoryId) : 'Sin categoría'}
                 </p>
               </div>
+              {form.logoAssetId && (
+                <p className="ml-auto text-[9px] text-white/25 font-mono truncate max-w-24">{form.logoAssetId}</p>
+              )}
             </div>
           )}
 

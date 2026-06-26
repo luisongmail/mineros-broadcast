@@ -33,6 +33,7 @@ interface TeamRow extends RowDataPacket {
   id: string;
   name: string;
   short_name: string;
+  abbreviation: string | null;
   logo_asset_id: string | null;
   logo_wordmark_asset_id: string | null;
   logo_alternate_asset_id: string | null;
@@ -113,6 +114,7 @@ interface TeamPayload {
   id: string;
   name: string;
   short_name: string;
+  abbreviation: string | null;
   logo_asset_id: string | null;
   logo_wordmark_asset_id: string | null;
   logo_alternate_asset_id: string | null;
@@ -226,6 +228,7 @@ function mapTeam(row: TeamRow | DemoTeam): TeamPayload {
     id: row.id,
     name: row.name,
     short_name: row.short_name,
+    abbreviation: r.abbreviation ?? null,
     logo_asset_id: row.logo_asset_id,
     logo_wordmark_asset_id: row.logo_wordmark_asset_id,
     logo_alternate_asset_id: row.logo_alternate_asset_id,
@@ -523,7 +526,7 @@ async function loadTeamDetail(teamId: string): Promise<TeamDetailPayload | null>
   }
 
     const [rows] = await pool.query<TeamRow[]>(
-      `SELECT t.id, t.name, t.short_name, t.logo_asset_id, t.logo_wordmark_asset_id, t.logo_alternate_asset_id,
+      `SELECT t.id, t.name, t.short_name, t.abbreviation, t.logo_asset_id, t.logo_wordmark_asset_id, t.logo_alternate_asset_id,
               t.city, t.country, t.club_id, c.name AS club_name, c.federated AS club_federated,
               c.association_id AS club_association_id, a.name AS club_association_name,
               t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at
@@ -580,7 +583,7 @@ router.get('/teams', async (request: Request, response: Response) => {
     }
 
     const [rows] = await pool.query<TeamRow[]>(
-      `SELECT DISTINCT t.id, t.name, t.short_name, t.logo_asset_id, t.logo_wordmark_asset_id,
+      `SELECT DISTINCT t.id, t.name, t.short_name, t.abbreviation, t.logo_asset_id, t.logo_wordmark_asset_id,
               t.logo_alternate_asset_id, t.city, t.country, t.club_id,
               c.name AS club_name, c.federated AS club_federated,
               c.association_id AS club_association_id, a.name AS club_association_name,
@@ -643,13 +646,14 @@ router.post('/teams', async (request: Request, response: Response) => {
       await connection.beginTransaction();
       await connection.query<ResultSetHeader>(
         `INSERT INTO teams (
-          id, name, short_name, logo_asset_id, logo_wordmark_asset_id, logo_alternate_asset_id,
+          id, name, short_name, abbreviation, logo_asset_id, logo_wordmark_asset_id, logo_alternate_asset_id,
           city, country, club_id, primary_color, secondary_color, founded_year, active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           name,
           shortName,
+          optionalString(body.abbreviation)?.slice(0, 4).toUpperCase() ?? null,
           optionalString(body.logo_asset_id),
           optionalString(body.logo_wordmark_asset_id),
           optionalString(body.logo_alternate_asset_id),
@@ -700,6 +704,7 @@ router.put('/teams/:id', async (request: Request, response: Response) => {
     const stringFields: Array<[keyof TeamMutationBody, string]> = [
       ['name', 'name'],
       ['short_name', 'short_name'],
+      ['abbreviation', 'abbreviation'],
       ['logo_asset_id', 'logo_asset_id'],
       ['logo_wordmark_asset_id', 'logo_wordmark_asset_id'],
       ['logo_alternate_asset_id', 'logo_alternate_asset_id'],
