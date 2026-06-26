@@ -252,9 +252,7 @@ export function VenuesTab({ embedded = false }: { embedded?: boolean }) {
     <div className={`space-y-3 ${embedded ? '' : 'p-4'}`}>
       {/* Header uniforme */}
       <div className="flex items-center gap-3 flex-wrap">
-        {!embedded && (
-          <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">🏟️ Estadios</h3>
-        )}
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">🏟️ Estadios</h3>
         <input
           className={searchInputClass}
           placeholder="Buscar estadio…"

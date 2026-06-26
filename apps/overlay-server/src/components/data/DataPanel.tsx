@@ -65,7 +65,7 @@ export function DataPanel({ currentGameId = '' }: { currentGameId?: string }) {
       </div>
 
       {/* ── Contenido ── */}
-      <div className="flex-1 overflow-y-auto pt-3">
+      <div className="flex-1 overflow-y-auto pt-4 px-1 pb-4">
         {active === 'games'       && <GamePanel currentGameId={currentGameId} embedded />}
         {active === 'teams'       && <TeamEditor />}
         {active === 'roster'      && <RosterEditor />}

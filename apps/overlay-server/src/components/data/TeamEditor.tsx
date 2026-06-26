@@ -212,7 +212,7 @@ export function TeamEditor() {
   }
 
   return (
-    <div className="p-4">
+    <div className="space-y-3">
       {/* Cabecera y filtros */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">🏅 Equipos</h3>

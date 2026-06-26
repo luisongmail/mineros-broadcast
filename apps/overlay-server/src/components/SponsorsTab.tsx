@@ -242,9 +242,5 @@ function SponsorCrudSection() {
 // ── Tab principal ─────────────────────────────────────────────────────────
 
 export function SponsorsTab() {
-  return (
-    <div className="p-4">
-      <SponsorCrudSection />
-    </div>
-  );
+  return <SponsorCrudSection />;
 }
