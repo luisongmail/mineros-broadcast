@@ -119,6 +119,30 @@ export function toIsoString(value: unknown): string {
   return typeof value === 'string' ? value : String(value);
 }
 
+export function optionalFloat(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 export function toTinyInt(value: boolean): 0 | 1 {
   return value ? 1 : 0;
 }
+
+import type { RowDataPacket } from 'mysql2';
+import { pool } from './db';
+
+/** Obtiene el conjunto de columnas de una tabla como caché genérica */
+export async function getDbColumns(table: string): Promise<Set<string>> {
+  if (!pool) return new Set();
+  const [rows] = await pool.query<RowDataPacket[]>(`SHOW COLUMNS FROM ${table}`);
+  return new Set(rows.map((r) => String(r['Field'])));
+}
+

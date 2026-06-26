@@ -304,9 +304,9 @@ function getNextBattersData(gameState: GameState, liveStats: Record<string, Live
 
 function toBasesLabel(gameState: GameState): string {
   const labels = [
-    gameState.bases.first ? '1B' : null,
-    gameState.bases.second ? '2B' : null,
-    gameState.bases.third ? '3B' : null,
+    gameState.bases.first !== null ? '1B' : null,
+    gameState.bases.second !== null ? '2B' : null,
+    gameState.bases.third !== null ? '3B' : null,
   ].filter(Boolean);
 
   return labels.length > 0 ? labels.join(' · ') : 'Bases limpias';

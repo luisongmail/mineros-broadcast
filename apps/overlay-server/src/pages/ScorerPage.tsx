@@ -404,11 +404,11 @@ export function ScorerPage() {
             {/* Bases (diamante) */}
             <div className="relative h-8 w-8">
               {/* Segunda */}
-              <span className={`absolute left-1/2 top-0 h-3 w-3 -translate-x-1/2 rotate-45 border ${gs.bases.second ? 'border-[#D4AF37] bg-[#D4AF37]' : 'border-white/30 bg-transparent'}`} />
+              <span className={`absolute left-1/2 top-0 h-3 w-3 -translate-x-1/2 rotate-45 border ${gs.bases.second !== null ? 'border-[#D4AF37] bg-[#D4AF37]' : 'border-white/30 bg-transparent'}`} />
               {/* Tercera */}
-              <span className={`absolute bottom-0 left-0 h-3 w-3 rotate-45 border ${gs.bases.third ? 'border-[#D4AF37] bg-[#D4AF37]' : 'border-white/30 bg-transparent'}`} />
+              <span className={`absolute bottom-0 left-0 h-3 w-3 rotate-45 border ${gs.bases.third !== null ? 'border-[#D4AF37] bg-[#D4AF37]' : 'border-white/30 bg-transparent'}`} />
               {/* Primera */}
-              <span className={`absolute bottom-0 right-0 h-3 w-3 rotate-45 border ${gs.bases.first ? 'border-[#D4AF37] bg-[#D4AF37]' : 'border-white/30 bg-transparent'}`} />
+              <span className={`absolute bottom-0 right-0 h-3 w-3 rotate-45 border ${gs.bases.first !== null ? 'border-[#D4AF37] bg-[#D4AF37]' : 'border-white/30 bg-transparent'}`} />
             </div>
           </div>
         </div>

@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@mineros/core": "workspace:*",
+    "@mineros/device-adapters": "workspace:*",
     "@mineros/event-engine": "workspace:^",
     "@mineros/game-engine": "workspace:*",
     "@mineros/overlay-announcement": "workspace:*",

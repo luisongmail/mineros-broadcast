@@ -253,7 +253,7 @@ function parseSocketMessage(data: string): OverlaySocketMessage | null {
 
 function renderOverlay(overlayId: OverlayId, gameState: GameState, config: GameConfigDetail, variant?: string) {
   const resolvedVariant = overlayId === 'scorebug' ? undefined : variant ?? OVERLAYS[overlayId].defaultVariant;
-  const basesLabel = [gameState.bases.first ? '1B' : null, gameState.bases.second ? '2B' : null, gameState.bases.third ? '3B' : null]
+  const basesLabel = [gameState.bases.first !== null ? '1B' : null, gameState.bases.second !== null ? '2B' : null, gameState.bases.third !== null ? '3B' : null]
     .filter(Boolean).join(' · ');
   const inningLabel = (gameState.inningHalf === 'top' ? 'Alta ' : 'Baja ') + gameState.inning;
   const homeAhead = gameState.score.home >= gameState.score.away;

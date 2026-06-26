@@ -49,7 +49,7 @@ interface CatcherTarget {
 }
 
 interface PitchMetrics {
-  velocityMph: string;
+  velocityKmh: string;
   umpireId: string;
   videoTimestamp: string;
   note: string;
@@ -221,12 +221,12 @@ const RESULT_AUTO_CONTACT: Partial<Record<AtBatResult, ContactType>> = {
 
 function applyResultAutoLogic(
   result: AtBatResult,
-  bases: { first: boolean; second: boolean; third: boolean },
+  bases: { first: unknown; second: unknown; third: unknown },
 ): { runners: RunnerDetail[]; rbi: number; runs: number; contactType: ContactType | null } {
   const runners: RunnerDetail[] = [];
-  const r1 = bases.first;
-  const r2 = bases.second;
-  const r3 = bases.third;
+  const r1 = bases.first !== null;
+  const r2 = bases.second !== null;
+  const r3 = bases.third !== null;
 
   const mk = (runner: RunnerDetail['runner'], from: string, to: RunnerBase, rbiCredited = false): RunnerDetail =>
     ({ runner, from, to, runScored: to === 'HOME', rbiCredited });
@@ -426,7 +426,7 @@ function getPitchWarning(
   if (result === 'called_strike' && !inZone) return '⚠ Strike cantado fuera de zona';
   if (result === 'ball' && inZone) return '⚠ Bola dentro de la zona de strike';
   if ((result === 'wild_pitch' || result === 'passed_ball') && gs) {
-    const hasRunners = gs.bases.first || gs.bases.second || gs.bases.third;
+    const hasRunners = gs.bases.first !== null || gs.bases.second !== null || gs.bases.third !== null;
     if (hasRunners) return '⚠ WP/PB con corredores — confirma si avanzan';
   }
   return null;
@@ -448,7 +448,7 @@ export function LiveGameScoringPage() {
   const [runnerDetails, setRunnerDetails] = useState<RunnerDetail[]>([]);
   const [outSequence, setOutSequence] = useState('');
   const [catcherTarget, setCatcherTarget] = useState<CatcherTarget>({ mode: 'unknown' });
-  const [pitchMetrics, setPitchMetrics] = useState<PitchMetrics>({ velocityMph: '', umpireId: '', videoTimestamp: '', note: '' });
+  const [pitchMetrics, setPitchMetrics] = useState<PitchMetrics>({ velocityKmh: '', umpireId: '', videoTimestamp: '', note: '' });
   const [showMetrics, setShowMetrics] = useState(false);
   const [battingSideOverride, setBattingSideOverride] = useState<ActiveBatterSide>(null);
   const [rbi, setRbi] = useState(0);
@@ -484,7 +484,7 @@ export function LiveGameScoringPage() {
   // Lógica: procesar at-bats más recientes primero y asignar jugadores a bases ocupadas
   const inferRunnersFromHistory = useCallback((
     atBats: AtBatHistoryItem[],
-    bases: { first: boolean; second: boolean; third: boolean },
+    bases: { first: unknown; second: unknown; third: unknown },
     playerMeta: Record<string, { bats?: string; throws?: string }>,
     lineup: LineupEntry[],
   ): Partial<Record<'R1' | 'R2' | 'R3', { playerId: string; playerNum: string; playerName: string }>> => {
@@ -499,7 +499,7 @@ export function LiveGameScoringPage() {
     const result: Partial<Record<'R1' | 'R2' | 'R3', { playerId: string; playerNum: string; playerName: string }>> = {};
 
     // Necesitamos al menos los últimos at-bats suficientes para llenar las bases ocupadas
-    const occupied = (bases.first ? 1 : 0) + (bases.second ? 1 : 0) + (bases.third ? 1 : 0);
+    const occupied = (bases.first !== null ? 1 : 0) + (bases.second !== null ? 1 : 0) + (bases.third !== null ? 1 : 0);
     if (occupied === 0) return result;
 
     // Procesar de más reciente a más antiguo, asignando jugadores a bases vacantes
@@ -516,9 +516,9 @@ export function LiveGameScoringPage() {
 
       // Mapear base del at-bat a la etiqueta R1/R2/R3
       let label: 'R1' | 'R2' | 'R3' | null = null;
-      if (targetBase === '1B' && bases.first && !assigned.has('R1')) label = 'R1';
-      else if (targetBase === '2B' && bases.second && !assigned.has('R2')) label = 'R2';
-      else if (targetBase === '3B' && bases.third && !assigned.has('R3')) label = 'R3';
+      if (targetBase === '1B' && bases.first !== null && !assigned.has('R1')) label = 'R1';
+      else if (targetBase === '2B' && bases.second !== null && !assigned.has('R2')) label = 'R2';
+      else if (targetBase === '3B' && bases.third !== null && !assigned.has('R3')) label = 'R3';
 
       if (!label) continue;
 
@@ -717,7 +717,7 @@ export function LiveGameScoringPage() {
     setRunnerDetails([]);
     setOutSequence('');
     setCatcherTarget({ mode: 'unknown' });
-    setPitchMetrics({ velocityMph: '', umpireId: '', videoTimestamp: '', note: '' });
+    setPitchMetrics({ velocityKmh: '', umpireId: '', videoTimestamp: '', note: '' });
     setShowMetrics(false);
     setRbi(0);
     setRuns(0);
@@ -758,7 +758,13 @@ export function LiveGameScoringPage() {
     setError(null);
 
     try {
-      const velocityMph = pitchMetrics.velocityMph ? Number.parseFloat(pitchMetrics.velocityMph) : undefined;
+      const velocityKmh = pitchMetrics.velocityKmh ? Number.parseFloat(pitchMetrics.velocityKmh) : undefined;
+      const physicalFields = {
+        plate_x: selectedPitchCell.plate_x,
+        plate_z: selectedPitchCell.plate_z,
+        zone: selectedPitchCell.zone,
+        start_speed: Number.isFinite(velocityKmh) ? velocityKmh : undefined,
+      };
 
       if (selectedPitchResult === 'in_play') {
         // Registrar el pitcheo sin modificar conteo, luego pasar a captura ofensiva
@@ -769,13 +775,14 @@ export function LiveGameScoringPage() {
             col: selectedPitchCell.col,
             row: selectedPitchCell.row,
             pitchType: selectedPitchType,
-            velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
+            velocityKmh: Number.isFinite(velocityKmh) ? velocityKmh : undefined,
             umpireId: pitchMetrics.umpireId || undefined,
             videoTimestamp: pitchMetrics.videoTimestamp || undefined,
             note: pitchMetrics.note || undefined,
             catcherTargetMode: catcherTarget.mode,
             catcherTargetCol: catcherTarget.col,
             catcherTargetRow: catcherTarget.row,
+            ...physicalFields,
           }),
         });
         showPitchFeedback('En juego — captura ofensiva');
@@ -790,13 +797,14 @@ export function LiveGameScoringPage() {
           col: selectedPitchCell.col,
           row: selectedPitchCell.row,
           pitchType: selectedPitchType,
-          velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
+          velocityKmh: Number.isFinite(velocityKmh) ? velocityKmh : undefined,
           umpireId: pitchMetrics.umpireId || undefined,
           videoTimestamp: pitchMetrics.videoTimestamp || undefined,
           note: pitchMetrics.note || undefined,
           catcherTargetMode: catcherTarget.mode,
           catcherTargetCol: catcherTarget.col,
           catcherTargetRow: catcherTarget.row,
+          ...physicalFields,
         }),
       });
 
@@ -835,7 +843,7 @@ export function LiveGameScoringPage() {
     setError(null);
 
     try {
-      const velocityMph = pitchMetrics.velocityMph ? Number.parseFloat(pitchMetrics.velocityMph) : undefined;
+      const velocityKmh = pitchMetrics.velocityKmh ? Number.parseFloat(pitchMetrics.velocityKmh) : undefined;
       const result = await requestJson<{ action: string }>('/pitch', {
         method: 'POST',
         body: JSON.stringify({
@@ -843,13 +851,17 @@ export function LiveGameScoringPage() {
           col: selectedPitchCell?.col,
           row: selectedPitchCell?.row,
           pitchType: selectedPitchType || undefined,
-          velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
+          velocityKmh: Number.isFinite(velocityKmh) ? velocityKmh : undefined,
           umpireId: pitchMetrics.umpireId || undefined,
           videoTimestamp: pitchMetrics.videoTimestamp || undefined,
           note: pitchMetrics.note || undefined,
           catcherTargetMode: catcherTarget.mode,
           catcherTargetCol: catcherTarget.col,
           catcherTargetRow: catcherTarget.row,
+          plate_x: selectedPitchCell?.plate_x,
+          plate_z: selectedPitchCell?.plate_z,
+          zone: selectedPitchCell?.zone,
+          start_speed: Number.isFinite(velocityKmh) ? velocityKmh : undefined,
         }),
       });
 
@@ -1069,9 +1081,9 @@ export function LiveGameScoringPage() {
           ))}
         </div>
         <div className="relative h-[22px] w-[22px]">
-          <span className={`absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border ${gs.bases.second ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
-          <span className={`absolute bottom-0 left-0 h-2.5 w-2.5 rotate-45 border ${gs.bases.third ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
-          <span className={`absolute bottom-0 right-0 h-2.5 w-2.5 rotate-45 border ${gs.bases.first ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
+          <span className={`absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border ${gs.bases.second !== null ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
+          <span className={`absolute bottom-0 left-0 h-2.5 w-2.5 rotate-45 border ${gs.bases.third !== null ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
+          <span className={`absolute bottom-0 right-0 h-2.5 w-2.5 rotate-45 border ${gs.bases.first !== null ? 'border-mineros-gold bg-mineros-gold' : 'border-white/30 bg-transparent'}`} />
         </div>
         <span className="text-white/20">·</span>
         <span className="font-bebas text-sm text-white/70 whitespace-nowrap">
@@ -1394,7 +1406,7 @@ export function LiveGameScoringPage() {
                     </button>
                     {showMetrics ? (
                       <div className="mt-1 grid grid-cols-2 gap-1">
-                        <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" max="120" min="0" placeholder="km/h" type="number" onChange={(e) => setPitchMetrics((c) => ({ ...c, velocityMph: e.target.value }))} value={pitchMetrics.velocityMph} />
+                        <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" max="120" min="0" placeholder="km/h" type="number" onChange={(e) => setPitchMetrics((c) => ({ ...c, velocityKmh: e.target.value }))} value={pitchMetrics.velocityKmh} />
                         <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" placeholder="HP-01" type="text" onChange={(e) => setPitchMetrics((c) => ({ ...c, umpireId: e.target.value }))} value={pitchMetrics.umpireId} />
                         <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" placeholder="00:42:18" type="text" onChange={(e) => setPitchMetrics((c) => ({ ...c, videoTimestamp: e.target.value }))} value={pitchMetrics.videoTimestamp} />
                         <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" placeholder="Nota…" type="text" onChange={(e) => setPitchMetrics((c) => ({ ...c, note: e.target.value }))} value={pitchMetrics.note} />
@@ -1793,9 +1805,9 @@ export function LiveGameScoringPage() {
             {/* Corredores activos */}
             {(() => {
               const activeRunners: { label: 'R1' | 'R2' | 'R3'; from: string; next: '2B' | '3B' | 'HOME' }[] = [];
-              if (gs.bases.first) activeRunners.push({ label: 'R1', from: '1B', next: '2B' });
-              if (gs.bases.second) activeRunners.push({ label: 'R2', from: '2B', next: '3B' });
-              if (gs.bases.third) activeRunners.push({ label: 'R3', from: '3B', next: 'HOME' });
+              if (gs.bases.first !== null) activeRunners.push({ label: 'R1', from: '1B', next: '2B' });
+              if (gs.bases.second !== null) activeRunners.push({ label: 'R2', from: '2B', next: '3B' });
+              if (gs.bases.third !== null) activeRunners.push({ label: 'R3', from: '3B', next: 'HOME' });
 
               if (activeRunners.length === 0) {
                 return <p className="mb-3 text-center text-xs text-white/40">Sin corredores en base.</p>;
@@ -2073,13 +2085,13 @@ export function LiveGameScoringPage() {
               {/* Balk: todos los corredores avanzan 1 base */}
               <button
                 className="w-full rounded-lg border border-yellow-400/40 bg-yellow-400/10 px-3 py-2 text-left text-[12px] font-semibold text-yellow-200 transition hover:bg-yellow-400/20 disabled:opacity-40"
-                disabled={savingEvent || (!gs.bases.first && !gs.bases.second && !gs.bases.third)}
+                disabled={savingEvent || (gs.bases.first === null && gs.bases.second === null && gs.bases.third === null)}
                 title="Balk — movimiento ilegal del pitcher con corredores en base. Todos los corredores avanzan 1 base automáticamente. Carreras LIMPIAS (carga al pitcher)."
                 onClick={() => {
                   const moves: { runnerLabel: 'R1' | 'R2' | 'R3'; fromBase: string; toBase: '1B' | '2B' | '3B' | 'HOME' | 'OUT'; runScored: boolean; earnedRun: boolean }[] = [];
-                  if (gs.bases.third) moves.push({ runnerLabel: 'R3', fromBase: '3B', toBase: 'HOME', runScored: true, earnedRun: true });
-                  if (gs.bases.second) moves.push({ runnerLabel: 'R2', fromBase: '2B', toBase: '3B', runScored: false, earnedRun: true });
-                  if (gs.bases.first) moves.push({ runnerLabel: 'R1', fromBase: '1B', toBase: '2B', runScored: false, earnedRun: true });
+                  if (gs.bases.third !== null) moves.push({ runnerLabel: 'R3', fromBase: '3B', toBase: 'HOME', runScored: true, earnedRun: true });
+                  if (gs.bases.second !== null) moves.push({ runnerLabel: 'R2', fromBase: '2B', toBase: '3B', runScored: false, earnedRun: true });
+                  if (gs.bases.first !== null) moves.push({ runnerLabel: 'R1', fromBase: '1B', toBase: '2B', runScored: false, earnedRun: true });
                   void handleBaserunningEvent('balk', moves);
                 }}
                 type="button"

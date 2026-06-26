@@ -44,10 +44,18 @@ export interface GameScore {
   away: number;
 }
 
+export interface RunnerOnBase {
+  id: string;          // playerId del corredor (o placeholder anónimo)
+  name: string;        // nombre del corredor
+  number: number;      // número de jersey
+  originBase: 'first' | 'second' | 'third' | 'home';  // base de origen en este turno
+  earned: boolean;     // carrera ganada si anota
+}
+
 export interface GameBases {
-  first: boolean;
-  second: boolean;
-  third: boolean;
+  first: RunnerOnBase | null;
+  second: RunnerOnBase | null;
+  third: RunnerOnBase | null;
 }
 
 export interface GameCount {

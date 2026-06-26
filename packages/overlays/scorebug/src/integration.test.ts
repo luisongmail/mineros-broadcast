@@ -60,7 +60,7 @@ describe('Scorebug + GameEngine integration', () => {
   it('Scorebug refleja bases ocupadas', () => {
     const engine = new GameEngine('game-004', homeTeam, awayTeam);
     engine.startGame();
-    engine.setBases({ first: true, third: true });
+    engine.setBases({ first: { id: 'r1', name: '', number: 1, originBase: 'first', earned: true }, third: { id: 'r3', name: '', number: 3, originBase: 'third', earned: true } });
 
     render(Scorebug({ game: engine.getState() }));
 

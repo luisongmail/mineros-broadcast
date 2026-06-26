@@ -9,11 +9,12 @@ import type {
   GameScore,
   GameState,
   GameTeam,
+  RunnerOnBase,
 } from './types';
 import { DEFAULT_BASEBALL_RULES } from './types';
 import { validateBases, validateCount, validateIdentifier, validateLineup, validateOuts, validateScore, validateTeam } from './validators';
 
-const EMPTY_BASES: GameBases = { first: false, second: false, third: false };
+const EMPTY_BASES: GameBases = { first: null, second: null, third: null };
 const EMPTY_COUNT: GameCount = { balls: 0, strikes: 0 };
 type GameEngineEventName = GameEventType | 'event';
 type GameEngineListener = (event: GameEvent) => void;
@@ -248,14 +249,22 @@ export class GameEngine {
       const previousScore = this.clone(this.state.score);
       const b = this.state.bases;
 
-      // Algoritmo de avance forzado:
-      // Un corredor avanza sólo si la base que deja es "empujada" por el bateador
-      // → runner en 3ª anota SÓLO si había corredor en 1ª Y 2ª Y 3ª (bases llenas)
-      const scoredRun = b.first && b.second && b.third;
+      // Algoritmo de avance forzado con runner identity:
+      // Runner en 3ª anota SÓLO si bases llenas (forzado por la cadena completa)
+      const scoredRun = !!b.first && !!b.second && !!b.third;
+
+      // Corredor placeholder para el bateador (sin datos completos en GameEngine)
+      const batterRunner: RunnerOnBase = {
+        id: this.state.currentBatterId ?? `walk-${this.eventSequence}`,
+        name: '',
+        number: 0,
+        originBase: 'first',
+        earned: true,
+      };
       this.state.bases = {
-        first: true,                            // bateador siempre a 1ª
-        second: b.second || b.first,            // 2ª: estaba ocupada ó forzado desde 1ª
-        third: b.third || (b.second && b.first), // 3ª: estaba ocupada ó forzado desde 2ª (requiere que 1ª tb lo estuviera)
+        first: batterRunner,
+        second: b.first !== null ? b.first : b.second,           // runner de 1ª pasa a 2ª (o 2ª queda si no había en 1ª)
+        third: (b.first !== null && b.second !== null) ? b.second : b.third, // runner de 2ª pasa a 3ª (o 3ª queda si no forzado)
       };
 
       const previousCount = this.clone(this.state.count);

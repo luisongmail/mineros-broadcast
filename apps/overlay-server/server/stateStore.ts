@@ -9,6 +9,7 @@ import {
   type GameStatus,
   type InningHalf,
   type LineupEntry,
+  type RunnerOnBase,
   type TeamRole,
   validateLineup,
 } from '@mineros/game-engine';
@@ -231,7 +232,13 @@ function parseBaseValue(value: string | undefined): Partial<GameBases> {
     throw new Error('SetBase requires a boolean value');
   }
 
-  return { [base]: parseBooleanToken(occupied) } satisfies Partial<GameBases>;
+  // Convierte boolean a RunnerOnBase | null
+  const isOccupied = parseBooleanToken(occupied);
+  const runner: RunnerOnBase | null = isOccupied
+    ? { id: `anon-${base}`, name: '', number: 0, originBase: base, earned: true }
+    : null;
+
+  return { [base]: runner } satisfies Partial<GameBases>;
 }
 
 function parseBatterValue(value: string | undefined): string {
@@ -420,7 +427,7 @@ class StateStore {
       inningHalf: 'top',
       outs: 0,
       score: { home: 0, away: 0 },
-      bases: { first: false, second: false, third: false },
+      bases: { first: null, second: null, third: null },
       count: { balls: 0, strikes: 0 },
       lineup: current.lineup,
       currentBatterId: current.lineup.away[0]?.playerId ?? current.lineup.home[0]?.playerId,
