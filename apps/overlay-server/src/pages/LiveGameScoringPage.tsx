@@ -1149,7 +1149,8 @@ export function LiveGameScoringPage() {
                 ) : (
                   <>
                     <span className="text-[11px] text-white/55">
-                      Mano: <span className="font-semibold text-mineros-gold">{formatBatterSideLabel(batterSide)}</span>
+                      Mano: <span className="font-semibold text-mineros-gold">{formatBatterSideLabel(activeBattingSide)}</span>
+                      {battingSideOverride !== null ? <span className="ml-1 text-[10px] text-white/35">(manual)</span> : null}
                       <span className="mx-2 text-white/25">·</span>
                       <span className="text-white/70">{selectedPitchReading}</span>
                     </span>
