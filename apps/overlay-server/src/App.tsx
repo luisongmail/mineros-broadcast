@@ -33,6 +33,7 @@ import {
 } from './gameConfig';
 import { BroadcastPage } from './pages/BroadcastPage';
 import { createScoreboardOverlayData } from './scoreboardData';
+import { LiveGameScoringPage } from './pages/LiveGameScoringPage';
 import { OverlayPage } from './pages/OverlayPage';
 import { ScorerPage } from './pages/ScorerPage';
 
@@ -269,6 +270,7 @@ export function App() {
       <Route path="/overlay/:overlayId" element={<OverlayPage />} />
       <Route path="/control" element={<OperatorControlPanel />} />
       <Route path="/scorer" element={<ScorerPage />} />
+      <Route path="/live-game-scoring" element={<LiveGameScoringPage />} />
       <Route path="/" element={<OperatorControlPanel />} />
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
