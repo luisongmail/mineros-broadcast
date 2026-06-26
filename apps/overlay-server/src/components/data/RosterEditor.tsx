@@ -268,7 +268,7 @@ export function RosterEditor() {
                         style={playerDrawerOpen && playerForm.id === player.id ? selectedRowStyle : undefined}
                         onClick={(e) => openEditPlayer(player, e.currentTarget as HTMLTableRowElement)}
                       >
-                        <td className="px-2 py-1.5">
+                        <td className="p-2">
                           <AssetImage assetId={player.photoAssetId} alt={player.fullName} size={36} />
                         </td>
                         <td className={tableCellClass + ' text-white/40 font-mono'}>{player.number || '—'}</td>
@@ -315,7 +315,7 @@ export function RosterEditor() {
                         style={staffDrawerOpen && staffForm.id === member.id ? selectedRowStyle : undefined}
                         onClick={(e) => openEditStaff(member, e.currentTarget as HTMLTableRowElement)}
                       >
-                        <td className="px-2 py-1.5">
+                        <td className="p-2">
                           <AssetImage assetId={member.photoAssetId} alt={member.name} size={36} />
                         </td>
                         <td className={tableCellClass + ' font-medium'}>{member.name}</td>

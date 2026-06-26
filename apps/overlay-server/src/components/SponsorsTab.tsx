@@ -157,7 +157,7 @@ function SponsorCrudSection() {
                   style={drawerOpen && form.id === s.id ? selectedRowStyle : undefined}
                   onClick={() => openEdit(s)}
                 >
-                  <td className="px-2 py-1 align-middle">
+                  <td className="p-2 align-middle">
                     <AssetImage assetId={s.logoAssetId} alt={s.name} size={40} />
                   </td>
                   <td className={tableCellClass}>
