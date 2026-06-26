@@ -1662,7 +1662,7 @@ export function LiveGameScoringPage() {
                 <button
                   className={`rounded-lg border px-2 py-1 text-[11px] transition ${legendKey !== null ? 'border-mineros-gold/50 bg-mineros-gold/10 text-mineros-gold' : 'border-white/15 text-white/40 hover:border-white/35'}`}
                   onClick={() => setLegendKey((k) => (k !== null ? null : 'stolen_base'))}
-                  title="Ver leyenda de acciones"
+                  title="Ver descripción y consecuencias de cada tipo de evento"
                   type="button"
                 >? Leyenda</button>
                 <button
@@ -1840,30 +1840,35 @@ export function LiveGameScoringPage() {
                           className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-40"
                           disabled={savingEvent}
                           onClick={() => void handleBaserunningEvent('stolen_base', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true }])}
+                          title={`Stolen Base — ${r.label} roba ${r.next}. Carrera LIMPIA si anota.`}
                           type="button"
                         >SB → {r.next}</button>
                         <button
                           className="rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-200 transition hover:bg-red-500/20 disabled:opacity-40"
                           disabled={savingEvent}
                           onClick={() => void handleBaserunningEvent('caught_stealing', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
+                          title={`Caught Stealing — ${r.label} fue puesto out en intento de robo. +1 out.`}
                           type="button"
                         >CS</button>
                         <button
                           className="rounded-md border border-blue-400/40 bg-blue-400/10 px-2 py-1 text-[11px] text-blue-200 transition hover:bg-blue-400/20 disabled:opacity-40"
                           disabled={savingEvent}
                           onClick={() => void handleBaserunningEvent('wild_pitch_advance', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true }])}
+                          title={`Wild Pitch — el pitcher lanzó descontrolado y ${r.label} avanza a ${r.next}. Carrera LIMPIA (carga al pitcher).`}
                           type="button"
                         >WP → {r.next}</button>
                         <button
                           className="rounded-md border border-purple-400/40 bg-purple-400/10 px-2 py-1 text-[11px] text-purple-200 transition hover:bg-purple-400/20 disabled:opacity-40"
                           disabled={savingEvent}
                           onClick={() => void handleBaserunningEvent('passed_ball_advance', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: false }])}
+                          title={`Passed Ball — el receptor no detuvo un pitch que debía controlar y ${r.label} avanza a ${r.next}. Carrera SUCIA (error del catcher, no carga al pitcher).`}
                           type="button"
                         >PB → {r.next}</button>
                         <button
                           className="rounded-md border border-orange-400/40 bg-orange-400/10 px-2 py-1 text-[11px] text-orange-200 transition hover:bg-orange-400/20 disabled:opacity-40"
                           disabled={savingEvent}
                           onClick={() => void handleBaserunningEvent('pickoff_out', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
+                          title={`Pickoff Out — el pitcher o receptor tira a ${r.from} y pone out a ${r.label} que estaba muy lejos de la base. +1 out.`}
                           type="button"
                         >PO out</button>
                         {/* E tiro y SB+E abren el compound builder */}
@@ -1878,12 +1883,12 @@ export function LiveGameScoringPage() {
                               sideRunners: others.map((o) => ({ label: o.label, from: o.from, dest: 'same' })),
                             });
                           }}
+                          title={`Error de tiro — un fildeador tira mal y ${r.label} avanza más de lo esperado. Permite definir destino y el efecto sobre otros corredores. Carrera SUCIA.`}
                           type="button"
                         >E tiro ▾</button>
                         <button
                           className="rounded-md border border-emerald-400/30 bg-emerald-400/5 px-2 py-1 text-[11px] text-emerald-300/70 transition hover:bg-emerald-400/15 disabled:opacity-40"
                           disabled={savingEvent}
-                          title="Robo intentado + error en tiro del receptor"
                           onClick={() => {
                             const others = activeRunners.filter((ar) => ar.label !== r.label);
                             setCompoundEvent({
@@ -1892,6 +1897,7 @@ export function LiveGameScoringPage() {
                               sideRunners: others.map((o) => ({ label: o.label, from: o.from, dest: 'same' })),
                             });
                           }}
+                          title={`SB + Error de tiro — ${r.label} intenta robar, el receptor tira y comete error. Se acredita el robo (SB) y se define hasta dónde llega el corredor y qué pasa con los demás. Carrera SUCIA.`}
                           type="button"
                         >SB+E ▾</button>
                       </div>
@@ -1908,6 +1914,7 @@ export function LiveGameScoringPage() {
               <button
                 className="w-full rounded-lg border border-yellow-400/40 bg-yellow-400/10 px-3 py-2 text-left text-[12px] font-semibold text-yellow-200 transition hover:bg-yellow-400/20 disabled:opacity-40"
                 disabled={savingEvent || (!gs.bases.first && !gs.bases.second && !gs.bases.third)}
+                title="Balk — movimiento ilegal del pitcher con corredores en base. Todos los corredores avanzan 1 base automáticamente. Carreras LIMPIAS (carga al pitcher)."
                 onClick={() => {
                   const moves: { runnerLabel: 'R1' | 'R2' | 'R3'; fromBase: string; toBase: '1B' | '2B' | '3B' | 'HOME' | 'OUT'; runScored: boolean; earnedRun: boolean }[] = [];
                   if (gs.bases.third) moves.push({ runnerLabel: 'R3', fromBase: '3B', toBase: 'HOME', runScored: true, earnedRun: true });
