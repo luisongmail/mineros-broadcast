@@ -49,7 +49,7 @@ interface CatcherTarget {
 }
 
 interface PitchMetrics {
-  velocityMph: string;
+  velocityKmh: string;
   umpireId: string;
   videoTimestamp: string;
   note: string;
@@ -448,7 +448,7 @@ export function LiveGameScoringPage() {
   const [runnerDetails, setRunnerDetails] = useState<RunnerDetail[]>([]);
   const [outSequence, setOutSequence] = useState('');
   const [catcherTarget, setCatcherTarget] = useState<CatcherTarget>({ mode: 'unknown' });
-  const [pitchMetrics, setPitchMetrics] = useState<PitchMetrics>({ velocityMph: '', umpireId: '', videoTimestamp: '', note: '' });
+  const [pitchMetrics, setPitchMetrics] = useState<PitchMetrics>({ velocityKmh: '', umpireId: '', videoTimestamp: '', note: '' });
   const [showMetrics, setShowMetrics] = useState(false);
   const [battingSideOverride, setBattingSideOverride] = useState<ActiveBatterSide>(null);
   const [rbi, setRbi] = useState(0);
@@ -717,7 +717,7 @@ export function LiveGameScoringPage() {
     setRunnerDetails([]);
     setOutSequence('');
     setCatcherTarget({ mode: 'unknown' });
-    setPitchMetrics({ velocityMph: '', umpireId: '', videoTimestamp: '', note: '' });
+    setPitchMetrics({ velocityKmh: '', umpireId: '', videoTimestamp: '', note: '' });
     setShowMetrics(false);
     setRbi(0);
     setRuns(0);
@@ -758,7 +758,13 @@ export function LiveGameScoringPage() {
     setError(null);
 
     try {
-      const velocityMph = pitchMetrics.velocityMph ? Number.parseFloat(pitchMetrics.velocityMph) : undefined;
+      const velocityKmh = pitchMetrics.velocityKmh ? Number.parseFloat(pitchMetrics.velocityKmh) : undefined;
+      const physicalFields = {
+        plate_x: selectedPitchCell.plate_x,
+        plate_z: selectedPitchCell.plate_z,
+        zone: selectedPitchCell.zone,
+        start_speed: Number.isFinite(velocityKmh) ? velocityKmh : undefined,
+      };
 
       if (selectedPitchResult === 'in_play') {
         // Registrar el pitcheo sin modificar conteo, luego pasar a captura ofensiva
@@ -769,13 +775,14 @@ export function LiveGameScoringPage() {
             col: selectedPitchCell.col,
             row: selectedPitchCell.row,
             pitchType: selectedPitchType,
-            velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
+            velocityKmh: Number.isFinite(velocityKmh) ? velocityKmh : undefined,
             umpireId: pitchMetrics.umpireId || undefined,
             videoTimestamp: pitchMetrics.videoTimestamp || undefined,
             note: pitchMetrics.note || undefined,
             catcherTargetMode: catcherTarget.mode,
             catcherTargetCol: catcherTarget.col,
             catcherTargetRow: catcherTarget.row,
+            ...physicalFields,
           }),
         });
         showPitchFeedback('En juego — captura ofensiva');
@@ -790,13 +797,14 @@ export function LiveGameScoringPage() {
           col: selectedPitchCell.col,
           row: selectedPitchCell.row,
           pitchType: selectedPitchType,
-          velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
+          velocityKmh: Number.isFinite(velocityKmh) ? velocityKmh : undefined,
           umpireId: pitchMetrics.umpireId || undefined,
           videoTimestamp: pitchMetrics.videoTimestamp || undefined,
           note: pitchMetrics.note || undefined,
           catcherTargetMode: catcherTarget.mode,
           catcherTargetCol: catcherTarget.col,
           catcherTargetRow: catcherTarget.row,
+          ...physicalFields,
         }),
       });
 
@@ -835,7 +843,7 @@ export function LiveGameScoringPage() {
     setError(null);
 
     try {
-      const velocityMph = pitchMetrics.velocityMph ? Number.parseFloat(pitchMetrics.velocityMph) : undefined;
+      const velocityKmh = pitchMetrics.velocityKmh ? Number.parseFloat(pitchMetrics.velocityKmh) : undefined;
       const result = await requestJson<{ action: string }>('/pitch', {
         method: 'POST',
         body: JSON.stringify({
@@ -843,13 +851,17 @@ export function LiveGameScoringPage() {
           col: selectedPitchCell?.col,
           row: selectedPitchCell?.row,
           pitchType: selectedPitchType || undefined,
-          velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
+          velocityKmh: Number.isFinite(velocityKmh) ? velocityKmh : undefined,
           umpireId: pitchMetrics.umpireId || undefined,
           videoTimestamp: pitchMetrics.videoTimestamp || undefined,
           note: pitchMetrics.note || undefined,
           catcherTargetMode: catcherTarget.mode,
           catcherTargetCol: catcherTarget.col,
           catcherTargetRow: catcherTarget.row,
+          plate_x: selectedPitchCell?.plate_x,
+          plate_z: selectedPitchCell?.plate_z,
+          zone: selectedPitchCell?.zone,
+          start_speed: Number.isFinite(velocityKmh) ? velocityKmh : undefined,
         }),
       });
 
@@ -1394,7 +1406,7 @@ export function LiveGameScoringPage() {
                     </button>
                     {showMetrics ? (
                       <div className="mt-1 grid grid-cols-2 gap-1">
-                        <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" max="120" min="0" placeholder="km/h" type="number" onChange={(e) => setPitchMetrics((c) => ({ ...c, velocityMph: e.target.value }))} value={pitchMetrics.velocityMph} />
+                        <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" max="120" min="0" placeholder="km/h" type="number" onChange={(e) => setPitchMetrics((c) => ({ ...c, velocityKmh: e.target.value }))} value={pitchMetrics.velocityKmh} />
                         <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" placeholder="HP-01" type="text" onChange={(e) => setPitchMetrics((c) => ({ ...c, umpireId: e.target.value }))} value={pitchMetrics.umpireId} />
                         <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" placeholder="00:42:18" type="text" onChange={(e) => setPitchMetrics((c) => ({ ...c, videoTimestamp: e.target.value }))} value={pitchMetrics.videoTimestamp} />
                         <input className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white outline-none focus:border-mineros-gold" placeholder="Nota…" type="text" onChange={(e) => setPitchMetrics((c) => ({ ...c, note: e.target.value }))} value={pitchMetrics.note} />

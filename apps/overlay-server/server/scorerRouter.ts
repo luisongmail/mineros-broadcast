@@ -56,13 +56,25 @@ interface PitchRequest {
   col?: number;
   row?: number;
   pitchType?: string;
-  velocityMph?: number;
+  velocityKmh?: number;
   umpireId?: string;
   videoTimestamp?: string;
   note?: string;
   catcherTargetMode?: string;
   catcherTargetCol?: number;
   catcherTargetRow?: number;
+  // Campos estándar métricos (spec 29)
+  plate_x?: number;
+  plate_z?: number;
+  zone?: number;
+  start_speed?: number;
+  pfx_x?: number;
+  pfx_z?: number;
+  spin_rate?: number;
+  spin_axis?: number;
+  pitch_class?: string;
+  confidence?: number;
+  device_id?: string;
 }
 
 interface ApiSuccessResponse {
@@ -404,13 +416,25 @@ function parsePitchRequest(body: unknown): PitchRequest {
     col: parseOptionalGridCoordinate(body.col, 'col'),
     row: parseOptionalGridCoordinate(body.row, 'row'),
     pitchType: parseOptionalString(body.pitchType, 'pitchType'),
-    velocityMph: parseOptionalFloat(body.velocityMph, 'velocityMph'),
+    velocityKmh: parseOptionalFloat(body.velocityKmh, 'velocityKmh'),
     umpireId: parseOptionalString(body.umpireId, 'umpireId'),
     videoTimestamp: parseOptionalString(body.videoTimestamp, 'videoTimestamp'),
     note: parseOptionalString(body.note, 'note'),
     catcherTargetMode: parseOptionalString(body.catcherTargetMode, 'catcherTargetMode'),
     catcherTargetCol: parseOptionalGridCoordinate(body.catcherTargetCol, 'catcherTargetCol'),
     catcherTargetRow: parseOptionalGridCoordinate(body.catcherTargetRow, 'catcherTargetRow'),
+    // Campos estándar métricos (spec 29)
+    plate_x: parseOptionalFloat(body.plate_x, 'plate_x'),
+    plate_z: parseOptionalFloat(body.plate_z, 'plate_z'),
+    zone: parseOptionalGridCoordinate(body.zone, 'zone'),
+    start_speed: parseOptionalFloat(body.start_speed, 'start_speed'),
+    pfx_x: parseOptionalFloat(body.pfx_x, 'pfx_x'),
+    pfx_z: parseOptionalFloat(body.pfx_z, 'pfx_z'),
+    spin_rate: parseOptionalGridCoordinate(body.spin_rate, 'spin_rate'),
+    spin_axis: parseOptionalGridCoordinate(body.spin_axis, 'spin_axis'),
+    pitch_class: parseOptionalString(body.pitch_class, 'pitch_class'),
+    confidence: parseOptionalFloat(body.confidence, 'confidence'),
+    device_id: parseOptionalString(body.device_id, 'device_id'),
   };
 }
 
@@ -656,12 +680,6 @@ async function insertPitch(request: PitchRequest): Promise<void> {
     placeholders.push('?');
   }
 
-  if (columns.has('velocity_mph')) {
-    insertColumns.push('velocity_mph');
-    insertValues.push(request.velocityMph ?? null);
-    placeholders.push('?');
-  }
-
   if (columns.has('umpire_id')) {
     insertColumns.push('umpire_id');
     insertValues.push(request.umpireId ?? null);
@@ -708,6 +726,30 @@ async function insertPitch(request: PitchRequest): Promise<void> {
     insertColumns.push('zone_y');
     insertValues.push(request.row ?? null);
     placeholders.push('?');
+  }
+
+  // Campos estándar métricos (spec 29)
+  const metricFields: Array<[string, number | string | null | undefined]> = [
+    ['plate_x', request.plate_x],
+    ['plate_z', request.plate_z],
+    ['zone', request.zone],
+    ['sz_top', null],
+    ['sz_bottom', null],
+    ['pfx_x', request.pfx_x],
+    ['pfx_z', request.pfx_z],
+    ['start_speed', request.start_speed ?? request.velocityKmh],
+    ['spin_rate', request.spin_rate],
+    ['spin_axis', request.spin_axis],
+    ['pitch_class', request.pitch_class],
+    ['confidence', request.confidence],
+    ['device_id', request.device_id],
+  ];
+  for (const [col, val] of metricFields) {
+    if (columns.has(col) && val !== undefined) {
+      insertColumns.push(col);
+      insertValues.push(val ?? null);
+      placeholders.push('?');
+    }
   }
 
   if (columns.has('at_bat_id')) {

@@ -119,6 +119,19 @@ export function toIsoString(value: unknown): string {
   return typeof value === 'string' ? value : String(value);
 }
 
+export function optionalFloat(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 export function toTinyInt(value: boolean): 0 | 1 {
   return value ? 1 : 0;
 }
