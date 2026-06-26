@@ -459,7 +459,7 @@ export function LiveGameScoringPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pitchFeedback, setPitchFeedback] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
 
   const loadHistory = useCallback(async (gameId: string) => {
     const payload = await requestJson<AtBatHistoryItem[]>(`/at-bats/${encodeURIComponent(gameId)}`);
@@ -558,7 +558,6 @@ export function LiveGameScoringPage() {
       setSelectedHitDirection(null);
       setSelectedHitQuality(null);
       setRunnerDetails([]);
-      if (selectedResult) setCurrentStep(2);
       return;
     }
     const auto = applyResultAutoLogic(selectedResult, context.gameState.bases);
@@ -693,7 +692,7 @@ export function LiveGameScoringPage() {
           }),
         });
         showPitchFeedback('En juego — captura ofensiva');
-        setCurrentStep(3);
+        setCurrentStep(2);
         return;
       }
 
@@ -1006,9 +1005,8 @@ export function LiveGameScoringPage() {
           <div className="flex flex-none gap-1 rounded-xl bg-black/25 p-1">
             {([
               [1, '① Lanzamiento'],
-              [2, '② Resultado'],
-              [3, '③ En juego'],
-            ] as const).map(([step, label]) => (
+              [2, '② Jugada'],
+            ] as [1|2, string][]).map(([step, label]) => (
               <button
                 key={step}
                 className={`flex-1 rounded-lg py-1.5 text-xs font-semibold uppercase tracking-wider transition ${currentStep === step ? 'bg-mineros-navy text-mineros-gold shadow' : 'text-white/40 hover:text-white/70'}`}
@@ -1148,7 +1146,7 @@ export function LiveGameScoringPage() {
                             className={`rounded-lg border py-1.5 text-[10px] font-semibold leading-tight transition ${colorClass}`}
                             onClick={() => {
                               setSelectedPitchResult(option.value);
-                              if (option.value === 'in_play') setCurrentStep(3);
+                              if (option.value === 'in_play') setCurrentStep(2);
                             }}
                             type="button"
                           >
@@ -1211,7 +1209,7 @@ export function LiveGameScoringPage() {
                       <button
                         className="rounded-xl bg-emerald-600 px-4 py-2.5 font-bebas text-base uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700 disabled:opacity-50"
                         disabled={!selectedPitchCell || !selectedPitchType}
-                        onClick={() => setCurrentStep(3)}
+                        onClick={() => setCurrentStep(2)}
                         type="button"
                       >
                         En juego → Captura ofensiva
@@ -1251,75 +1249,8 @@ export function LiveGameScoringPage() {
             </div>
           ) : null}
 
-          {/* ─ PASO 2: RESULTADO DEL TURNO ─ */}
+          {/* ─ PASO 2: JUGADA ─ */}
           {currentStep === 2 ? (
-            <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-4 gap-1.5">
-                {RESULT_OPTIONS.map((option) => {
-                  const active = selectedResult === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      className={`rounded-lg border py-2 text-[11px] font-semibold uppercase tracking-wider transition ${resultToneClass(option.tone, active)}`}
-                      onClick={() => {
-                        setSelectedResult(option.value);
-                        setCurrentStep(CONTACT_REQUIRED_RESULTS.has(option.value) ? 3 : 2);
-                      }}
-                      type="button"
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex items-end gap-3">
-                <div className="flex-1">
-                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Bateador</p>
-                  <select
-                    className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white outline-none transition focus:border-mineros-gold"
-                    onChange={(e) => setSelectedBatterId(e.target.value)}
-                    value={selectedBatterId}
-                  >
-                    <option value="">Seleccionar…</option>
-                    {context.battingLineup.map((player) => (
-                      <option key={player.playerId} value={player.playerId}>#{player.number} {player.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">RBI</p>
-                  <div className="flex items-center gap-1">
-                    <button className="h-8 w-8 rounded-lg border border-white/10 bg-black/30 text-sm text-white hover:border-white/30" onClick={() => setRbi(Math.max(0, rbi - 1))} type="button">−</button>
-                    <span className="w-8 rounded-lg bg-black/30 py-1 text-center font-bebas text-2xl">{rbi}</span>
-                    <button className="h-8 w-8 rounded-lg border border-white/10 bg-black/30 text-sm text-white hover:border-white/30" onClick={() => setRbi(rbi + 1)} type="button">+</button>
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Carreras</p>
-                  <div className="flex items-center gap-1">
-                    <button className="h-8 w-8 rounded-lg border border-white/10 bg-black/30 text-sm text-white hover:border-white/30" onClick={() => setRuns(Math.max(0, runs - 1))} type="button">−</button>
-                    <span className="w-8 rounded-lg bg-black/30 py-1 text-center font-bebas text-2xl">{runs}</span>
-                    <button className="h-8 w-8 rounded-lg border border-white/10 bg-black/30 text-sm text-white hover:border-white/30" onClick={() => setRuns(runs + 1)} type="button">+</button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  className="rounded-xl bg-mineros-red px-6 py-2.5 font-bebas text-lg uppercase tracking-[0.16em] text-white transition hover:bg-red-700 disabled:opacity-50"
-                  disabled={!canSubmitAtBat || savingAtBat}
-                  onClick={() => void handleSubmitAtBat()}
-                  type="button"
-                >
-                  {savingAtBat ? 'Registrando…' : 'Confirmar resultado'}
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {/* ─ PASO 3: CAPTURA OFENSIVA ─ */}
-          {currentStep === 3 ? (
             <div className="flex flex-col gap-2">
 
               {/* Resultado del turno — requerido para in_play */}
@@ -1412,7 +1343,8 @@ export function LiveGameScoringPage() {
                 </div>
               </div>
 
-              {/* ── CAMPO VISUAL + VIA DEL OUT ─────────────────────────────── */}
+              {/* ── CAMPO VISUAL + VIA DEL OUT — solo cuando hay contacto ─── */}
+              {selectedResult && CONTACT_REQUIRED_RESULTS.has(selectedResult) ? (<>
               <div className="flex gap-3 items-start">
 
                 {/* SVG Baseball Field con botones superpuestos */}
@@ -1547,6 +1479,8 @@ export function LiveGameScoringPage() {
                 </div>
               </div>
 
+              </>) : null}
+
               <div className="flex gap-2">
                 <button
                   className="flex-1 rounded-xl bg-mineros-red px-4 py-2.5 font-bebas text-lg uppercase tracking-[0.16em] text-white transition hover:bg-red-700 disabled:opacity-50"
@@ -1558,7 +1492,7 @@ export function LiveGameScoringPage() {
                 </button>
                 <button
                   className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/55 transition hover:border-white/30"
-                  onClick={() => { setSelectedContactType(null); setSelectedHitDirection(null); setSelectedHitQuality(null); setRunnerDetails([]); setOutSequence(''); setCurrentStep(2); }}
+                  onClick={() => { setSelectedContactType(null); setSelectedHitDirection(null); setSelectedHitQuality(null); setRunnerDetails([]); setOutSequence(''); setSelectedResult(null); setCurrentStep(1); }}
                   type="button"
                 >
                   Cancelar
