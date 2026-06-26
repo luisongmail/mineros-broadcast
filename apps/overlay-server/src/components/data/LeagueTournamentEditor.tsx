@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { generateId, request, toErrorMessage } from './api';
 import { mockCategories, mockLeagues, mockTeams, mockTournaments } from './mockData';
-import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
+import { SearchSelect } from './SearchSelect';
+import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass, tableClass, tableBodyClass, tableHeadRowClass, tableRowClass } from './shared';
 import { normalizeCategory, normalizeLeague, normalizeTeam, normalizeTournament, type Category, type League, type Team, type Tournament, type TournamentGroup } from './types';
 
 const emptyLeague = (): League => ({ id: '', name: '', shortName: '', country: '', logoAssetId: '', active: true });
@@ -278,9 +279,9 @@ export function LeagueTournamentEditor() {
         <SectionCard title="Ligas" actions={<button type="button" className={secondaryButtonClass} onClick={() => setLeagueForm(emptyLeague())}>Nueva</button>}>
           <div className="space-y-2">
             {leagues.map((league) => (
-              <button key={league.id} type="button" onClick={() => setSelectedLeagueId(league.id)} className={`w-full rounded-md border px-3 py-2 text-left text-sm ${selectedLeagueId === league.id ? 'border-blue-500 bg-blue-600/20 text-white' : 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
+              <button key={league.id} type="button" onClick={() => setSelectedLeagueId(league.id)} className={`w-full rounded-md border px-3 py-2 text-left text-sm transition ${selectedLeagueId === league.id ? 'border-mineros-gold/50 bg-mineros-gold/10 text-white' : 'border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.06]'}`}>
                 <div className="font-semibold">{league.name}</div>
-                <div className="text-xs text-gray-400">{league.shortName || league.country || 'Sin metadata'}</div>
+                <div className="text-xs text-white/40">{league.shortName || league.country || 'Sin metadata'}</div>
               </button>
             ))}
             {leagues.length === 0 && <EmptyState message="No hay ligas registradas." />}
@@ -290,7 +291,7 @@ export function LeagueTournamentEditor() {
             <Field label="Nombre corto"><input className={fieldClass} value={leagueForm.shortName} onChange={(event) => setLeagueForm((current) => ({ ...current, shortName: event.target.value }))} /></Field>
             <Field label="País"><input className={fieldClass} value={leagueForm.country} onChange={(event) => setLeagueForm((current) => ({ ...current, country: event.target.value }))} /></Field>
             <Field label="Logo asset ID"><input className={fieldClass} placeholder="ej: teams/logo-mineros" value={leagueForm.logoAssetId} onChange={(event) => setLeagueForm((current) => ({ ...current, logoAssetId: event.target.value }))} /></Field>
-            <label className="flex items-center gap-2 text-sm text-gray-200"><input type="checkbox" checked={leagueForm.active} onChange={(event) => setLeagueForm((current) => ({ ...current, active: event.target.checked }))} />Activa</label>
+            <label className="flex items-center gap-2 text-sm text-white/70"><input type="checkbox" checked={leagueForm.active} onChange={(event) => setLeagueForm((current) => ({ ...current, active: event.target.checked }))} />Activa</label>
             <div className="flex flex-wrap gap-2">
               <button type="submit" disabled={saving} className={primaryButtonClass}>{saving ? 'Guardando...' : 'Guardar'}</button>
               <button type="button" className={secondaryButtonClass} onClick={() => setLeagueForm(emptyLeague())}>Cancelar</button>
@@ -305,9 +306,9 @@ export function LeagueTournamentEditor() {
               <EmptyState message="No hay torneos para la liga seleccionada." />
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-700">
+                <table className={tableClass}>
                   <thead>
-                    <tr>
+                    <tr className={tableHeadRowClass}>
                       <th className={tableHeaderClass}>Nombre</th>
                       <th className={tableHeaderClass}>Categoría</th>
                       <th className={tableHeaderClass}>Tipo</th>
@@ -315,14 +316,14 @@ export function LeagueTournamentEditor() {
                       <th className={tableHeaderClass}>Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800">
+                  <tbody className={tableBodyClass}>
                     {tournamentsForLeague.map((tournament) => (
-                      <tr key={tournament.id}>
+                      <tr key={tournament.id} className={tableRowClass}>
                         <td className={tableCellClass}>{tournament.name}</td>
-                        <td className={tableCellClass}>{categoryMap.get(tournament.categoryId) ?? '—'}</td>
-                        <td className={tableCellClass}>{tournament.structureType}</td>
+                        <td className={`${tableCellClass} text-white/50`}>{categoryMap.get(tournament.categoryId) ?? '—'}</td>
+                        <td className={`${tableCellClass} text-white/40`}>{tournament.structureType}</td>
                         <td className={tableCellClass}>{tournament.status}</td>
-                        <td className={tableCellClass}>
+                        <td className={tableCellClass} onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-2">
                             <button type="button" className={secondaryButtonClass} onClick={() => { setSelectedTournamentId(tournament.id); setTournamentForm(tournament); }}>Editar</button>
                             <button type="button" className={dangerButtonClass} onClick={() => { void deleteTournament(tournament.id); }}>Eliminar</button>
@@ -341,17 +342,17 @@ export function LeagueTournamentEditor() {
               <div className="grid gap-3 md:grid-cols-2">
                 <Field label="Nombre"><input required className={fieldClass} value={tournamentForm.name} onChange={(event) => setTournamentForm((current) => ({ ...current, name: event.target.value }))} /></Field>
                 <Field label="Nombre corto"><input className={fieldClass} value={tournamentForm.shortName} onChange={(event) => setTournamentForm((current) => ({ ...current, shortName: event.target.value }))} /></Field>
-                <Field label="Liga"><select className={fieldClass} value={tournamentForm.leagueId} onChange={(event) => setTournamentForm((current) => ({ ...current, leagueId: event.target.value }))}>{leagues.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}</select></Field>
-                <Field label="Categoría"><select className={fieldClass} value={tournamentForm.categoryId} onChange={(event) => setTournamentForm((current) => ({ ...current, categoryId: event.target.value }))}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field>
-                <Field label="Tipo de torneo"><select className={fieldClass} value={tournamentForm.type} onChange={(event) => setTournamentForm((current) => ({ ...current, type: event.target.value }))}><option value="league">Liga</option><option value="tournament">Torneo</option><option value="exhibition">Exhibición</option><option value="playoff">Playoff</option></select></Field>
+                <Field label="Liga"><SearchSelect options={leagues.map((l) => ({ value: l.id, label: l.name }))} value={tournamentForm.leagueId} onChange={(v) => setTournamentForm((c) => ({ ...c, leagueId: v }))} placeholder="Seleccionar liga…" /></Field>
+                <Field label="Categoría"><SearchSelect options={categories.map((c) => ({ value: c.id, label: c.name }))} value={tournamentForm.categoryId} onChange={(v) => setTournamentForm((c) => ({ ...c, categoryId: v }))} placeholder="Seleccionar categoría…" /></Field>
+                <Field label="Tipo de torneo"><SearchSelect options={[{ value: 'league', label: 'Liga' }, { value: 'tournament', label: 'Torneo' }, { value: 'exhibition', label: 'Exhibición' }, { value: 'playoff', label: 'Playoff' }]} value={tournamentForm.type} onChange={(v) => setTournamentForm((c) => ({ ...c, type: v }))} /></Field>
                 <Field label="Temporada"><input className={fieldClass} placeholder="ej: 2025" value={tournamentForm.season} onChange={(event) => setTournamentForm((current) => ({ ...current, season: event.target.value }))} /></Field>
-                <Field label="Estructura"><select className={fieldClass} value={tournamentForm.structureType} onChange={(event) => setTournamentForm((current) => ({ ...current, structureType: event.target.value as Tournament['structureType'] }))}><option value="round_robin">round_robin</option><option value="single_elimination">single_elimination</option><option value="group_stage">group_stage</option><option value="exhibition">exhibition</option></select></Field>
+                <Field label="Estructura"><SearchSelect options={[{ value: 'round_robin', label: 'Round Robin' }, { value: 'single_elimination', label: 'Eliminación directa' }, { value: 'group_stage', label: 'Fase de grupos' }, { value: 'exhibition', label: 'Exhibición' }]} value={tournamentForm.structureType} onChange={(v) => setTournamentForm((c) => ({ ...c, structureType: v as Tournament['structureType'] }))} /></Field>
                 {tournamentForm.structureType === 'round_robin' && <Field label="Número de vueltas"><input className={fieldClass} type="number" min={1} value={tournamentForm.roundRobinRounds} onChange={(event) => setTournamentForm((current) => ({ ...current, roundRobinRounds: Number(event.target.value) || 1 }))} /></Field>}
-                <label className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"><input type="checkbox" checked={tournamentForm.hasPlayoffs} onChange={(event) => setTournamentForm((current) => ({ ...current, hasPlayoffs: event.target.checked, playoffFormat: event.target.checked ? current.playoffFormat || 'semifinal_final' : '' }))} />Tiene playoffs</label>
-                {tournamentForm.hasPlayoffs && <Field label="Formato"><select className={fieldClass} value={tournamentForm.playoffFormat} onChange={(event) => setTournamentForm((current) => ({ ...current, playoffFormat: event.target.value as Tournament['playoffFormat'] }))}><option value="semifinal_final">semifinal_final</option><option value="quarterfinal_semi_final">quarterfinal_semi_final</option></select></Field>}
+                <label className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/80"><input type="checkbox" checked={tournamentForm.hasPlayoffs} onChange={(event) => setTournamentForm((current) => ({ ...current, hasPlayoffs: event.target.checked, playoffFormat: event.target.checked ? current.playoffFormat || 'semifinal_final' : '' }))} />Tiene playoffs</label>
+                {tournamentForm.hasPlayoffs && <Field label="Formato playoff"><SearchSelect options={[{ value: 'semifinal_final', label: 'Semifinal + Final' }, { value: 'quarterfinal_semi_final', label: 'Cuartos + Semi + Final' }]} value={tournamentForm.playoffFormat} onChange={(v) => setTournamentForm((c) => ({ ...c, playoffFormat: v as Tournament['playoffFormat'] }))} /></Field>}
                 <Field label="Fecha inicio"><input className={fieldClass} type="date" value={tournamentForm.startDate} onChange={(event) => setTournamentForm((current) => ({ ...current, startDate: event.target.value }))} /></Field>
                 <Field label="Fecha fin"><input className={fieldClass} type="date" value={tournamentForm.endDate} onChange={(event) => setTournamentForm((current) => ({ ...current, endDate: event.target.value }))} /></Field>
-                <Field label="Status"><select className={fieldClass} value={tournamentForm.status} onChange={(event) => setTournamentForm((current) => ({ ...current, status: event.target.value as Tournament['status'] }))}><option value="upcoming">upcoming</option><option value="active">active</option><option value="finished">finished</option></select></Field>
+                <Field label="Status"><SearchSelect options={[{ value: 'upcoming', label: 'Próximo' }, { value: 'active', label: 'Activo' }, { value: 'finished', label: 'Finalizado' }]} value={tournamentForm.status} onChange={(v) => setTournamentForm((c) => ({ ...c, status: v as Tournament['status'] }))} /></Field>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="submit" disabled={saving} className={primaryButtonClass}>{saving ? 'Guardando...' : 'Guardar'}</button>
@@ -371,23 +372,25 @@ export function LeagueTournamentEditor() {
                 {selectedTournament.groups.map((group) => {
                   const availableTeams = teams.filter((team) => !group.teamIds.includes(team.id));
                   return (
-                    <div key={group.id} className="rounded-md border border-gray-700 bg-gray-800 p-3">
+                    <div key={group.id} className="rounded-md border border-white/10 bg-white/[0.03] p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <h4 className="font-semibold text-white">{group.name}</h4>
                         <button type="button" className={dangerButtonClass} onClick={() => { void removeGroup(group.id); }}>Eliminar grupo</button>
                       </div>
                       <div className="mb-3 flex flex-wrap gap-2">
-                        {group.teamIds.length === 0 ? <span className="text-sm text-gray-400">Sin equipos asignados.</span> : group.teamIds.map((teamId) => (
-                          <button key={teamId} type="button" className="rounded-full border border-gray-600 bg-gray-900 px-3 py-1 text-xs text-gray-200 hover:border-red-500" onClick={() => { void removeTeamFromGroup(group.id, teamId); }}>
+                        {group.teamIds.length === 0 ? <span className="text-sm text-white/40">Sin equipos asignados.</span> : group.teamIds.map((teamId) => (
+                          <button key={teamId} type="button" className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70 hover:border-red-400 hover:text-red-300 transition" onClick={() => { void removeTeamFromGroup(group.id, teamId); }}>
                             {teamMap.get(teamId) ?? teamId} ×
                           </button>
                         ))}
                       </div>
                       <div className="flex gap-2">
-                        <select className={fieldClass} value={pendingTeamsByGroup[group.id] ?? ''} onChange={(event) => setPendingTeamsByGroup((current) => ({ ...current, [group.id]: event.target.value }))}>
-                          <option value="">Agregar equipo...</option>
-                          {availableTeams.map((team) => <option key={team.id} value={team.id}>{team.fullName}</option>)}
-                        </select>
+                        <SearchSelect
+                          options={[{ value: '', label: 'Agregar equipo…' }, ...availableTeams.map((t) => ({ value: t.id, label: t.fullName }))]}
+                          value={pendingTeamsByGroup[group.id] ?? ''}
+                          onChange={(v) => setPendingTeamsByGroup((c) => ({ ...c, [group.id]: v }))}
+                          placeholder="Agregar equipo…"
+                        />
                         <button type="button" className={secondaryButtonClass} onClick={() => { void addTeamToGroup(group.id); }} disabled={!pendingTeamsByGroup[group.id]}>Agregar</button>
                       </div>
                     </div>
@@ -404,26 +407,26 @@ export function LeagueTournamentEditor() {
                 <EmptyState message="No hay tabla de posiciones disponible todavía." />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-700">
+                  <table className={tableClass}>
                     <thead>
-                      <tr>
+                      <tr className={tableHeadRowClass}>
                         {['Pos', 'Equipo', 'JG', 'JP', 'JE', 'PCT', 'RA', 'RC', 'Dif'].map((label) => <th key={label} className={tableHeaderClass}>{label}</th>)}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-800">
+                    <tbody className={tableBodyClass}>
                       {[...selectedTournament.standings]
                         .sort((a, b) => (b.pct - a.pct) || (b.runDiff - a.runDiff))
                         .map((row, index) => (
-                          <tr key={row.teamId}>
-                            <td className={tableCellClass}>{index + 1}</td>
+                          <tr key={row.teamId} className={tableRowClass}>
+                            <td className={`${tableCellClass} text-white/40 font-mono text-center`}>{index + 1}</td>
                             <td className={tableCellClass}>{teamMap.get(row.teamId) ?? row.teamId}</td>
-                            <td className={tableCellClass}>{row.wins}</td>
-                            <td className={tableCellClass}>{row.losses}</td>
-                            <td className={tableCellClass}>{row.ties}</td>
-                            <td className={tableCellClass}>{row.pct.toFixed(3)}</td>
-                            <td className={tableCellClass}>{row.runsAllowed}</td>
-                            <td className={tableCellClass}>{row.runsScored}</td>
-                            <td className={tableCellClass}>{row.runDiff}</td>
+                            <td className={`${tableCellClass} text-white/50 tabular-nums`}>{row.wins}</td>
+                            <td className={`${tableCellClass} text-white/50 tabular-nums`}>{row.losses}</td>
+                            <td className={`${tableCellClass} text-white/50 tabular-nums`}>{row.ties}</td>
+                            <td className={`${tableCellClass} font-mono tabular-nums`}>{row.pct.toFixed(3)}</td>
+                            <td className={`${tableCellClass} text-white/50 tabular-nums`}>{row.runsAllowed}</td>
+                            <td className={`${tableCellClass} text-white/50 tabular-nums`}>{row.runsScored}</td>
+                            <td className={`${tableCellClass} font-mono tabular-nums ${row.runDiff > 0 ? 'text-emerald-300' : row.runDiff < 0 ? 'text-red-400' : 'text-white/40'}`}>{row.runDiff > 0 ? `+${row.runDiff}` : row.runDiff}</td>
                           </tr>
                         ))}
                     </tbody>

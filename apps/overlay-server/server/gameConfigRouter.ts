@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import { randomUUID } from 'node:crypto';
 import type { RowDataPacket } from 'mysql2';
 
 import {
@@ -22,6 +23,7 @@ type MysqlGameRow = {
   venue?: string | null;
   season?: string | null;
   game_number?: number | null;
+  game_name?: string | null;
   game_state?: Record<string, unknown> | null;
   home_team: MysqlTeamRow | null;
   away_team: MysqlTeamRow | null;
@@ -64,6 +66,7 @@ type MysqlGameQueryRow = RowDataPacket & {
   venue: string | null;
   season: string | null;
   game_number: number | null;
+  game_name: string | null;
   game_state: Record<string, unknown> | null;
   ht_id: string | null;
   ht_name: string | null;
@@ -222,6 +225,7 @@ function mapGameRow(row: MysqlGameQueryRow): MysqlGameRow {
     venue: row.venue,
     season: row.season,
     game_number: row.game_number,
+    game_name: row.game_name,
     game_state: row.game_state,
     home_team: mapTeamRow(row, 'ht'),
     away_team: mapTeamRow(row, 'at'),
@@ -290,7 +294,8 @@ function normalizeGameDetail(gameRow: MysqlGameRow, lineupRows: MysqlLineupRow[]
     awayTeam,
     source: 'mysql',
     isDemo: false,
-    label: formatGameLabel(homeTeam, awayTeam),
+    label: gameRow.game_name ?? formatGameLabel(homeTeam, awayTeam),
+    gameName: gameRow.game_name ?? undefined,
     inning: parseNumber(extractGameStateValue(rawState, 'inning'), 1),
     inningHalf: parseString(extractGameStateValue(rawState, 'inningHalf'), ['top', 'bottom'] as const, 'top'),
     outs: parseNumber(extractGameStateValue(rawState, 'outs'), 0),
@@ -316,8 +321,11 @@ function normalizeGameDetail(gameRow: MysqlGameRow, lineupRows: MysqlLineupRow[]
   };
 }
 
-async function getGamesFromMySQL(): Promise<GameConfigDetail[]> {
+async function getGamesFromMySQL(allStatuses = false): Promise<GameConfigDetail[]> {
   const databasePool = getDatabasePool();
+  const statusFilter = allStatuses
+    ? ''
+    : `WHERE g.status IN ('scheduled', 'pre_game', 'live', 'paused', 'between_innings')`;
   const [gameRows] = await databasePool.query<MysqlGameQueryRow[]>(`
     SELECT
       g.id,
@@ -326,6 +334,7 @@ async function getGamesFromMySQL(): Promise<GameConfigDetail[]> {
       g.venue,
       g.season,
       g.game_number,
+      g.game_name,
       g.game_state,
       ht.id AS ht_id,
       ht.name AS ht_name,
@@ -346,8 +355,8 @@ async function getGamesFromMySQL(): Promise<GameConfigDetail[]> {
     FROM games g
     LEFT JOIN teams ht ON g.home_team_id = ht.id
     LEFT JOIN teams at ON g.away_team_id = at.id
-    WHERE g.status IN ('scheduled', 'pre_game', 'live', 'paused', 'between_innings')
-    ORDER BY g.scheduled_at ASC
+    ${statusFilter}
+    ORDER BY g.scheduled_at DESC
   `);
 
   const mappedGameRows = gameRows.map(mapGameRow);
@@ -391,14 +400,14 @@ async function getLineupsFromMySQL(gameId: string): Promise<MysqlLineupRow[]> {
   return lineupRows.map(mapLineupRow);
 }
 
-async function getAvailableGames(): Promise<{ games: GameConfigDetail[]; source: GameConfigSource; usingDemo: boolean }> {
+async function getAvailableGames(allStatuses = false): Promise<{ games: GameConfigDetail[]; source: GameConfigSource; usingDemo: boolean }> {
   if (!hasDatabaseConfigured()) {
     return { games: [DEMO_GAME_DETAIL], source: 'demo', usingDemo: true };
   }
 
   try {
-    const games = await getGamesFromMySQL();
-    if (games.length === 0) {
+    const games = await getGamesFromMySQL(allStatuses);
+    if (games.length === 0 && !allStatuses) {
       return { games: [DEMO_GAME_DETAIL], source: 'demo', usingDemo: true };
     }
 
@@ -426,9 +435,10 @@ async function getGameDetail(gameId: string): Promise<{ game: GameConfigDetail; 
 
 export const gameConfigRouter = Router();
 
-gameConfigRouter.get('/games', async (_request: Request, response: Response) => {
+gameConfigRouter.get('/games', async (request: Request, response: Response) => {
   try {
-    const result = await getAvailableGames();
+    const allStatuses = request.query.all === 'true';
+    const result = await getAvailableGames(allStatuses);
     sendSuccess(response, {
       games: result.games.map((game) => buildGameSummary(game, result.source)),
       source: result.source,
@@ -453,6 +463,11 @@ gameConfigRouter.post('/games/:id/load', async (request: Request, response: Resp
     const result = await getGameDetail(request.params.id);
     const { game } = result;
 
+    // Marcar el partido como en curso en la DB
+    if (pool) {
+      await pool.query(`UPDATE games SET status = 'live' WHERE id = ?`, [game.id]);
+    }
+
     stateStore.loadGameSnapshot(toGameLoadSnapshot(game));
     stateStore.sendCommand('SetLineupHome', JSON.stringify(toLineupEntries(game.lineups.home)));
     stateStore.sendCommand('SetLineupAway', JSON.stringify(toLineupEntries(game.lineups.away)));
@@ -469,11 +484,39 @@ gameConfigRouter.post('/games/:id/load', async (request: Request, response: Resp
     stateStore.broadcast();
 
     sendSuccess(response, {
-      game,
+      game: { ...game, status: 'live' },
       state: stateStore.getState(),
       source: result.source,
       usingDemo: result.usingDemo,
       message: `Partido cargado: ${formatGameLabel(game.homeTeam, game.awayTeam)}`,
+    });
+  } catch (error) {
+    sendError(response, error);
+  }
+});
+
+gameConfigRouter.post('/games/:id/finish', async (request: Request, response: Response) => {
+  try {
+    const gameId = request.params.id;
+
+    if (pool) {
+      await pool.query(`UPDATE games SET status = 'final' WHERE id = ?`, [gameId]);
+    }
+
+    // Finaliza el engine solo si tiene este partido cargado
+    const currentState = stateStore.getState();
+    if (currentState.gameId === gameId) {
+      try {
+        stateStore.sendCommand('EndGame');
+      } catch {
+        // Ya estaba finalizado
+      }
+      stateStore.broadcast();
+    }
+
+    sendSuccess(response, {
+      gameId,
+      message: 'Partido finalizado.',
     });
   } catch (error) {
     sendError(response, error);
@@ -486,7 +529,6 @@ gameConfigRouter.post('/games/:id/reset', async (request: Request, response: Res
     const { game } = result;
     const gameId = game.id;
 
-    // Borrar historial de at-bats y sesión guardada del partido
     if (pool) {
       await pool.query('DELETE FROM at_bats WHERE game_id = ?', [gameId]);
       await pool.query('DELETE FROM broadcast_sessions WHERE game_id = ?', [gameId]);
@@ -514,6 +556,94 @@ gameConfigRouter.post('/games/:id/reset', async (request: Request, response: Res
       usingDemo: result.usingDemo,
       message: `Partido reiniciado: ${formatGameLabel(game.homeTeam, game.awayTeam)}`,
     });
+  } catch (error) {
+    sendError(response, error);
+  }
+});
+
+// PUT /games/:id — actualizar campos editables del partido
+gameConfigRouter.put('/games/:id', async (request: Request, response: Response) => {
+  const { id } = request.params;
+  const { gameName, venue, scheduledAt, homeTeamId, awayTeamId } = request.body as {
+    gameName?: string | null;
+    venue?: string | null;
+    scheduledAt?: string | null;
+    homeTeamId?: string | null;
+    awayTeamId?: string | null;
+  };
+
+  try {
+    const pool = getDatabasePool();
+
+    const updates: string[] = [];
+    const values: (string | null)[] = [];
+
+    if (gameName !== undefined) {
+      updates.push('game_name = ?');
+      values.push(gameName?.trim() || null);
+    }
+    if (venue !== undefined) {
+      updates.push('venue = ?');
+      values.push(venue?.trim() || null);
+    }
+    if (scheduledAt !== undefined) {
+      updates.push('scheduled_at = ?');
+      values.push(scheduledAt);
+    }
+    if (homeTeamId !== undefined) {
+      updates.push('home_team_id = ?');
+      values.push(homeTeamId?.trim() || null);
+    }
+    if (awayTeamId !== undefined) {
+      updates.push('away_team_id = ?');
+      values.push(awayTeamId?.trim() || null);
+    }
+
+    if (updates.length === 0) {
+      sendSuccess(response, { message: 'Sin cambios' });
+      return;
+    }
+
+    values.push(id);
+    await pool.query(`UPDATE games SET ${updates.join(', ')} WHERE id = ?`, values);
+
+    sendSuccess(response, { id, message: 'Partido actualizado' });
+  } catch (error) {
+    sendError(response, error);
+  }
+});
+
+// POST /games — crear un nuevo partido
+gameConfigRouter.post('/games', async (request: Request, response: Response) => {
+  const { gameName, venue, scheduledAt, homeTeamId, awayTeamId, status } = request.body as {
+    gameName?: string | null;
+    venue?: string | null;
+    scheduledAt?: string | null;
+    homeTeamId?: string | null;
+    awayTeamId?: string | null;
+    status?: string;
+  };
+
+  try {
+    const pool = getDatabasePool();
+    const id = `game-${randomUUID()}`;
+    const at = scheduledAt ?? new Date().toISOString();
+
+    await pool.query(
+      `INSERT INTO games (id, game_name, venue, scheduled_at, home_team_id, away_team_id, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        gameName?.trim() || null,
+        venue?.trim() || null,
+        at,
+        homeTeamId?.trim() || null,
+        awayTeamId?.trim() || null,
+        status ?? 'scheduled',
+      ],
+    );
+
+    sendSuccess(response, { id, message: 'Partido creado' });
   } catch (error) {
     sendError(response, error);
   }

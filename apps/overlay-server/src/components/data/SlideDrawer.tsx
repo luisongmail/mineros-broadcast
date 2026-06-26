@@ -49,17 +49,17 @@ export function SlideDrawer({ open, title, onClose, anchorRef, children }: Slide
       {/* Panel lateral — fixed para mantenerse en el viewport independiente del scroll */}
       <div
         ref={drawerRef}
-        className={`fixed right-0 z-50 flex w-full max-w-md flex-col border-l border-gray-700 bg-gray-900 shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed right-0 z-50 flex w-full max-w-md flex-col border-l border-white/10 bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{ top: 0, bottom: 0 }}
       >
         {/* Header del drawer */}
-        <div className="flex shrink-0 items-center justify-between border-b border-gray-700 px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-3">
           <h3 className="text-sm font-semibold text-white">{title}</h3>
           <button
             type="button"
-            className="rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-white"
+            className="rounded-md p-1 text-white/40 hover:bg-white/10 hover:text-white"
             onClick={onClose}
             aria-label="Cerrar"
           >

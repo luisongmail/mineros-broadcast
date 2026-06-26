@@ -33,17 +33,24 @@ interface TeamRow extends RowDataPacket {
   id: string;
   name: string;
   short_name: string;
+  abbreviation: string | null;
   logo_asset_id: string | null;
   logo_wordmark_asset_id: string | null;
   logo_alternate_asset_id: string | null;
   city: string | null;
   country: string | null;
+  club_id: string | null;
+  club_name: string | null;
+  club_federated: number | null;
+  club_association_id: string | null;
+  club_association_name: string | null;
   primary_color: string | null;
   secondary_color: string | null;
   founded_year: number | null;
   active: 0 | 1;
   created_at: string | Date;
   updated_at: string | Date;
+  category_ids_csv: string | null;
 }
 
 interface CategoryRow extends RowDataPacket {
@@ -108,17 +115,24 @@ interface TeamPayload {
   id: string;
   name: string;
   short_name: string;
+  abbreviation: string | null;
   logo_asset_id: string | null;
   logo_wordmark_asset_id: string | null;
   logo_alternate_asset_id: string | null;
   city: string | null;
   country: string | null;
+  club_id: string | null;
+  club_name: string | null;
+  club_federated: boolean;
+  club_association_id: string | null;
+  club_association_name: string | null;
   primary_color: string | null;
   secondary_color: string | null;
   founded_year: number | null;
   active: boolean;
   created_at: string;
   updated_at: string;
+  category_ids: string[];
 }
 
 interface CategoryPayload {
@@ -211,21 +225,29 @@ interface NormalizedRosterInput {
 }
 
 function mapTeam(row: TeamRow | DemoTeam): TeamPayload {
+  const r = row as TeamRow;
   return {
     id: row.id,
     name: row.name,
     short_name: row.short_name,
+    abbreviation: r.abbreviation ?? null,
     logo_asset_id: row.logo_asset_id,
     logo_wordmark_asset_id: row.logo_wordmark_asset_id,
     logo_alternate_asset_id: row.logo_alternate_asset_id,
     city: row.city,
     country: row.country,
+    club_id: r.club_id ?? null,
+    club_name: r.club_name ?? null,
+    club_federated: Boolean(r.club_federated),
+    club_association_id: r.club_association_id ?? null,
+    club_association_name: r.club_association_name ?? null,
     primary_color: row.primary_color,
     secondary_color: row.secondary_color,
     founded_year: row.founded_year,
     active: Boolean(row.active),
     created_at: toIsoString(row.created_at),
     updated_at: toIsoString(row.updated_at),
+    category_ids: r.category_ids_csv ? r.category_ids_csv.split(',').filter(Boolean) : [],
   };
 }
 
@@ -506,14 +528,19 @@ async function loadTeamDetail(teamId: string): Promise<TeamDetailPayload | null>
     };
   }
 
-  const [rows] = await pool.query<TeamRow[]>(
-    `SELECT id, name, short_name, logo_asset_id, logo_wordmark_asset_id, logo_alternate_asset_id,
-            city, country, primary_color, secondary_color, founded_year, active, created_at, updated_at
-     FROM teams
-     WHERE id = ? AND active = 1
-     LIMIT 1`,
-    [teamId],
-  );
+    const [rows] = await pool.query<TeamRow[]>(
+      `SELECT t.id, t.name, t.short_name, t.abbreviation, t.logo_asset_id, t.logo_wordmark_asset_id, t.logo_alternate_asset_id,
+              t.city, t.country, t.club_id, c.name AS club_name, c.federated AS club_federated,
+              c.association_id AS club_association_id, a.name AS club_association_name,
+              t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at,
+              (SELECT GROUP_CONCAT(tc2.category_id SEPARATOR ',') FROM team_categories tc2 WHERE tc2.team_id = t.id) AS category_ids_csv
+       FROM teams t
+       LEFT JOIN clubs c ON c.id = t.club_id
+       LEFT JOIN associations a ON a.id = c.association_id
+       WHERE t.id = ? AND t.active = 1
+       LIMIT 1`,
+      [teamId],
+    );
 
   if (rows.length === 0) {
     return null;
@@ -560,10 +587,15 @@ router.get('/teams', async (request: Request, response: Response) => {
     }
 
     const [rows] = await pool.query<TeamRow[]>(
-      `SELECT DISTINCT t.id, t.name, t.short_name, t.logo_asset_id, t.logo_wordmark_asset_id,
-              t.logo_alternate_asset_id, t.city, t.country, t.primary_color, t.secondary_color,
-              t.founded_year, t.active, t.created_at, t.updated_at
+      `SELECT DISTINCT t.id, t.name, t.short_name, t.abbreviation, t.logo_asset_id, t.logo_wordmark_asset_id,
+              t.logo_alternate_asset_id, t.city, t.country, t.club_id,
+              c.name AS club_name, c.federated AS club_federated,
+              c.association_id AS club_association_id, a.name AS club_association_name,
+              t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at,
+              (SELECT GROUP_CONCAT(tc2.category_id SEPARATOR ',') FROM team_categories tc2 WHERE tc2.team_id = t.id) AS category_ids_csv
        FROM teams t
+       LEFT JOIN clubs c ON c.id = t.club_id
+       LEFT JOIN associations a ON a.id = c.association_id
        ${joins.join(' ')}
        WHERE ${filters.join(' AND ')}
        ORDER BY t.name ASC`,
@@ -619,18 +651,20 @@ router.post('/teams', async (request: Request, response: Response) => {
       await connection.beginTransaction();
       await connection.query<ResultSetHeader>(
         `INSERT INTO teams (
-          id, name, short_name, logo_asset_id, logo_wordmark_asset_id, logo_alternate_asset_id,
-          city, country, primary_color, secondary_color, founded_year, active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, name, short_name, abbreviation, logo_asset_id, logo_wordmark_asset_id, logo_alternate_asset_id,
+          city, country, club_id, primary_color, secondary_color, founded_year, active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           name,
           shortName,
+          optionalString(body.abbreviation)?.slice(0, 4).toUpperCase() ?? null,
           optionalString(body.logo_asset_id),
           optionalString(body.logo_wordmark_asset_id),
           optionalString(body.logo_alternate_asset_id),
           optionalString(body.city),
           optionalString(body.country) ?? 'DO',
+          optionalString(body.club_id) ?? null,
           optionalString(body.primary_color),
           optionalString(body.secondary_color),
           optionalInteger(body.founded_year),
@@ -675,11 +709,13 @@ router.put('/teams/:id', async (request: Request, response: Response) => {
     const stringFields: Array<[keyof TeamMutationBody, string]> = [
       ['name', 'name'],
       ['short_name', 'short_name'],
+      ['abbreviation', 'abbreviation'],
       ['logo_asset_id', 'logo_asset_id'],
       ['logo_wordmark_asset_id', 'logo_wordmark_asset_id'],
       ['logo_alternate_asset_id', 'logo_alternate_asset_id'],
       ['city', 'city'],
       ['country', 'country'],
+      ['club_id', 'club_id'],
       ['primary_color', 'primary_color'],
       ['secondary_color', 'secondary_color'],
     ];

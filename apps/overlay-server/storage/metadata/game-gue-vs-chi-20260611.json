@@ -1,0 +1,42 @@
+{
+  "gameId": "game-gue-vs-chi-20260611",
+  "sponsors": [
+    {
+      "sponsorId": "sponsor-merchise",
+      "displayName": "Merchise",
+      "priority": 1,
+      "active": true
+    },
+    {
+      "sponsorId": "sponsor-merchise-online",
+      "displayName": "Merchise Online Services",
+      "logoAssetId": "brands/mols-logo",
+      "priority": 85,
+      "active": true
+    },
+    {
+      "sponsorId": "sponsor-storeware",
+      "displayName": "Storeware",
+      "logoAssetId": "brands/storeware-logo",
+      "priority": 80,
+      "active": true
+    }
+  ],
+  "branding": {
+    "brandName": "Mineros Broadcast",
+    "brandLogoAssetId": "brands/mineros-broadcast-logo"
+  },
+  "competition": {
+    "name": "",
+    "tournament": "",
+    "category": ""
+  },
+  "venue": {
+    "name": ""
+  },
+  "game": {
+    "gameType": "",
+    "remainingTime": "",
+    "configuredInnings": 7
+  }
+}

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { generateId, request, toErrorMessage } from './api';
 import { mockCategories } from './mockData';
+import { SearchSelect } from './SearchSelect';
 import { SlideDrawer } from './SlideDrawer';
-import { EmptyState, Feedback, Field, LoadingState, SectionCard, fieldClass, primaryButtonClass, dangerButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
+import { EmptyState, Feedback, Field, LoadingState, RowDeleteButton, fieldClass, filterSelectClass, primaryButtonClass, searchInputClass, secondaryButtonClass, selectedRowStyle, tableCellClass, tableHeaderClass, tableClass, tableBodyClass, tableHeadRowClass, tableRowClass } from './shared';
 import { normalizeCategory, type Category } from './types';
 
 type Sport = { id: string; name: string; gender: string };
@@ -26,6 +27,15 @@ export function CategoryEditor() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filterName, setFilterName] = useState('');
+  const [filterSport, setFilterSport] = useState('');
+
+  const filtered = useMemo(() => categories.filter((c) => {
+    const q = filterName.toLowerCase();
+    if (q && !c.name.toLowerCase().includes(q)) return false;
+    if (filterSport && c.sportId !== filterSport) return false;
+    return true;
+  }), [categories, filterName, filterSport]);
   const anchorRef = useRef<HTMLTableRowElement | null>(null);
 
   const sportName = (id: string) => sports.find((s) => s.id === id)?.name ?? id;
@@ -155,60 +165,59 @@ export function CategoryEditor() {
       {error && <Feedback tone="error" message={error} />}
       {message && <Feedback tone="success" message={message} />}
 
-      <SectionCard
-        title="Categorías registradas"
-        actions={
-          <button type="button" className={primaryButtonClass} onClick={openNew}>
-            + Nueva categoría
-          </button>
-        }
-      >
-        {categories.length === 0 ? (
-          <EmptyState message="No hay categorías todavía." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700 text-left">
-              <thead>
-                <tr>
-                  <th className={tableHeaderClass}>Nombre</th>
-                  <th className={tableHeaderClass}>Deporte</th>
-                  <th className={tableHeaderClass}>Edad</th>
-                  <th className={tableHeaderClass}>Estado</th>
-                  <th className={tableHeaderClass}>Acciones</th>
+      {/* Header uniforme */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35 shrink-0">🏷️ Categorías</h3>
+        <input
+          className={searchInputClass}
+          placeholder="Buscar categoría…"
+          value={filterName}
+          onChange={(e) => setFilterName(e.target.value)}
+        />
+        <select className={filterSelectClass} value={filterSport} onChange={(e) => setFilterSport(e.target.value)}>
+          <option value="">Todos los deportes</option>
+          {sports.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <button type="button" className={primaryButtonClass} onClick={openNew}>+ Nueva categoría</button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyState message={categories.length === 0 ? 'No hay categorías todavía.' : 'Sin resultados.'} />
+      ) : (
+        <div className="rounded border border-white/10 overflow-hidden">
+          <table className={tableClass}>
+            <thead>
+              <tr className={tableHeadRowClass}>
+                <th className={tableHeaderClass}>Nombre</th>
+                <th className={tableHeaderClass}>Deporte</th>
+                <th className={tableHeaderClass}>Edad</th>
+                <th className={tableHeaderClass}>Estado</th>
+                <th className={tableHeaderClass + ' w-10'}></th>
+              </tr>
+            </thead>
+            <tbody className={tableBodyClass}>
+              {filtered.map((category) => (
+                <tr
+                  key={category.id}
+                  className={tableRowClass}
+                  style={drawerOpen && form.id === category.id ? selectedRowStyle : undefined}
+                  onClick={(e) => openEdit(category, e.currentTarget)}
+                >
+                  <td className={tableCellClass}>{category.name}</td>
+                  <td className={`${tableCellClass} text-white/50`}>{sportName(category.sportId)}</td>
+                  <td className={`${tableCellClass} text-white/40`}>{ageLabel(category.ageMin, category.ageMax)}</td>
+                  <td className={tableCellClass}>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${category.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/40'}`}>
+                      {category.active ? 'Activa' : 'Inactiva'}
+                    </span>
+                  </td>
+                  <RowDeleteButton onDelete={() => { void handleDelete(category.id); }} />
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {categories.map((category) => (
-                  <tr key={category.id} className="hover:bg-gray-800/40">
-                    <td className={tableCellClass}>{category.name}</td>
-                    <td className={tableCellClass}>{sportName(category.sportId)}</td>
-                    <td className={`${tableCellClass} text-gray-400`}>{ageLabel(category.ageMin, category.ageMax)}</td>
-                    <td className={tableCellClass}>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${category.active ? 'bg-green-900/40 text-green-400' : 'bg-gray-700 text-gray-400'}`}>
-                        {category.active ? 'Activa' : 'Inactiva'}
-                      </span>
-                    </td>
-                    <td className={tableCellClass}>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className={secondaryButtonClass}
-                          onClick={(e) => { openEdit(category, e.currentTarget.closest('tr') as HTMLTableRowElement); }}
-                        >
-                          Editar
-                        </button>
-                        <button type="button" className={dangerButtonClass} onClick={() => { void handleDelete(category.id); }}>
-                          Eliminar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </SectionCard>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Drawer lateral de edición */}
       <SlideDrawer
@@ -222,12 +231,14 @@ export function CategoryEditor() {
             <input required className={fieldClass} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
           </Field>
           <Field label="Deporte">
-            <select className={fieldClass} value={form.sportId} onChange={(event) => setForm((current) => ({ ...current, sportId: event.target.value }))}>
-              {sports.length === 0
-                ? <option value={form.sportId}>{form.sportId}</option>
-                : sports.map((sport) => <option key={sport.id} value={sport.id}>{sport.name}</option>)
-              }
-            </select>
+            <SearchSelect
+              options={sports.length === 0
+                ? [{ value: form.sportId, label: form.sportId }]
+                : sports.map((sport) => ({ value: sport.id, label: sport.name }))}
+              value={form.sportId}
+              onChange={(v) => setForm((c) => ({ ...c, sportId: v }))}
+              placeholder="Seleccionar deporte…"
+            />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Edad mínima">
@@ -256,11 +267,11 @@ export function CategoryEditor() {
           <Field label="Descripción">
             <textarea className={`${fieldClass} min-h-20`} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
           </Field>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-white/70">
             <input type="checkbox" checked={form.active} onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))} />
             Activa
           </label>
-          <div className="flex gap-2 border-t border-gray-700 pt-4">
+          <div className="flex gap-2 border-t border-white/10 pt-4">
             <button type="submit" disabled={saving} className={primaryButtonClass}>
               {saving ? 'Guardando...' : 'Guardar'}
             </button>

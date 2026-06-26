@@ -12,7 +12,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Router, type Request, type Response } from 'express';
+import type { RowDataPacket } from 'mysql2';
 
+import { hasDatabaseConfigured, pool } from './db';
 import type { MatchMetadata, SponsorEntry } from '../src/matchMetadata';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -54,10 +56,36 @@ matchMetadataRouter.get('/games/:id/metadata', (req: Request, res: Response) => 
   res.json({ result: 'ok', payload: metadata });
 });
 
+/** Valida que todos los sponsorIds del array existan en MySQL. Devuelve los IDs inválidos. */
+async function validateSponsorIds(entries: SponsorEntry[]): Promise<string[]> {
+  if (!hasDatabaseConfigured() || !pool || entries.length === 0) return [];
+  const ids = entries.map((e) => e.sponsorId);
+  const placeholders = ids.map(() => '?').join(',');
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id FROM sponsors WHERE id IN (${placeholders})`,
+    ids,
+  );
+  const found = new Set((rows as { id: string }[]).map((r) => r.id));
+  return ids.filter((id) => !found.has(id));
+}
+
 // PUT /api/games/:id/metadata  — reemplaza todo el metadata
-matchMetadataRouter.put('/games/:id/metadata', (req: Request, res: Response) => {
+matchMetadataRouter.put('/games/:id/metadata', async (req: Request, res: Response) => {
   const { id } = req.params;
   const body = req.body as Partial<MatchMetadata>;
+
+  // Validar sponsors si vienen en el body
+  if (Array.isArray(body.sponsors) && body.sponsors.length > 0) {
+    const invalid = await validateSponsorIds(body.sponsors);
+    if (invalid.length > 0) {
+      res.status(400).json({
+        result: 'error',
+        payload: { message: `Sponsors no registrados: ${invalid.join(', ')}. Regístralos en el tab Sponsors primero.` },
+      });
+      return;
+    }
+  }
+
   const current = readMetadata(id);
   const updated: MatchMetadata = { ...current, ...body, gameId: id };
   writeMetadata(id, updated);
@@ -65,13 +93,24 @@ matchMetadataRouter.put('/games/:id/metadata', (req: Request, res: Response) => 
 });
 
 // PATCH /api/games/:id/metadata/sponsors  — reemplaza solo la lista de sponsors
-matchMetadataRouter.patch('/games/:id/metadata/sponsors', (req: Request, res: Response) => {
+matchMetadataRouter.patch('/games/:id/metadata/sponsors', async (req: Request, res: Response) => {
   const { id } = req.params;
   const { sponsors } = req.body as { sponsors: SponsorEntry[] };
   if (!Array.isArray(sponsors)) {
     res.status(400).json({ result: 'error', payload: { message: 'sponsors debe ser un array' } });
     return;
   }
+
+  // Validar que todos los IDs existan en la tabla sponsors
+  const invalid = await validateSponsorIds(sponsors);
+  if (invalid.length > 0) {
+    res.status(400).json({
+      result: 'error',
+      payload: { message: `Sponsors no registrados: ${invalid.join(', ')}. Regístralos en el tab Sponsors primero.` },
+    });
+    return;
+  }
+
   const current = readMetadata(id);
   const updated: MatchMetadata = { ...current, gameId: id, sponsors };
   writeMetadata(id, updated);

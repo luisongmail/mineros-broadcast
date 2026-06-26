@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { generateId, request, toErrorMessage } from './api';
 import { mockSponsors } from './mockData';
-import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass } from './shared';
+import { SearchSelect } from './SearchSelect';
+import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass, tableClass, tableBodyClass, tableHeadRowClass, tableRowClass } from './shared';
 import { normalizeSponsor, type Sponsor } from './types';
 
 const emptySponsor = (): Sponsor => ({
@@ -123,9 +124,9 @@ export function SponsorEditor() {
           <EmptyState message="No hay sponsors registrados." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700">
+            <table className={tableClass}>
               <thead>
-                <tr>
+                <tr className={tableHeadRowClass}>
                   <th className={tableHeaderClass}>Nombre</th>
                   <th className={tableHeaderClass}>Logo</th>
                   <th className={tableHeaderClass}>Prioridad</th>
@@ -134,15 +135,19 @@ export function SponsorEditor() {
                   <th className={tableHeaderClass}>Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800">
+              <tbody className={tableBodyClass}>
                 {sponsors.map((sponsor) => (
-                  <tr key={sponsor.id}>
+                  <tr key={sponsor.id} className={tableRowClass}>
                     <td className={tableCellClass}>{sponsor.name}</td>
-                    <td className={tableCellClass}>{sponsor.logoAssetId || '—'}</td>
-                    <td className={tableCellClass}>{sponsor.priority}</td>
+                    <td className={`${tableCellClass} text-white/40 font-mono text-[10px]`}>{sponsor.logoAssetId || '—'}</td>
+                    <td className={`${tableCellClass} text-white/50`}>{sponsor.priority}</td>
                     <td className={tableCellClass}>{sponsor.status}</td>
-                    <td className={tableCellClass}>{sponsor.active ? 'Sí' : 'No'}</td>
                     <td className={tableCellClass}>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${sponsor.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/40'}`}>
+                        {sponsor.active ? 'Sí' : 'No'}
+                      </span>
+                    </td>
+                    <td className={tableCellClass} onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-2">
                         <button type="button" className={secondaryButtonClass} onClick={() => setForm(sponsor)}>Editar</button>
                         <button type="button" className={dangerButtonClass} onClick={() => { void handleDelete(sponsor.id); }}>Eliminar</button>
@@ -172,14 +177,18 @@ export function SponsorEditor() {
               <input className={fieldClass} type="number" min={1} max={100} value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: Number(event.target.value) || 1 }))} />
             </Field>
             <Field label="Status">
-              <select className={fieldClass} value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as Sponsor['status'] }))}>
-                <option value="draft">draft</option>
-                <option value="active">active</option>
-                <option value="paused">paused</option>
-                <option value="ended">ended</option>
-              </select>
+              <SearchSelect
+                options={[
+                  { value: 'draft', label: 'Draft' },
+                  { value: 'active', label: 'Activo' },
+                  { value: 'paused', label: 'Pausado' },
+                  { value: 'ended', label: 'Finalizado' },
+                ]}
+                value={form.status}
+                onChange={(v) => setForm((c) => ({ ...c, status: v as Sponsor['status'] }))}
+              />
             </Field>
-            <label className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200">
+            <label className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/80">
               <input type="checkbox" checked={form.active} onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))} />
               Activo
             </label>
