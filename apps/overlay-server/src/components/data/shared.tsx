@@ -1,17 +1,17 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 
-export const cardClass = 'rounded-lg border border-gray-700 bg-gray-900';
-export const fieldClass = 'w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-yellow-500';
-export const labelClass = 'mb-1 block text-[11px] font-semibold uppercase tracking-widest text-gray-400';
+export const cardClass = 'rounded-lg border border-white/10 bg-white/[0.03]';
+export const fieldClass = 'w-full rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-mineros-gold focus:bg-white/[0.06]';
+export const labelClass = 'mb-1 block text-[11px] font-semibold uppercase tracking-widest text-white/40';
 export const tableHeaderClass = 'px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-widest text-white/40';
 export const tableCellClass = 'px-3 py-2 align-middle text-xs text-white/80';
 export const tableClass = 'w-full text-xs';
 export const tableBodyClass = 'divide-y divide-white/5';
 export const tableRowClass = 'cursor-pointer transition hover:bg-white/[0.04] active:bg-white/[0.07]';
 export const tableHeadRowClass = 'bg-white/[0.03]';
-export const primaryButtonClass = 'rounded-md bg-yellow-500 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-950 transition hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-50';
-export const secondaryButtonClass = 'rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50';
-export const dangerButtonClass = 'rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-red-200 transition hover:bg-red-900/60 disabled:cursor-not-allowed disabled:opacity-50';
+export const primaryButtonClass = 'rounded-md bg-mineros-gold px-3 py-2 text-xs font-semibold uppercase tracking-wide text-broadcast-black transition hover:bg-mineros-gold/85 disabled:cursor-not-allowed disabled:opacity-50';
+export const secondaryButtonClass = 'rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white/80 transition hover:bg-white/10 hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-50';
+export const dangerButtonClass = 'rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-red-300 transition hover:bg-red-500/20 hover:border-red-500/50 disabled:cursor-not-allowed disabled:opacity-50';
 
 export function SectionCard({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
   return (

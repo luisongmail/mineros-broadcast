@@ -188,7 +188,7 @@ export function SponsorEditor() {
                 onChange={(v) => setForm((c) => ({ ...c, status: v as Sponsor['status'] }))}
               />
             </Field>
-            <label className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200">
+            <label className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/80">
               <input type="checkbox" checked={form.active} onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))} />
               Activo
             </label>

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { SearchSelect } from './data/SearchSelect';
 import { normalizeSponsor, type Sponsor } from './data/types';
 import { SlideDrawer } from './data/SlideDrawer';
-import { ConfirmDialog, tableClass, tableHeadRowClass, tableHeaderClass, tableBodyClass, tableRowClass, tableCellClass, type DialogState } from './data/shared';
+import { ConfirmDialog, dangerButtonClass, fieldClass, labelClass, primaryButtonClass, secondaryButtonClass, tableBodyClass, tableClass, tableHeadRowClass, tableHeaderClass, tableRowClass, tableCellClass, type DialogState } from './data/shared';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
@@ -106,7 +106,7 @@ function SponsorCrudSection() {
     <div>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xs font-semibold uppercase tracking-widest text-white/35">🤝 Sponsors registrados</h3>
-        <button type="button" onClick={openNew} className="rounded bg-mineros-gold px-3 py-1 text-xs font-semibold text-black hover:bg-mineros-gold/80 transition">
+        <button type="button" onClick={openNew} className={primaryButtonClass}>
           + Nuevo sponsor
         </button>
       </div>
@@ -153,39 +153,28 @@ function SponsorCrudSection() {
 
       <SlideDrawer open={drawerOpen} title={form.id ? 'Editar sponsor' : 'Nuevo sponsor'} onClose={() => setDrawerOpen(false)}>
         <div className="space-y-3 p-1">
-          {error && <p className="rounded bg-red-900/30 border border-red-500/30 px-3 py-2 text-xs text-red-300">{error}</p>}
+          {error && <p className="rounded bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-300">{error}</p>}
           {(['name', 'brand'] as const).map((key) => (
             <label key={key} className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">{key === 'name' ? 'Nombre' : 'Marca'}</span>
-              <input
-                className="block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
-                value={form[key]}
-                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-              />
+              <span className={labelClass}>{key === 'name' ? 'Nombre' : 'Marca'}</span>
+              <input className={fieldClass} value={form[key]}
+                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} />
             </label>
           ))}
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Logo Asset ID</span>
-            <input
-              className="block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
-              value={form.logoAssetId}
+            <span className={labelClass}>Logo Asset ID</span>
+            <input className={fieldClass} value={form.logoAssetId}
               onChange={(e) => setForm((f) => ({ ...f, logoAssetId: e.target.value }))}
-              placeholder="sponsors/acme-logo"
-            />
+              placeholder="sponsors/acme-logo" />
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Prioridad</span>
-              <input
-                type="number"
-                min={1}
-                className="block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white focus:border-amber-400 focus:outline-none"
-                value={form.priority}
-                onChange={(e) => setForm((f) => ({ ...f, priority: Number(e.target.value) }))}
-              />
+              <span className={labelClass}>Prioridad</span>
+              <input type="number" min={1} className={fieldClass} value={form.priority}
+                onChange={(e) => setForm((f) => ({ ...f, priority: Number(e.target.value) }))} />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Estado</span>
+              <span className={labelClass}>Estado</span>
               <SearchSelect
                 options={[
                   { value: 'draft', label: 'Draft' },
@@ -199,21 +188,26 @@ function SponsorCrudSection() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Desde</span>
-              <input type="date" className="block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white focus:border-amber-400 focus:outline-none" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} />
+              <span className={labelClass}>Desde</span>
+              <input type="date" className={fieldClass} value={form.startDate}
+                onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Hasta</span>
-              <input type="date" className="block w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white focus:border-amber-400 focus:outline-none" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} />
+              <span className={labelClass}>Hasta</span>
+              <input type="date" className={fieldClass} value={form.endDate}
+                onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} />
             </label>
           </div>
           <div className="flex gap-2 pt-1">
-            <button type="button" onClick={() => { void handleSave(); }} disabled={saving} className="rounded bg-mineros-gold px-4 py-1.5 text-sm font-semibold text-black hover:bg-mineros-gold/80 disabled:opacity-50 transition">
+            <button type="button" onClick={() => { void handleSave(); }} disabled={saving} className={primaryButtonClass}>
               {saved ? '✅ Guardado' : saving ? 'Guardando…' : 'Guardar'}
             </button>
-            <button type="button" onClick={() => setDrawerOpen(false)} className="rounded border border-white/20 px-4 py-1.5 text-sm text-white/70 hover:bg-white/10 transition">
-              Cancelar
-            </button>
+            {form.id && (
+              <button type="button" onClick={() => handleDelete(form.id, form.name)} className={dangerButtonClass}>
+                Eliminar
+              </button>
+            )}
+            <button type="button" onClick={() => setDrawerOpen(false)} className={secondaryButtonClass}>Cancelar</button>
           </div>
         </div>
       </SlideDrawer>

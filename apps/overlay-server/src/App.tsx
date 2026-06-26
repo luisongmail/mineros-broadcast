@@ -1185,8 +1185,8 @@ function OperatorControlPanel() {
               <div className="flex shrink-0 border-b border-white/10 bg-broadcast-black/60">
                 {(
                   [
-                    { key: 'data',    label: '🗃️ Catálogo' },
                     { key: 'config',  label: '⚙️ Config' },
+                    { key: 'data',    label: '🗃️ Catálogo' },
                     { key: 'history', label: '📋 Historial' },
                     { key: 'layout',  label: '🖼️ Layout' },
                     { key: 'obs',     label: '📡 OBS' },
