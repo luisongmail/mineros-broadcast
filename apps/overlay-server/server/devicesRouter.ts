@@ -1,11 +1,14 @@
 // ---------------------------------------------------------------------------
 // devicesRouter — endpoints para importación de datos de dispositivos
 // POST /api/v1/devices/import-csv
+// POST /api/v1/devices/rapsodo/connect
+// POST /api/v1/devices/rapsodo/disconnect
+// GET  /api/v1/devices/status
 // Spec 29 § 6
 // ---------------------------------------------------------------------------
 
 import { Router, type Request, type Response } from 'express';
-import { CsvFileImportAdapter, type CsvFormat } from '@mineros/device-adapters';
+import { CsvFileImportAdapter, RapsodoAdapter, type CsvFormat, type RapsodoConfig } from '@mineros/device-adapters';
 import type { NormalizedPitchData } from '@mineros/device-adapters';
 
 import { pool } from './db';
@@ -149,3 +152,132 @@ router.post('/import-csv', async (req: Request, res: Response) => {
 });
 
 export default router;
+
+// ---------------------------------------------------------------------------
+// Estado global del adaptador Rapsodo (singleton por proceso del servidor)
+// ---------------------------------------------------------------------------
+let rapsodoAdapter: RapsodoAdapter | null = null;
+
+/** Persiste un pitch Rapsodo en BD si hay pool disponible */
+async function persistRapsodoPitch(pitch: NormalizedPitchData, gameId: string): Promise<void> {
+  if (!pool) return;
+  const columns = await getPitchColumns();
+  const zone = calculateZone(pitch.plateX, pitch.plateZ, 1.07, 0.47);
+  const state = stateStore.getState();
+
+  const insertColumns = ['game_id', 'pitcher_player_id', 'batter_player_id'];
+  const insertValues: Array<string | number | null> = [
+    gameId,
+    state.currentPitcherId ?? null,
+    state.currentBatterId  ?? null,
+  ];
+  const placeholders = ['?', '?', '?'];
+
+  const metricFields: Array<[string, number | string | null | undefined]> = [
+    ['plate_x',    pitch.plateX],
+    ['plate_z',    pitch.plateZ],
+    ['zone',       zone],
+    ['start_speed', pitch.startSpeed],
+    ['end_speed',  pitch.endSpeed],
+    ['spin_rate',  pitch.spinRate],
+    ['spin_axis',  pitch.spinAxis],
+    ['pfx_x',      pitch.pfxX],
+    ['pfx_z',      pitch.pfxZ],
+    ['pitch_class', pitch.pitchClass],
+    ['pitch_type',  pitch.pitchClass],
+    ['confidence',  pitch.confidence],
+    ['device_id',   rapsodoAdapter?.deviceId ?? null],
+  ];
+
+  for (const [col, val] of metricFields) {
+    if (columns.has(col) && val !== undefined) {
+      insertColumns.push(col);
+      insertValues.push(val ?? null);
+      placeholders.push('?');
+    }
+  }
+  if (columns.has('timestamp')) {
+    insertColumns.push('timestamp');
+    placeholders.push('CURRENT_TIMESTAMP(3)');
+  }
+
+  await pool.query(
+    `INSERT INTO pitches (${insertColumns.join(', ')}) VALUES (${placeholders.join(', ')})`,
+    insertValues,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/devices/rapsodo/connect
+// ---------------------------------------------------------------------------
+router.post('/rapsodo/connect', async (req: Request, res: Response) => {
+  try {
+    if (rapsodoAdapter) {
+      await rapsodoAdapter.disconnect().catch(() => {});
+    }
+
+    const { host, port, pollIntervalMs, gameId } = req.body as Partial<RapsodoConfig> & { gameId?: string };
+
+    if (!host) {
+      res.status(400).json({ status: 400, result: 'error', message: 'host requerido' });
+      return;
+    }
+
+    const state = stateStore.getState();
+    const activeGameId = gameId ?? state.gameId;
+
+    rapsodoAdapter = new RapsodoAdapter(`rapsodo-${host}`);
+    rapsodoAdapter.onPitchData((pitch) => {
+      void persistRapsodoPitch(pitch, activeGameId).catch((err: unknown) => {
+        console.warn('[devicesRouter] Rapsodo persist error:', err);
+      });
+    });
+
+    await rapsodoAdapter.connect({ deviceId: `rapsodo-${host}`, host, port, pollIntervalMs });
+
+    res.json({
+      status: 200,
+      result: 'ok',
+      message: `Rapsodo conectado en ${host}:${port ?? 8080}`,
+      deviceId: rapsodoAdapter.deviceId,
+    });
+  } catch (err) {
+    rapsodoAdapter = null;
+    console.error('[devicesRouter] rapsodo/connect error:', err);
+    res.status(500).json({ status: 500, result: 'error', message: String(err) });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/devices/rapsodo/disconnect
+// ---------------------------------------------------------------------------
+router.post('/rapsodo/disconnect', async (_req: Request, res: Response) => {
+  if (!rapsodoAdapter) {
+    res.json({ status: 200, result: 'ok', message: 'Rapsodo ya estaba desconectado' });
+    return;
+  }
+  await rapsodoAdapter.disconnect();
+  rapsodoAdapter = null;
+  res.json({ status: 200, result: 'ok', message: 'Rapsodo desconectado' });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/devices/status
+// ---------------------------------------------------------------------------
+router.get('/status', async (_req: Request, res: Response) => {
+  const rapsodoStatus = rapsodoAdapter
+    ? await rapsodoAdapter.healthCheck()
+    : 'disconnected';
+
+  res.json({
+    status: 200,
+    result: 'ok',
+    devices: {
+      rapsodo: {
+        connected: rapsodoAdapter !== null,
+        deviceId: rapsodoAdapter?.deviceId ?? null,
+        health: rapsodoStatus,
+      },
+    },
+  });
+});
