@@ -1217,6 +1217,47 @@ export function LiveGameScoringPage() {
           {currentStep === 3 ? (
             <div className="flex flex-col gap-2">
 
+              {/* Resultado del turno — requerido para in_play */}
+              <div>
+                <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">
+                  Resultado del turno
+                  {!selectedResult ? <span className="ml-2 text-mineros-red">← requerido</span> : null}
+                </p>
+                <div className="grid grid-cols-4 gap-1">
+                  {RESULT_OPTIONS.filter((o) =>
+                    !['walk', 'hbp', 'strikeout'].includes(o.value)
+                  ).map((option) => {
+                    const active = selectedResult === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        className={`rounded-lg border py-1.5 text-[10px] font-semibold uppercase tracking-wide transition ${resultToneClass(option.tone, active)}`}
+                        onClick={() => setSelectedResult(option.value)}
+                        type="button"
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* RBI + Carreras inline */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-white/35">RBI</span>
+                  <button className="h-7 w-7 rounded-lg border border-white/10 bg-black/30 text-xs text-white hover:border-white/30" onClick={() => setRbi(Math.max(0, rbi - 1))} type="button">−</button>
+                  <span className="w-7 rounded-lg bg-black/30 py-0.5 text-center font-bebas text-xl">{rbi}</span>
+                  <button className="h-7 w-7 rounded-lg border border-white/10 bg-black/30 text-xs text-white hover:border-white/30" onClick={() => setRbi(rbi + 1)} type="button">+</button>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-white/35">Carreras</span>
+                  <button className="h-7 w-7 rounded-lg border border-white/10 bg-black/30 text-xs text-white hover:border-white/30" onClick={() => setRuns(Math.max(0, runs - 1))} type="button">−</button>
+                  <span className="w-7 rounded-lg bg-black/30 py-0.5 text-center font-bebas text-xl">{runs}</span>
+                  <button className="h-7 w-7 rounded-lg border border-white/10 bg-black/30 text-xs text-white hover:border-white/30" onClick={() => setRuns(runs + 1)} type="button">+</button>
+                </div>
+              </div>
+
               {/* Contacto + Calidad en 2 columnas */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
