@@ -16,7 +16,7 @@ import { CountdownOverlay } from '@mineros/overlay-countdown';
 import { SubstitutionOverlay } from '@mineros/overlay-substitution';
 import { GameEventOverlay } from '@mineros/overlay-game-event';
 
-import { DEMO_GAME_DETAIL } from '../gameConfig';
+import { DEMO_GAME_DETAIL, findPlayerById, type GameConfigDetail } from '../gameConfig';
 import { createScoreboardOverlayData } from '../scoreboardData';
 
 type OverlayId =
@@ -46,14 +46,13 @@ type OverlaySocketMessage = {
   overlay?: string;
 };
 
-// En Docker/producción el server sirve todo desde el mismo origen.
-// En dev apunta a localhost:3001 (puerto del servidor Node separado).
 const WEBSOCKET_URL =
   import.meta.env.VITE_WS_URL ??
   (import.meta.env.DEV
     ? 'ws://localhost:3001'
     : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`);
 const MAX_RECONNECT_ATTEMPTS = 3;
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
 const OVERLAYS: Record<Exclude<OverlayId, 'scorebug'>, OverlayDefinition> = {
   batter: { defaultVariant: 'lower_third' },
@@ -72,88 +71,153 @@ const OVERLAYS: Record<Exclude<OverlayId, 'scorebug'>, OverlayDefinition> = {
   scoreboard: { defaultVariant: 'full_board' },
 };
 
-const homeTeam: GameTeam = {
-  id: 'MIN',
-  name: 'Mineros de Santiago',
-  shortName: 'MIN',
-  logoAssetId: 'AM-LOGO-001',
-  role: 'home',
-};
+// ── Helpers para derivar datos de jugadores desde el gameConfig real ─────────
 
-const awayTeam: GameTeam = {
-  id: 'RIV',
-  name: 'Rivales',
-  shortName: 'RIV',
-  logoAssetId: 'AM-TEAM-002',
-  role: 'away',
-};
+function getBattingRole(half: GameState['inningHalf']) {
+  return half === 'top' ? 'away' : 'home';
+}
 
-const DEMO_BATTERS = [
-  { playerId: 'p1', number: '15', name: 'Martina Pellizaris', position: '2B', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.385', hits: 5, rbi: 4, today: '2-2' } },
-  { playerId: 'p2', number: '08', name: 'Carolina Jara', position: 'SS', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.312', hits: 3, rbi: 2, today: '1-3' } },
-  { playerId: 'p3', number: '22', name: 'Valentina Rios', position: '3B', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.278', hits: 4, rbi: 5, today: '0-2' } },
-  { playerId: 'p4', number: '07', name: 'Sofia Mendoza', position: 'CF', status: 'AL BATE', teamId: 'team-mineros', stats: { avg: '.340', hits: 6, rbi: 3, today: '2-4' } },
-] as const;
+function getPitchingRole(half: GameState['inningHalf']) {
+  return half === 'top' ? 'home' : 'away';
+}
 
-const DEMO_NEXT_BATTERS = [
-  { state: 'current', order: 1, playerId: 'p1', name: 'C. Jara', number: '12', position: '2B', avg: '.385' },
-  { state: 'on_deck', order: 2, playerId: 'p2', name: 'M. Pellizaris', number: '15', position: '3B', avg: '.300' },
-  { state: 'in_the_hole', order: 3, playerId: 'p3', name: 'V. Rios', number: '08', position: 'SS', avg: '.278' },
-] as const;
+function deriveBatterData(gameState: GameState, config: GameConfigDetail) {
+  const role = getBattingRole(gameState.inningHalf);
+  const lineup = gameState.lineup[role];
+  const batter = gameState.currentBatterId
+    ? lineup.find((p) => p.playerId === gameState.currentBatterId)
+    : lineup[0];
+  if (!batter) return null;
+  const team = role === 'home' ? config.homeTeam : config.awayTeam;
+  const playerConfig = findPlayerById(config, batter.playerId);
+  const stats = playerConfig?.stats ?? {};
+  return {
+    playerId: batter.playerId,
+    number: batter.number,
+    name: batter.name,
+    position: batter.position,
+    status: 'AL BATE' as const,
+    battingOrder: batter.order,
+    teamId: team.id,
+    photoAssetId: playerConfig?.photoAssetId,
+    stats: {
+      avg: typeof stats.avg === 'string' ? stats.avg : undefined,
+      hits: typeof stats.hits === 'number' ? stats.hits : undefined,
+      rbi: typeof stats.rbi === 'number' ? stats.rbi : undefined,
+      today: '--',
+    },
+  };
+}
 
-const DEMO_PITCHER = {
-  playerId: 'p10',
-  number: '34',
-  name: 'Roberto Fuentes',
-  teamId: 'team-mineros',
-  throws: 'R' as const,
-  stats: { ip: '4.2', pitches: 78, strikeouts: 6, walks: 2, era: '2.45', lastPitch: 'Recta', lastPitchSpeed: '145 km/h' },
-};
+function derivePitcherData(gameState: GameState, config: GameConfigDetail) {
+  const role = getPitchingRole(gameState.inningHalf);
+  const lineup = gameState.lineup[role];
+  const pitcher =
+    (gameState.currentPitcherId
+      ? lineup.find((p) => p.playerId === gameState.currentPitcherId)
+      : undefined) ??
+    lineup.find((p) => p.position.toUpperCase() === 'P') ??
+    null;
+  if (!pitcher) return null;
+  const team = role === 'home' ? config.homeTeam : config.awayTeam;
+  const playerConfig = findPlayerById(config, pitcher.playerId);
+  const stats = playerConfig?.stats ?? {};
+  const throwsVal = playerConfig?.stats?.throws;
+  return {
+    playerId: pitcher.playerId,
+    number: pitcher.number,
+    name: pitcher.name,
+    teamId: team.id,
+    photoAssetId: playerConfig?.photoAssetId,
+    throws: (throwsVal === 'R' || throwsVal === 'L' ? throwsVal : undefined) as 'R' | 'L' | undefined,
+    stats: {
+      ip: typeof stats.ip === 'string' ? stats.ip : undefined,
+      pitches: typeof stats.pitches === 'number' ? stats.pitches : undefined,
+      strikeouts: typeof stats.so === 'number' ? stats.so : undefined,
+      walks: typeof stats.bb === 'number' ? stats.bb : undefined,
+      era: typeof stats.era === 'string' ? stats.era : undefined,
+      lastPitch: 'Recta',
+      lastPitchSpeed: '145 km/h',
+    },
+  };
+}
 
-const DEMO_LINEUP_PLAYERS = [
-  { order: 1, playerId: 'p1', name: 'Carolina Jara', number: '12', position: '2B', avg: '.385', status: 'active' as const, isCurrentBatter: true },
-  { order: 2, playerId: 'p2', name: 'Martina Pellizaris', number: '15', position: '3B', avg: '.300', status: 'active' as const },
-  { order: 3, playerId: 'p3', name: 'Valentina Rios', number: '08', position: 'SS', avg: '.278', status: 'active' as const },
-  { order: 4, playerId: 'p4', name: 'Sofía Mendoza', number: '07', position: 'CF', avg: '.340', status: 'active' as const },
-  { order: 5, playerId: 'p5', name: 'Andrea Torres', number: '23', position: '1B', avg: '.290', status: 'active' as const },
-  { order: 6, playerId: 'p6', name: 'Camila Rojas', number: '11', position: 'LF', avg: '.265', status: 'active' as const },
-  { order: 7, playerId: 'p7', name: 'Paula Vega', number: '18', position: 'RF', avg: '.255', status: 'active' as const },
-  { order: 8, playerId: 'p8', name: 'Daniela Soto', number: '04', position: 'C', avg: '.230', status: 'active' as const },
-  { order: 9, playerId: 'p9', name: 'Isidora Muñoz', number: '27', position: 'P', avg: '.100', status: 'active' as const },
-];
+function deriveLineupData(gameState: GameState, config: GameConfigDetail) {
+  const role = getBattingRole(gameState.inningHalf);
+  const lineup = gameState.lineup[role];
+  return lineup.map((p) => {
+    const playerConfig = findPlayerById(config, p.playerId);
+    return {
+      order: p.order,
+      playerId: p.playerId,
+      name: p.name,
+      number: p.number,
+      position: p.position,
+      photoAssetId: playerConfig?.photoAssetId,
+      avg: typeof playerConfig?.stats?.avg === 'string' ? playerConfig.stats.avg : undefined,
+      status: p.status as 'active' | 'substituted' | 'ejected',
+      isCurrentBatter: p.playerId === gameState.currentBatterId,
+    };
+  });
+}
+
+function deriveNextBattersData(gameState: GameState, config: GameConfigDetail) {
+  const role = getBattingRole(gameState.inningHalf);
+  const lineup = gameState.lineup[role];
+  if (lineup.length === 0) return [];
+  const currentIndex = Math.max(0, lineup.findIndex((p) => p.playerId === gameState.currentBatterId));
+  return (['current', 'on_deck', 'in_the_hole'] as const).map((state, offset) => {
+    const player = lineup[(currentIndex + offset) % lineup.length];
+    const playerConfig = findPlayerById(config, player.playerId);
+    return {
+      state,
+      order: player.order,
+      playerId: player.playerId,
+      number: player.number,
+      name: player.name,
+      position: player.position,
+      photoAssetId: playerConfig?.photoAssetId,
+      bats: playerConfig?.bats as 'R' | 'L' | 'S' | undefined,
+      avg: typeof playerConfig?.stats?.avg === 'string' ? playerConfig.stats.avg : undefined,
+      today: undefined,
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function createDefaultGameState(): GameState {
+  const homeTeam: GameTeam = {
+    id: DEMO_GAME_DETAIL.homeTeam.id,
+    name: DEMO_GAME_DETAIL.homeTeam.name,
+    shortName: DEMO_GAME_DETAIL.homeTeam.shortName,
+    logoAssetId: DEMO_GAME_DETAIL.homeTeam.logoAssetId,
+    role: 'home',
+  };
+  const awayTeam: GameTeam = {
+    id: DEMO_GAME_DETAIL.awayTeam.id,
+    name: DEMO_GAME_DETAIL.awayTeam.name,
+    shortName: DEMO_GAME_DETAIL.awayTeam.shortName,
+    logoAssetId: DEMO_GAME_DETAIL.awayTeam.logoAssetId,
+    role: 'away',
+  };
   return {
-    gameId: 'demo-game-001',
+    gameId: DEMO_GAME_DETAIL.id,
     status: 'live',
     homeTeam,
     awayTeam,
-    inning: 5,
-    inningHalf: 'top',
-    outs: 1,
-    bases: {
-      first: true,
-      second: false,
-      third: false,
-    },
-    count: {
-      balls: 2,
-      strikes: 1,
-    },
-    score: {
-      home: 3,
-      away: 2,
-    },
-    rules: {
-      ...DEFAULT_BASEBALL_RULES,
-      mercyRule: [...DEFAULT_BASEBALL_RULES.mercyRule],
-      extraInnings: { ...DEFAULT_BASEBALL_RULES.extraInnings },
-    },
-    currentBatterId: DEMO_BATTERS[0].playerId,
-    currentPitcherId: 'p-031',
+    inning: DEMO_GAME_DETAIL.inning,
+    inningHalf: DEMO_GAME_DETAIL.inningHalf,
+    outs: DEMO_GAME_DETAIL.outs,
+    bases: { ...DEMO_GAME_DETAIL.bases },
+    count: { ...DEMO_GAME_DETAIL.count },
+    score: { ...DEMO_GAME_DETAIL.score },
+    rules: { ...DEFAULT_BASEBALL_RULES, mercyRule: [...DEFAULT_BASEBALL_RULES.mercyRule], extraInnings: { ...DEFAULT_BASEBALL_RULES.extraInnings } },
+    currentBatterId: DEMO_GAME_DETAIL.currentBatterId,
+    currentPitcherId: DEMO_GAME_DETAIL.currentPitcherId,
     lineup: {
-      home: [],
-      away: [],
+      home: DEMO_GAME_DETAIL.lineups.home.map((p) => ({ playerId: p.playerId, number: p.number, name: p.name, position: p.position, order: p.order, status: p.status })),
+      away: DEMO_GAME_DETAIL.lineups.away.map((p) => ({ playerId: p.playerId, number: p.number, name: p.name, position: p.position, order: p.order, status: p.status })),
     },
     eventLog: [],
     auditLog: [],
@@ -174,42 +238,41 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function parseSocketMessage(data: string): OverlaySocketMessage | null {
   try {
     const parsed: unknown = JSON.parse(data);
-    if (!isRecord(parsed) || typeof parsed.type !== 'string') {
-      return null;
-    }
-
+    if (!isRecord(parsed) || typeof parsed.type !== 'string') return null;
     const message: OverlaySocketMessage = {
       type: parsed.type === 'state' || parsed.type === 'show' || parsed.type === 'hide' ? parsed.type : 'hide',
     };
-
-    if ('payload' in parsed) {
-      message.payload = parsed.payload as GameState;
-    }
-
-    if ('overlay' in parsed && typeof parsed.overlay === 'string') {
-      message.overlay = parsed.overlay;
-    }
-
-    if (message.type === 'hide' && parsed.type !== 'hide' && parsed.type !== 'state' && parsed.type !== 'show') {
-      return null;
-    }
-
+    if ('payload' in parsed) message.payload = parsed.payload as GameState;
+    if ('overlay' in parsed && typeof parsed.overlay === 'string') message.overlay = parsed.overlay;
+    if (message.type === 'hide' && parsed.type !== 'hide' && parsed.type !== 'state' && parsed.type !== 'show') return null;
     return message;
   } catch {
     return null;
   }
 }
 
-function renderOverlay(overlayId: OverlayId, gameState: GameState, variant?: string) {
+function renderOverlay(overlayId: OverlayId, gameState: GameState, config: GameConfigDetail, variant?: string) {
   const resolvedVariant = overlayId === 'scorebug' ? undefined : variant ?? OVERLAYS[overlayId].defaultVariant;
   const basesLabel = [gameState.bases.first ? '1B' : null, gameState.bases.second ? '2B' : null, gameState.bases.third ? '3B' : null]
-    .filter(Boolean)
-    .join(' · ');
+    .filter(Boolean).join(' · ');
   const inningLabel = (gameState.inningHalf === 'top' ? 'Alta ' : 'Baja ') + gameState.inning;
   const homeAhead = gameState.score.home >= gameState.score.away;
 
+  const batterData = deriveBatterData(gameState, config);
+  const pitcherData = derivePitcherData(gameState, config);
+  const lineupPlayers = deriveLineupData(gameState, config);
+  const nextBattersData = deriveNextBattersData(gameState, config);
+
+  const battingRole = getBattingRole(gameState.inningHalf);
+  const battingTeam = battingRole === 'home' ? config.homeTeam : config.awayTeam;
+  const lineupPitcher = (() => {
+    const p = gameState.lineup[battingRole].find((x) => x.position.toUpperCase() === 'P');
+    if (!p) return undefined;
+    return { playerId: p.playerId, name: p.name, number: p.number, photoAssetId: findPlayerById(config, p.playerId)?.photoAssetId };
+  })();
+
   const finalScoreData = {
-    gameId: 'demo-game-001',
+    gameId: gameState.gameId,
     status: 'final' as const,
     winner: homeAhead
       ? { teamId: gameState.homeTeam.id, name: gameState.homeTeam.name, shortName: gameState.homeTeam.shortName, logoAssetId: gameState.homeTeam.logoAssetId }
@@ -225,23 +288,19 @@ function renderOverlay(overlayId: OverlayId, gameState: GameState, variant?: str
       winner: { runs: homeAhead ? gameState.score.home : gameState.score.away, hits: 9, errors: 1 },
       loser: { runs: homeAhead ? gameState.score.away : gameState.score.home, hits: 7, errors: 2 },
     },
-    featuredPlayer: { playerId: 'p2', name: 'C. Jara', summary: '2-3 · 2 RBI · Doble' },
+    featuredPlayer: batterData ? { playerId: batterData.playerId, name: batterData.name, summary: `${batterData.stats.today ?? '--'} · MVP` } : undefined,
     context: { inningsPlayed: gameState.inning, label: 'Final ' + gameState.inning + ' entradas' },
   };
 
   const inningTransitionData = {
-    gameId: 'demo-game-001',
+    gameId: gameState.gameId,
     transition: {
       type: gameState.inningHalf === 'top' ? ('bottom_to_top' as const) : ('top_to_bottom' as const),
       label: 'Cambio de entrada',
       statusLabel: 'Fin ' + inningLabel,
       nextLabel: 'Siguiente ' + (gameState.inningHalf === 'top' ? 'Baja ' + gameState.inning : 'Alta ' + (gameState.inning + 1)),
     },
-    inning: {
-      number: gameState.inning,
-      completedHalf: gameState.inningHalf,
-      nextHalf: gameState.inningHalf === 'top' ? ('bottom' as const) : ('top' as const),
-    },
+    inning: { number: gameState.inning, completedHalf: gameState.inningHalf, nextHalf: gameState.inningHalf === 'top' ? ('bottom' as const) : ('top' as const) },
     score: {
       home: { teamId: gameState.homeTeam.id, shortName: gameState.homeTeam.shortName, runs: gameState.score.home },
       away: { teamId: gameState.awayTeam.id, shortName: gameState.awayTeam.shortName, runs: gameState.score.away },
@@ -251,11 +310,8 @@ function renderOverlay(overlayId: OverlayId, gameState: GameState, variant?: str
       shortName: gameState.inningHalf === 'top' ? gameState.homeTeam.shortName : gameState.awayTeam.shortName,
       logoAssetId: gameState.inningHalf === 'top' ? gameState.homeTeam.logoAssetId : gameState.awayTeam.logoAssetId,
     },
-    nextBattersSummary: 'Batean 6 · 7 · 8',
-    context: {
-      outs: gameState.outs,
-      basesLabel: basesLabel || 'Bases limpias',
-    },
+    nextBattersSummary: nextBattersData.length > 0 ? nextBattersData.map((b) => b.number).join(' · ') : '',
+    context: { outs: gameState.outs, basesLabel: basesLabel || 'Bases limpias' },
   };
 
   const announcementData = {
@@ -264,7 +320,7 @@ function renderOverlay(overlayId: OverlayId, gameState: GameState, variant?: str
       title: 'Clinica gratuita de bateo',
       subtitle: 'Este sabado 10:00 - 13:00',
       detail: 'Cupo limitado - inscribirse antes del viernes',
-      place: 'Estadio Antupiren',
+      place: config.venue ?? 'Estadio',
       date: 'Sabado 14 jun',
       categories: '4 a 16 anos',
       action: 'Inscribete ya',
@@ -286,43 +342,38 @@ function renderOverlay(overlayId: OverlayId, gameState: GameState, variant?: str
       instagram: { handle: '@clubmineros', label: 'Fotos y reels' },
       youtube: { handle: 'Club Mineros', label: 'Partidos en vivo' },
     },
-    message: {
-      type: 'follow' as const,
-      title: 'Siguenos en redes',
-      subtitle: 'Contenido exclusivo del club',
-      cta: 'Comparte el partido',
-    },
+    message: { type: 'follow' as const, title: 'Siguenos en redes', subtitle: 'Contenido exclusivo del club', cta: 'Comparte el partido' },
   };
 
   const countdownData = {
-    countdown: {
-      targetTime: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-      type: 'game_start' as const,
-      label: 'Inicio del partido',
-    },
+    countdown: { targetTime: new Date(Date.now() + 15 * 60 * 1000).toISOString(), type: 'game_start' as const, label: 'Inicio del partido' },
     event: {
-      title: 'Mineros vs Rivales',
-      subtitle: 'Liga Femenina 2025',
-      venue: 'Estadio Antupiren',
+      title: `${config.awayTeam.shortName} vs ${config.homeTeam.shortName}`,
+      subtitle: config.season ?? 'Temporada',
+      venue: config.venue ?? 'Estadio',
       status: 'En breve',
     },
   };
 
   const substitutionData = {
-    gameId: 'demo-game-001',
+    gameId: gameState.gameId,
     substitution: { type: 'pitcher_change' as const, label: 'Cambio de lanzadora', reason: 'Relevo estrategico' },
-    playerOut: { playerId: 'p-031', number: '31', name: 'L. Soto', position: 'P', detail: String(gameState.inning) + '.0 IP · 54 PIT' },
-    playerIn: { playerId: 'p-007', number: '07', name: 'M. Castro', position: 'P' },
+    playerOut: pitcherData
+      ? { playerId: pitcherData.playerId, number: pitcherData.number, name: pitcherData.name, position: 'P', detail: `${String(gameState.inning)}.0 IP` }
+      : { playerId: '', number: '--', name: '--', position: 'P', detail: '' },
+    playerIn: { playerId: '', number: '--', name: 'Por confirmar', position: 'P' },
     inning: gameState.inning,
     inningHalf: gameState.inningHalf,
   };
 
-  const scoreboardData = createScoreboardOverlayData(DEMO_GAME_DETAIL, gameState);
+  const scoreboardData = createScoreboardOverlayData(config, gameState);
 
   const gameEventData = {
-    gameId: 'demo-game-001',
+    gameId: gameState.gameId,
     event: { type: 'double' as const, label: 'DOBLE', description: 'Doble al jardin derecho', direction: 'Jardin derecho' },
-    player: { playerId: 'p-012', number: '12', name: 'C. Jara', position: '2B', stat: 'B' + gameState.count.balls + ' · S' + gameState.count.strikes },
+    player: batterData
+      ? { playerId: batterData.playerId, number: batterData.number, name: batterData.name, position: batterData.position, stat: `B${gameState.count.balls} · S${gameState.count.strikes}` }
+      : { playerId: '', number: '--', name: '--', position: '--', stat: '' },
     scoreImpact: { team: gameState.homeTeam.shortName, change: 1, label: gameState.score.home === gameState.score.away ? 'Empata' : 'Amplia ventaja' },
     bases: { label: basesLabel || 'Bases limpias' },
   };
@@ -333,28 +384,23 @@ function renderOverlay(overlayId: OverlayId, gameState: GameState, variant?: str
     case 'scoreboard':
       return <ScoreboardOverlay data={scoreboardData} assetBaseUrl={import.meta.env.VITE_ASSETS_BASE_URL} isPaused />;
     case 'batter':
-      return <BatterOverlay batter={DEMO_BATTERS[0]} variant={resolvedVariant as never} />;
+      return batterData ? <BatterOverlay batter={batterData} variant={resolvedVariant as never} /> : null;
     case 'pitcher':
-      return <PitcherOverlay pitcher={DEMO_PITCHER} />;
+      return pitcherData ? <PitcherOverlay pitcher={pitcherData} /> : null;
     case 'lineup':
       return (
         <LineupOverlay
-          team={{ teamId: gameState.homeTeam.id, name: gameState.homeTeam.name, shortName: gameState.homeTeam.shortName, logoAssetId: gameState.homeTeam.logoAssetId }}
-          players={DEMO_LINEUP_PLAYERS}
-          pitcher={DEMO_PITCHER}
+          team={{ teamId: battingTeam.id, name: battingTeam.name, shortName: battingTeam.shortName, logoAssetId: battingTeam.logoAssetId }}
+          players={lineupPlayers}
+          pitcher={lineupPitcher}
         />
       );
     case 'next-batters':
       return (
         <NextBattersOverlay
-          batters={[...DEMO_NEXT_BATTERS]}
+          batters={nextBattersData}
           inning={{ number: gameState.inning, half: gameState.inningHalf }}
-          team={{
-            teamId: gameState.homeTeam.id,
-            name: gameState.homeTeam.name,
-            shortName: gameState.homeTeam.shortName,
-            logoAssetId: gameState.homeTeam.logoAssetId,
-          }}
+          team={{ teamId: battingTeam.id, name: battingTeam.name, shortName: battingTeam.shortName, logoAssetId: battingTeam.logoAssetId }}
           variant={resolvedVariant as never}
         />
       );
@@ -385,38 +431,43 @@ export function OverlayPage() {
   const [searchParams] = useSearchParams();
   const variant = searchParams.get('variant') ?? undefined;
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [gameConfig, setGameConfig] = useState<GameConfigDetail>(DEMO_GAME_DETAIL);
   const [visible, setVisible] = useState(true);
   const overlayId = isOverlayId(routeOverlayId) ? routeOverlayId : null;
 
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
-    const previousHtmlBackground = html.style.background;
-    const previousBodyBackground = body.style.background;
-    const previousBodyMargin = body.style.margin;
-    const previousBodyOverflow = body.style.overflow;
-
+    const prev = { htmlBg: html.style.background, bodyBg: body.style.background, margin: body.style.margin, overflow: body.style.overflow };
     html.style.background = 'transparent';
     body.style.background = 'transparent';
     body.style.margin = '0';
     body.style.overflow = 'hidden';
-
     return () => {
-      html.style.background = previousHtmlBackground;
-      body.style.background = previousBodyBackground;
-      body.style.margin = previousBodyMargin;
-      body.style.overflow = previousBodyOverflow;
+      html.style.background = prev.htmlBg;
+      body.style.background = prev.bodyBg;
+      body.style.margin = prev.margin;
+      body.style.overflow = prev.overflow;
     };
   }, []);
 
+  useEffect(() => { setVisible(true); }, [overlayId]);
+
+  // Cargar config del partido cuando llega el gameId por WS
   useEffect(() => {
-    setVisible(true);
-  }, [overlayId]);
+    const gid = gameState?.gameId;
+    if (!gid) return;
+    fetch(`${API_BASE}/games/${gid}`)
+      .then((r) => r.json() as Promise<{ result?: string; payload?: { game?: unknown } }>)
+      .then((body) => {
+        const cfg = body?.payload?.game;
+        if (cfg && typeof cfg === 'object') setGameConfig(cfg as GameConfigDetail);
+      })
+      .catch(() => undefined);
+  }, [gameState?.gameId]);
 
   useEffect(() => {
-    if (!overlayId) {
-      return undefined;
-    }
+    if (!overlayId) return undefined;
 
     let socket: WebSocket | null = null;
     let reconnectTimer: number | null = null;
@@ -424,46 +475,19 @@ export function OverlayPage() {
     let disposed = false;
 
     const connect = () => {
-      if (disposed) {
-        return;
-      }
-
+      if (disposed) return;
       socket = new WebSocket(WEBSOCKET_URL);
-
-      socket.onopen = () => {
-        reconnectAttempts = 0;
-      };
-
+      socket.onopen = () => { reconnectAttempts = 0; };
       socket.onmessage = (event) => {
-        const message = parseSocketMessage(event.data);
-        if (!message) {
-          return;
-        }
-
-        if (message.type === 'state' && message.payload) {
-          setGameState(message.payload);
-          return;
-        }
-
-        if (message.type === 'show' && (message.overlay === overlayId || message.overlay === 'all')) {
-          setVisible(true);
-          return;
-        }
-
-        if (message.type === 'hide' && (message.overlay === overlayId || message.overlay === 'all')) {
-          setVisible(false);
-        }
+        const message = parseSocketMessage(event.data as string);
+        if (!message) return;
+        if (message.type === 'state' && message.payload) { setGameState(message.payload); return; }
+        if (message.type === 'show' && (message.overlay === overlayId || message.overlay === 'all')) { setVisible(true); return; }
+        if (message.type === 'hide' && (message.overlay === overlayId || message.overlay === 'all')) { setVisible(false); }
       };
-
-      socket.onerror = () => {
-        socket?.close();
-      };
-
+      socket.onerror = () => { socket?.close(); };
       socket.onclose = () => {
-        if (disposed || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-          return;
-        }
-
+        if (disposed || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
         const delay = 500 * 2 ** reconnectAttempts;
         reconnectAttempts += 1;
         reconnectTimer = window.setTimeout(connect, delay);
@@ -474,18 +498,14 @@ export function OverlayPage() {
 
     return () => {
       disposed = true;
-      if (reconnectTimer !== null) {
-        window.clearTimeout(reconnectTimer);
-      }
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       socket?.close();
     };
   }, [overlayId]);
 
   const resolvedGameState = useMemo(() => gameState ?? createDefaultGameState(), [gameState]);
 
-  if (!overlayId || !visible) {
-    return null;
-  }
+  if (!overlayId || !visible) return null;
 
-  return renderOverlay(overlayId, resolvedGameState, variant);
+  return renderOverlay(overlayId, resolvedGameState, gameConfig, variant);
 }
