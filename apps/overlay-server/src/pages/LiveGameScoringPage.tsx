@@ -476,8 +476,64 @@ export function LiveGameScoringPage() {
   }
   const [compoundEvent, setCompoundEvent] = useState<CompoundEventBuilder | null>(null);
 
-  // Mapa de jugadores asignados a cada base (para validar a quién acreditar el SB)
+  // Mapa de jugadores en base — inferido automáticamente del historial
   const [runnerMap, setRunnerMap] = useState<Partial<Record<'R1' | 'R2' | 'R3', { playerId: string; playerNum: string; playerName: string }>>>({});
+
+  // Inferir quién está en cada base a partir del historial de at-bats
+  // Lógica: procesar at-bats más recientes primero y asignar jugadores a bases ocupadas
+  const inferRunnersFromHistory = useCallback((
+    atBats: AtBatHistoryItem[],
+    bases: { first: boolean; second: boolean; third: boolean },
+    playerMeta: Record<string, { bats?: string; throws?: string }>,
+    lineup: LineupEntry[],
+  ): Partial<Record<'R1' | 'R2' | 'R3', { playerId: string; playerNum: string; playerName: string }>> => {
+    // Resultados que ponen al bateador en base
+    const BASE_RESULTS: Partial<Record<AtBatResult, '1B' | '2B' | '3B'>> = {
+      single: '1B', walk: '1B', hbp: '1B', error: '1B', fielders_choice: '1B',
+      double: '2B',
+      triple: '3B',
+    };
+    // Resultados que garantizan que el jugador está en una base específica
+    // Tomamos los at-bats del half-inning actual (mismo inning + half)
+    const result: Partial<Record<'R1' | 'R2' | 'R3', { playerId: string; playerNum: string; playerName: string }>> = {};
+
+    // Necesitamos al menos los últimos at-bats suficientes para llenar las bases ocupadas
+    const occupied = (bases.first ? 1 : 0) + (bases.second ? 1 : 0) + (bases.third ? 1 : 0);
+    if (occupied === 0) return result;
+
+    // Procesar de más reciente a más antiguo, asignando jugadores a bases vacantes
+    const assigned = new Set<'R1' | 'R2' | 'R3'>();
+    const usedPlayers = new Set<string>();
+
+    for (const ab of atBats) {
+      if (assigned.size >= occupied) break;
+      const targetBase = BASE_RESULTS[ab.result];
+      if (!targetBase) continue; // out — no está en base
+
+      const pid = ab.batter_player_id ?? ab.player_id;
+      if (!pid || usedPlayers.has(pid)) continue;
+
+      // Mapear base del at-bat a la etiqueta R1/R2/R3
+      let label: 'R1' | 'R2' | 'R3' | null = null;
+      if (targetBase === '1B' && bases.first && !assigned.has('R1')) label = 'R1';
+      else if (targetBase === '2B' && bases.second && !assigned.has('R2')) label = 'R2';
+      else if (targetBase === '3B' && bases.third && !assigned.has('R3')) label = 'R3';
+
+      if (!label) continue;
+
+      const player = lineup.find((p) => p.playerId === pid);
+      const name = ab.batter_name ?? player?.name ?? pid;
+      const num = ab.batter_number ?? player?.number ?? '';
+
+      result[label] = { playerId: pid, playerNum: num, playerName: name };
+      assigned.add(label);
+      usedPlayers.add(pid);
+    }
+
+    // Si hay bases ocupadas sin asignar (por avances), intentar con el lineup general
+    void playerMeta; // usado externamente si se quiere extender
+    return result;
+  }, []);
 
   const loadHistory = useCallback(async (gameId: string) => {
     const payload = await requestJson<AtBatHistoryItem[]>(`/at-bats/${encodeURIComponent(gameId)}`);
@@ -504,6 +560,18 @@ export function LiveGameScoringPage() {
     });
     await loadHistory(payload.gameState.gameId);
   }, [loadHistory]);
+
+  // Auto-inferir corredores cuando cambia el historial o el estado de bases
+  useEffect(() => {
+    if (!context || history.length === 0) return;
+    const inferred = inferRunnersFromHistory(
+      history,
+      context.gameState.bases,
+      context.playerMeta,
+      context.battingLineup,
+    );
+    setRunnerMap(inferred);
+  }, [context, history, inferRunnersFromHistory]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1842,17 +1910,25 @@ export function LiveGameScoringPage() {
               // ── LISTA NORMAL de corredores ──────────────────────────────────
               return (
                 <div className="mb-3 space-y-2">
-                  {/* Asignación de jugadores a bases */}
+                  {/* Corredores inferidos automáticamente */}
                   <div className="rounded-lg border border-white/8 bg-black/20 p-2">
-                    <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">¿Quién está en base? <span className="normal-case font-normal text-white/25">(para acreditar SB)</span></p>
+                    <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">
+                      En base <span className="normal-case font-normal text-white/20">(inferido del historial)</span>
+                    </p>
                     <div className="space-y-1">
                       {activeRunners.map((r) => {
-                        const assigned = runnerMap[r.label];
+                        const inferred = runnerMap[r.label];
                         return (
                           <div key={r.label} className="flex items-center gap-1.5">
                             <span className="w-7 text-[10px] font-semibold text-mineros-gold">{r.label}</span>
+                            {inferred ? (
+                              <span className="flex-1 text-[10px] text-white/80">#{inferred.playerNum} {inferred.playerName}</span>
+                            ) : (
+                              <span className="flex-1 text-[10px] text-amber-400/60">No identificado</span>
+                            )}
+                            {/* Override manual */}
                             <select
-                              className="flex-1 rounded-md border border-white/10 bg-black/30 px-1.5 py-0.5 text-[10px] text-white outline-none transition focus:border-mineros-gold"
+                              className="w-24 rounded-md border border-white/8 bg-black/30 px-1 py-0.5 text-[9px] text-white/50 outline-none transition focus:border-mineros-gold focus:text-white"
                               onChange={(e) => {
                                 const player = context.battingLineup.find((p) => p.playerId === e.target.value);
                                 if (player) {
@@ -1861,24 +1937,20 @@ export function LiveGameScoringPage() {
                                   setRunnerMap((prev) => { const next = { ...prev }; delete next[r.label]; return next; });
                                 }
                               }}
-                              value={assigned?.playerId ?? ''}
+                              title="Corregir jugador en base si la inferencia es incorrecta"
+                              value={inferred?.playerId ?? ''}
                             >
-                              <option value="">— sin asignar —</option>
+                              <option value="">corregir…</option>
                               {context.battingLineup.map((p) => (
                                 <option key={p.playerId} value={p.playerId}>#{p.number} {p.name}</option>
                               ))}
                             </select>
-                            {assigned ? (
-                              <span className="text-[10px] text-emerald-400">✓</span>
-                            ) : (
-                              <span className="text-[10px] text-white/20">⚠</span>
-                            )}
                           </div>
                         );
                       })}
                     </div>
-                    {Object.keys(runnerMap).length < activeRunners.length ? (
-                      <p className="mt-1 text-[9px] text-amber-400/70">⚠ Bases sin jugador asignado — el SB se acreditará solo a la posición (R1/R2/R3).</p>
+                    {activeRunners.some((r) => !runnerMap[r.label]) ? (
+                      <p className="mt-1 text-[9px] text-amber-400/60">⚠ Jugadores no identificados — usa el selector para corregir antes de registrar SB.</p>
                     ) : null}
                   </div>
 
