@@ -33,10 +33,13 @@ interface AtBatRequest {
   notes?: string;
   contactType?: ContactType;
   hitDirection?: HitDirection;
+  hitQuality?: HitQuality;
+  runnersJson?: string;
 }
 
-type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'home_run';
-type HitDirection = 'LF' | 'CF' | 'RF' | '3B' | 'SS' | '2B' | '1B' | 'P' | 'C';
+type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'pop_up';
+type HitDirection = 'LF' | 'LCF' | 'CF' | 'RCF' | 'RF' | '3B' | 'SS' | '2B' | '1B' | 'P' | 'C';
+type HitQuality = 'weak' | 'medium' | 'hard' | 'barrel';
 type PitchCall = 'ball' | 'called_strike' | 'swinging_strike' | 'foul' | 'in_play' | 'hit_by_pitch' | 'wild_pitch' | 'passed_ball';
 
 // Map pitch result to umpire_call stored value
@@ -53,6 +56,13 @@ interface PitchRequest {
   col?: number;
   row?: number;
   pitchType?: string;
+  velocityMph?: number;
+  umpireId?: string;
+  videoTimestamp?: string;
+  note?: string;
+  catcherTargetMode?: string;
+  catcherTargetCol?: number;
+  catcherTargetRow?: number;
 }
 
 interface ApiSuccessResponse {
@@ -121,8 +131,9 @@ const OUT_RESULTS = new Set<AtBatResult>([
 
 // Resultados que aplican avance forzado de corredores (walk / HBP)
 const WALK_RESULTS = new Set<AtBatResult>(['walk', 'hbp']);
-const CONTACT_TYPES = new Set<ContactType>(['line_drive', 'fly_ball', 'ground_ball', 'bunt', 'home_run']);
-const HIT_DIRECTIONS = new Set<HitDirection>(['LF', 'CF', 'RF', '3B', 'SS', '2B', '1B', 'P', 'C']);
+const CONTACT_TYPES = new Set<ContactType>(['line_drive', 'fly_ball', 'ground_ball', 'bunt', 'pop_up']);
+const HIT_DIRECTIONS = new Set<HitDirection>(['LF', 'LCF', 'CF', 'RCF', 'RF', '3B', 'SS', '2B', '1B', 'P', 'C']);
+const HIT_QUALITIES = new Set<HitQuality>(['weak', 'medium', 'hard', 'barrel']);
 
 interface RunnerAdvancement {
   newBases: GameBases;
@@ -264,6 +275,29 @@ function parseOptionalInteger(value: unknown, fieldName: string): number | undef
   return value;
 }
 
+function parseOptionalFloat(value: unknown, fieldName: string): number | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`${fieldName} must be a non-negative number when provided`);
+    }
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new Error(`${fieldName} must be a non-negative number when provided`);
+    }
+    return parsed;
+  }
+
+  throw new Error(`${fieldName} must be a non-negative number when provided`);
+}
+
 function parseOptionalBoolean(value: unknown, fieldName: string): boolean | undefined {
   if (value === undefined || value === null) {
     return undefined;
@@ -320,6 +354,18 @@ function parseOptionalHitDirection(value: unknown): HitDirection | undefined {
   return value as HitDirection;
 }
 
+function parseOptionalHitQuality(value: unknown): HitQuality | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value !== 'string' || !HIT_QUALITIES.has(value as HitQuality)) {
+    throw new Error('hitQuality must be one of: weak, medium, hard, barrel');
+  }
+
+  return value as HitQuality;
+}
+
 function parseAtBatRequest(body: unknown): AtBatRequest {
   if (!isRecord(body)) {
     throw new Error('Request body must be a JSON object');
@@ -337,6 +383,8 @@ function parseAtBatRequest(body: unknown): AtBatRequest {
     notes: parseOptionalString(body.notes, 'notes'),
     contactType: parseOptionalContactType(body.contactType),
     hitDirection: parseOptionalHitDirection(body.hitDirection),
+    hitQuality: parseOptionalHitQuality(body.hitQuality),
+    runnersJson: parseOptionalString(body.runnersJson, 'runnersJson'),
   };
 }
 
@@ -356,6 +404,13 @@ function parsePitchRequest(body: unknown): PitchRequest {
     col: parseOptionalGridCoordinate(body.col, 'col'),
     row: parseOptionalGridCoordinate(body.row, 'row'),
     pitchType: parseOptionalString(body.pitchType, 'pitchType'),
+    velocityMph: parseOptionalFloat(body.velocityMph, 'velocityMph'),
+    umpireId: parseOptionalString(body.umpireId, 'umpireId'),
+    videoTimestamp: parseOptionalString(body.videoTimestamp, 'videoTimestamp'),
+    note: parseOptionalString(body.note, 'note'),
+    catcherTargetMode: parseOptionalString(body.catcherTargetMode, 'catcherTargetMode'),
+    catcherTargetCol: parseOptionalGridCoordinate(body.catcherTargetCol, 'catcherTargetCol'),
+    catcherTargetRow: parseOptionalGridCoordinate(body.catcherTargetRow, 'catcherTargetRow'),
   };
 }
 
@@ -536,6 +591,18 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
     placeholders.push('?');
   }
 
+  if (columns.has('hit_quality')) {
+    insertColumns.push('hit_quality');
+    insertValues.push(request.hitQuality ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('runners_json')) {
+    insertColumns.push('runners_json');
+    insertValues.push(request.runnersJson ?? null);
+    placeholders.push('?');
+  }
+
   if (columns.has('pitcher_player_id')) {
     insertColumns.push('pitcher_player_id');
     insertValues.push(request.pitcherPlayerId ?? null);
@@ -586,6 +653,48 @@ async function insertPitch(request: PitchRequest): Promise<void> {
   if (columns.has('pitch_type')) {
     insertColumns.push('pitch_type');
     insertValues.push(request.pitchType ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('velocity_mph')) {
+    insertColumns.push('velocity_mph');
+    insertValues.push(request.velocityMph ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('umpire_id')) {
+    insertColumns.push('umpire_id');
+    insertValues.push(request.umpireId ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('video_timestamp')) {
+    insertColumns.push('video_timestamp');
+    insertValues.push(request.videoTimestamp ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('note')) {
+    insertColumns.push('note');
+    insertValues.push(request.note ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('catcher_target_mode')) {
+    insertColumns.push('catcher_target_mode');
+    insertValues.push(request.catcherTargetMode ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('catcher_target_col')) {
+    insertColumns.push('catcher_target_col');
+    insertValues.push(request.catcherTargetCol ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('catcher_target_row')) {
+    insertColumns.push('catcher_target_row');
+    insertValues.push(request.catcherTargetRow ?? null);
     placeholders.push('?');
   }
 
