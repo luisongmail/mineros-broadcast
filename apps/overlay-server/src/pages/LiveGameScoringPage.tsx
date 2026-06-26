@@ -464,6 +464,8 @@ export function LiveGameScoringPage() {
   const [savingEvent, setSavingEvent] = useState(false);
   const [eventFeedback, setEventFeedback] = useState<string | null>(null);
   const [legendKey, setLegendKey] = useState<string | null>(null);
+  // Estado para selección de destino personalizado: { runner, eventType }
+  const [customDest, setCustomDest] = useState<{ runner: 'R1' | 'R2' | 'R3'; from: string; eventType: 'throwing_error' | 'sb_error' } | null>(null);
 
   const loadHistory = useCallback(async (gameId: string) => {
     const payload = await requestJson<AtBatHistoryItem[]>(`/at-bats/${encodeURIComponent(gameId)}`);
@@ -1712,49 +1714,118 @@ export function LiveGameScoringPage() {
               return (
                 <div className="mb-3 space-y-2">
                   <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Por corredor</p>
-                  {activeRunners.map((r) => (
-                    <div key={r.label} className="rounded-lg border border-white/8 bg-white/3 p-2">
-                      <p className="mb-1.5 text-[10px] font-semibold text-white/70">{r.label} · {r.from}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        <button
-                          className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-40"
-                          disabled={savingEvent}
-                          onClick={() => void handleBaserunningEvent('stolen_base', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true }])}
-                          type="button"
-                        >SB → {r.next}</button>
-                        <button
-                          className="rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-200 transition hover:bg-red-500/20 disabled:opacity-40"
-                          disabled={savingEvent}
-                          onClick={() => void handleBaserunningEvent('caught_stealing', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
-                          type="button"
-                        >CS</button>
-                        <button
-                          className="rounded-md border border-blue-400/40 bg-blue-400/10 px-2 py-1 text-[11px] text-blue-200 transition hover:bg-blue-400/20 disabled:opacity-40"
-                          disabled={savingEvent}
-                          onClick={() => void handleBaserunningEvent('wild_pitch_advance', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true }])}
-                          type="button"
-                        >WP → {r.next}</button>
-                        <button
-                          className="rounded-md border border-purple-400/40 bg-purple-400/10 px-2 py-1 text-[11px] text-purple-200 transition hover:bg-purple-400/20 disabled:opacity-40"
-                          disabled={savingEvent}
-                          onClick={() => void handleBaserunningEvent('passed_ball_advance', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: false }])}
-                          type="button"
-                        >PB → {r.next}</button>
-                        <button
-                          className="rounded-md border border-orange-400/40 bg-orange-400/10 px-2 py-1 text-[11px] text-orange-200 transition hover:bg-orange-400/20 disabled:opacity-40"
-                          disabled={savingEvent}
-                          onClick={() => void handleBaserunningEvent('pickoff_out', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
-                          type="button"
-                        >PO out</button>
-                        <button
-                          className="rounded-md border border-yellow-400/40 bg-yellow-400/10 px-2 py-1 text-[11px] text-yellow-200 transition hover:bg-yellow-400/20 disabled:opacity-40"
-                          disabled={savingEvent}
-                          onClick={() => void handleBaserunningEvent('throwing_error', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: false }])}
-                          type="button"
-                        >E tiro → {r.next}</button>
+                  {activeRunners.map((r) => {
+                    // Bases disponibles como destino (mayores a la base actual)
+                    const destOrder: ('2B' | '3B' | 'HOME')[] = ['2B', '3B', 'HOME'];
+                    const validDests = destOrder.filter((b) => {
+                      if (r.from === '1B') return true;
+                      if (r.from === '2B') return b === '3B' || b === 'HOME';
+                      return b === 'HOME';
+                    });
+                    const isCustomActive = customDest?.runner === r.label;
+
+                    return (
+                      <div key={r.label} className="rounded-lg border border-white/8 bg-white/3 p-2">
+                        <p className="mb-1.5 text-[10px] font-semibold text-white/70">{r.label} · {r.from}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-40"
+                            disabled={savingEvent}
+                            onClick={() => void handleBaserunningEvent('stolen_base', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true }])}
+                            type="button"
+                          >SB → {r.next}</button>
+                          <button
+                            className="rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-200 transition hover:bg-red-500/20 disabled:opacity-40"
+                            disabled={savingEvent}
+                            onClick={() => void handleBaserunningEvent('caught_stealing', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
+                            type="button"
+                          >CS</button>
+                          <button
+                            className="rounded-md border border-blue-400/40 bg-blue-400/10 px-2 py-1 text-[11px] text-blue-200 transition hover:bg-blue-400/20 disabled:opacity-40"
+                            disabled={savingEvent}
+                            onClick={() => void handleBaserunningEvent('wild_pitch_advance', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: true }])}
+                            type="button"
+                          >WP → {r.next}</button>
+                          <button
+                            className="rounded-md border border-purple-400/40 bg-purple-400/10 px-2 py-1 text-[11px] text-purple-200 transition hover:bg-purple-400/20 disabled:opacity-40"
+                            disabled={savingEvent}
+                            onClick={() => void handleBaserunningEvent('passed_ball_advance', [{ runnerLabel: r.label, fromBase: r.from, toBase: r.next, runScored: r.next === 'HOME', earnedRun: false }])}
+                            type="button"
+                          >PB → {r.next}</button>
+                          <button
+                            className="rounded-md border border-orange-400/40 bg-orange-400/10 px-2 py-1 text-[11px] text-orange-200 transition hover:bg-orange-400/20 disabled:opacity-40"
+                            disabled={savingEvent}
+                            onClick={() => void handleBaserunningEvent('pickoff_out', [{ runnerLabel: r.label, fromBase: r.from, toBase: 'OUT', runScored: false, earnedRun: false }])}
+                            type="button"
+                          >PO out</button>
+
+                          {/* Error tiro — abre selector de destino */}
+                          <button
+                            className={`rounded-md border px-2 py-1 text-[11px] transition disabled:opacity-40 ${isCustomActive && customDest?.eventType === 'throwing_error' ? 'border-yellow-300 bg-yellow-300/20 text-yellow-100' : 'border-yellow-400/40 bg-yellow-400/10 text-yellow-200 hover:bg-yellow-400/20'}`}
+                            disabled={savingEvent}
+                            onClick={() => setCustomDest(isCustomActive && customDest?.eventType === 'throwing_error' ? null : { runner: r.label, from: r.from, eventType: 'throwing_error' })}
+                            type="button"
+                          >E tiro ▾</button>
+
+                          {/* SB + Error — robo con error en tiro */}
+                          <button
+                            className={`rounded-md border px-2 py-1 text-[11px] transition disabled:opacity-40 ${isCustomActive && customDest?.eventType === 'sb_error' ? 'border-emerald-300 bg-emerald-300/20 text-emerald-100' : 'border-emerald-400/30 bg-emerald-400/5 text-emerald-300/70 hover:bg-emerald-400/15'}`}
+                            disabled={savingEvent}
+                            onClick={() => setCustomDest(isCustomActive && customDest?.eventType === 'sb_error' ? null : { runner: r.label, from: r.from, eventType: 'sb_error' })}
+                            type="button"
+                            title="Robo intentado + error en tiro del receptor"
+                          >SB+E ▾</button>
+                        </div>
+
+                        {/* Selector de destino para E tiro y SB+E */}
+                        {isCustomActive ? (
+                          <div className="mt-2 rounded-lg border border-yellow-400/20 bg-yellow-400/5 p-2">
+                            <p className="mb-1.5 text-[10px] text-yellow-200/70">
+                              {customDest?.eventType === 'sb_error'
+                                ? '🏃 SB + E tiro receptor — corredor llega a:'
+                                : '💥 Error en tiro — corredor llega a:'}
+                            </p>
+                            <div className="flex gap-1.5">
+                              {validDests.map((dest) => (
+                                <button
+                                  key={dest}
+                                  className="rounded-md border border-yellow-300/40 bg-yellow-300/10 px-3 py-1.5 text-[12px] font-bold text-yellow-100 transition hover:bg-yellow-300/25 disabled:opacity-40"
+                                  disabled={savingEvent}
+                                  onClick={() => {
+                                    const isHome = dest === 'HOME';
+                                    const eventType = customDest?.eventType === 'sb_error' ? 'throwing_error' : 'throwing_error';
+                                    void handleBaserunningEvent(eventType, [{
+                                      runnerLabel: r.label,
+                                      fromBase: r.from,
+                                      toBase: dest,
+                                      runScored: isHome,
+                                      earnedRun: false,
+                                    }]);
+                                    setCustomDest(null);
+                                  }}
+                                  type="button"
+                                >{dest}</button>
+                              ))}
+                              <button
+                                className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-white/30 hover:border-white/25"
+                                onClick={() => setCustomDest(null)}
+                                type="button"
+                              >✕</button>
+                            </div>
+                            {customDest?.eventType === 'sb_error' ? (
+                              <p className="mt-1.5 text-[9px] leading-relaxed text-white/35">
+                                Se registra intento de robo (SB) + error receptor (E2). Carrera sucia si anota.
+                              </p>
+                            ) : (
+                              <p className="mt-1.5 text-[9px] leading-relaxed text-white/35">
+                                Error en tiro permite avance extra. Carrera sucia si anota.
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })()}
