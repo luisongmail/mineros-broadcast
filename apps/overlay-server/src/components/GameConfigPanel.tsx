@@ -42,6 +42,7 @@ type LoadGameResponsePayload = {
 
 export interface GameConfigPanelProps {
   onGameLoaded: (payload: LoadGameResponsePayload) => void;
+  activeGameId?: string;
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -62,7 +63,7 @@ function formatSchedule(value: string): string {
   });
 }
 
-export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
+export function GameConfigPanel({ onGameLoaded, activeGameId }: GameConfigPanelProps) {
   const [games, setGames] = useState<GameConfigSummary[]>([]);
   const [selectedGameId, setSelectedGameId] = useState('');
   const [selectedGame, setSelectedGame] = useState<GameConfigDetail | null>(null);
@@ -219,7 +220,7 @@ export function GameConfigPanel({ onGameLoaded }: GameConfigPanelProps) {
         >
           {games.map((game) => (
             <option key={game.id} value={game.id}>
-              {game.label}
+              {game.id === activeGameId ? '● ' : ''}{game.label}{game.id === activeGameId ? ' — EN VIVO' : ''}
             </option>
           ))}
         </select>

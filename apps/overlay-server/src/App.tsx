@@ -1207,6 +1207,7 @@ function OperatorControlPanel() {
                 {rightTab === 'config' && (
                   <div className="p-4">
                     <GameConfigPanel
+                      activeGameId={gameConfigDetail.id}
                       onGameLoaded={(payload) => {
                         setGame(payload.state);
                         setGameConfigDetail(payload.game);
