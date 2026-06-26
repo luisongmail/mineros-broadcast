@@ -1091,16 +1091,7 @@ function OperatorControlPanel() {
         </aside>
 
         {/* ── CENTRO: canvases arriba + panel de tabs abajo ── */}
-        {rightTab === 'layout' ? (
-          /* Layout editor: ocupa toda la zona central */
-          <LayoutEditor
-            gameId={game.gameId}
-            apiBase={import.meta.env.DEV ? 'http://localhost:3001/api' : '/api'}
-            onClose={() => setRightTab('config')}
-            onLayoutChange={reloadActiveLayout}
-          />
-        ) : (
-          <main className="flex-1 overflow-hidden flex flex-col min-w-0">
+        <main className="flex-1 overflow-hidden flex flex-col min-w-0">
 
             {/* ── FILA SUPERIOR: Canvases Preview + Program ── */}
             <div className="shrink-0 flex gap-3 p-3 pb-0 items-start">
@@ -1274,10 +1265,18 @@ function OperatorControlPanel() {
                     </div>
                   </div>
                 )}
+
+                {/* LAYOUT EDITOR */}
+                {rightTab === 'layout' && (
+                  <LayoutEditor
+                    gameId={game.gameId}
+                    apiBase={import.meta.env.DEV ? 'http://localhost:3001/api' : '/api'}
+                    onLayoutChange={reloadActiveLayout}
+                  />
+                )}
               </div>
             </div>
           </main>
-        )}
       </div>
 
       {/* ── MODAL RESET JUEGO ── */}
