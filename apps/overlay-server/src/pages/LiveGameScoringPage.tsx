@@ -143,11 +143,7 @@ interface ContactOption {
   label: string;
 }
 
-interface DirectionOption {
-  value: HitDirection;
-  label: string;
-  className: string;
-}
+
 
 const SERVER_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001/api' : '/api');
 
@@ -197,19 +193,6 @@ const CONTACT_OPTIONS: ContactOption[] = [
   { value: 'bunt', label: 'Toque' },
 ];
 
-const DIRECTION_OPTIONS: DirectionOption[] = [
-  { value: 'LF', label: 'LF', className: 'col-start-1 row-start-1' },
-  { value: 'LCF', label: 'LCF', className: 'col-start-2 row-start-1' },
-  { value: 'CF', label: 'CF', className: 'col-start-3 row-start-1' },
-  { value: 'RCF', label: 'RCF', className: 'col-start-4 row-start-1' },
-  { value: 'RF', label: 'RF', className: 'col-start-5 row-start-1' },
-  { value: '3B', label: '3B', className: 'col-start-1 row-start-2' },
-  { value: 'SS', label: 'SS', className: 'col-start-2 row-start-2' },
-  { value: '2B', label: '2B', className: 'col-start-4 row-start-2' },
-  { value: '1B', label: '1B', className: 'col-start-5 row-start-2' },
-  { value: 'P', label: 'P', className: 'col-start-3 row-start-3' },
-  { value: 'C', label: 'C', className: 'col-start-3 row-start-4' },
-];
 
 const CONTACT_REQUIRED_RESULTS = new Set<AtBatResult>([
   'single',
@@ -221,7 +204,19 @@ const CONTACT_REQUIRED_RESULTS = new Set<AtBatResult>([
   'sacrifice_fly',
   'sacrifice_bunt',
   'double_play',
+  'groundout',
+  'flyout',
 ]);
+
+// Contacto inferido automáticamente del resultado
+const RESULT_AUTO_CONTACT: Partial<Record<AtBatResult, ContactType>> = {
+  groundout: 'ground_ball',
+  double_play: 'ground_ball',
+  flyout: 'fly_ball',
+  sacrifice_fly: 'fly_ball',
+  sacrifice_bunt: 'bunt',
+  home_run: 'fly_ball',
+};
 
 const QUICK_3X3_ZONES = [
   { label: 'A-Ad', col: 1, row: 1 },
@@ -338,6 +333,7 @@ export function LiveGameScoringPage() {
   const [selectedHitDirection, setSelectedHitDirection] = useState<HitDirection | null>(null);
   const [selectedHitQuality, setSelectedHitQuality] = useState<HitQuality | null>(null);
   const [runnerDetails, setRunnerDetails] = useState<RunnerDetail[]>([]);
+  const [outSequence, setOutSequence] = useState('');
   const [catcherTarget, setCatcherTarget] = useState<CatcherTarget>({ mode: 'unknown' });
   const [pitchMetrics, setPitchMetrics] = useState<PitchMetrics>({ velocityMph: '', umpireId: '', videoTimestamp: '', note: '' });
   const [showMetrics, setShowMetrics] = useState(false);
@@ -525,6 +521,7 @@ export function LiveGameScoringPage() {
     setSelectedHitDirection(null);
     setSelectedHitQuality(null);
     setRunnerDetails([]);
+    setOutSequence('');
     setCatcherTarget({ mode: 'unknown' });
     setPitchMetrics({ velocityMph: '', umpireId: '', videoTimestamp: '', note: '' });
     setShowMetrics(false);
@@ -562,17 +559,36 @@ export function LiveGameScoringPage() {
     if (!context || !selectedPitchCell || !selectedPitchResult || !selectedPitchType || savingPitch) {
       return;
     }
-    // 'in_play' no se envía al contador, se maneja como captura ofensiva
-    if (selectedPitchResult === 'in_play') {
-      setCurrentStep(3);
-      return;
-    }
 
     setSavingPitch(true);
     setError(null);
 
     try {
       const velocityMph = pitchMetrics.velocityMph ? Number.parseFloat(pitchMetrics.velocityMph) : undefined;
+
+      if (selectedPitchResult === 'in_play') {
+        // Registrar el pitcheo sin modificar conteo, luego pasar a captura ofensiva
+        await requestJson<{ action: string }>('/pitch', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'in_play',
+            col: selectedPitchCell.col,
+            row: selectedPitchCell.row,
+            pitchType: selectedPitchType,
+            velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
+            umpireId: pitchMetrics.umpireId || undefined,
+            videoTimestamp: pitchMetrics.videoTimestamp || undefined,
+            note: pitchMetrics.note || undefined,
+            catcherTargetMode: catcherTarget.mode,
+            catcherTargetCol: catcherTarget.col,
+            catcherTargetRow: catcherTarget.row,
+          }),
+        });
+        showPitchFeedback('En juego — captura ofensiva');
+        setCurrentStep(3);
+        return;
+      }
+
       const result = await requestJson<{ action: string }>('/pitch', {
         method: 'POST',
         body: JSON.stringify({
@@ -690,27 +706,7 @@ export function LiveGameScoringPage() {
     setError(null);
 
     try {
-      // Si el flujo llegó por in_play, primero registrar el pitch sin actualizar conteo
-      if (selectedPitchResult === 'in_play' && selectedPitchCell && selectedPitchType) {
-        const velocityMph = pitchMetrics.velocityMph ? Number.parseFloat(pitchMetrics.velocityMph) : undefined;
-        await requestJson<{ action: string }>('/pitch', {
-          method: 'POST',
-          body: JSON.stringify({
-            type: 'in_play',
-            col: selectedPitchCell.col,
-            row: selectedPitchCell.row,
-            pitchType: selectedPitchType,
-            velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
-            umpireId: pitchMetrics.umpireId || undefined,
-            videoTimestamp: pitchMetrics.videoTimestamp || undefined,
-            note: pitchMetrics.note || undefined,
-            catcherTargetMode: catcherTarget.mode,
-            catcherTargetCol: catcherTarget.col,
-            catcherTargetRow: catcherTarget.row,
-          }),
-        });
-      }
-
+      // El pitcheo in_play ya fue registrado en handleRegisterPitch
       await requestJson('/at-bats', {
         method: 'POST',
         body: JSON.stringify({
@@ -723,6 +719,7 @@ export function LiveGameScoringPage() {
           contactType: selectedContactType ?? undefined,
           hitDirection: selectedHitDirection ?? undefined,
           hitQuality: selectedHitQuality ?? undefined,
+          outSequence: outSequence || undefined,
           runnersJson: runnerDetails.length > 0 ? JSON.stringify(runnerDetails) : undefined,
         }),
       });
@@ -735,7 +732,7 @@ export function LiveGameScoringPage() {
     } finally {
       setSavingAtBat(false);
     }
-  }, [catcherTarget, context, loadContext, pitchMetrics, resetAtBatWorkflow, rbi, runnerDetails, runs, selectedBatterId, selectedContactType, selectedHitDirection, selectedHitQuality, selectedPitchCell, selectedPitcherId, selectedPitchResult, selectedPitchType, selectedResult, showPitchFeedback]);
+  }, [catcherTarget, context, loadContext, pitchMetrics, resetAtBatWorkflow, rbi, runnerDetails, outSequence, runs, selectedBatterId, selectedContactType, selectedHitDirection, selectedHitQuality, selectedPitchCell, selectedPitcherId, selectedPitchResult, selectedPitchType, selectedResult, showPitchFeedback]);
 
   if (loading && !context) {
     return <div className="min-h-screen bg-broadcast-black px-4 py-4 text-white">Cargando live scoring…</div>;
@@ -1232,7 +1229,11 @@ export function LiveGameScoringPage() {
                       <button
                         key={option.value}
                         className={`rounded-lg border py-1.5 text-[10px] font-semibold uppercase tracking-wide transition ${resultToneClass(option.tone, active)}`}
-                        onClick={() => setSelectedResult(option.value)}
+                        onClick={() => {
+                          setSelectedResult(option.value);
+                          const autoContact = RESULT_AUTO_CONTACT[option.value];
+                          if (autoContact) setSelectedContactType(autoContact);
+                        }}
                         type="button"
                       >
                         {option.label}
@@ -1303,58 +1304,117 @@ export function LiveGameScoringPage() {
                 </div>
               </div>
 
-              {/* Dirección + Corredores en 2 columnas */}
+              {/* Campo + Corredores + Via del out */}
               <div className="grid grid-cols-2 gap-2 items-start">
+
+                {/* Diagrama de campo con referencia visual */}
                 <div>
                   <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Dirección al campo</p>
-                  <div className="grid grid-cols-5 grid-rows-4 gap-1">
-                    {DIRECTION_OPTIONS.map((option) => {
-                      const active = selectedHitDirection === option.value;
+                  {/* Outfield: fila 1 */}
+                  <div className="grid grid-cols-5 gap-1 mb-0.5">
+                    {(['LF','LCF','CF','RCF','RF'] as const).map((z) => {
+                      const active = selectedHitDirection === z;
                       return (
-                        <button
-                          key={option.value}
-                          className={`${option.className} rounded-lg border py-2 text-[11px] font-semibold transition ${active ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-white/5 text-white/65 hover:border-white/30'}`}
-                          onClick={() => setSelectedHitDirection(option.value)}
-                          type="button"
-                        >
-                          {option.label}
+                        <button key={z} className={`rounded-t-full border py-2 text-[10px] font-bold transition ${active ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-white/5 text-white/55 hover:border-white/30'}`}
+                          onClick={() => setSelectedHitDirection(z)} type="button">{z}
                         </button>
                       );
                     })}
                   </div>
-                </div>
+                  {/* Infield: fila 2 */}
+                  <div className="grid grid-cols-5 gap-1 mb-0.5">
+                    {(['3B','SS',null,'2B','1B'] as const).map((z, i) =>
+                      z ? (
+                        <button key={z} className={`rounded-lg border py-2 text-[10px] font-bold transition ${selectedHitDirection === z ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-white/5 text-white/55 hover:border-white/30'}`}
+                          onClick={() => setSelectedHitDirection(z)} type="button">{z}
+                        </button>
+                      ) : (
+                        <div key={`gap-${i}`} className="rounded-lg border border-white/5 bg-white/2 py-2 text-center text-[9px] text-white/20">◆</div>
+                      )
+                    )}
+                  </div>
+                  {/* Pitcher + Home: fila 3 */}
+                  <div className="grid grid-cols-5 gap-1">
+                    <div className="col-span-2" />
+                    {(['P','C'] as const).map((z) => {
+                      const active = selectedHitDirection === z;
+                      return (
+                        <button key={z} className={`rounded-lg border py-2 text-[10px] font-bold transition ${active ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-white/5 text-white/55 hover:border-white/30'}`}
+                          onClick={() => setSelectedHitDirection(z)} type="button">{z === 'P' ? 'Lanz.' : 'C'}</button>
+                      );
+                    })}
+                    <div />
+                  </div>
 
-                {runnerDetails.length > 0 ? (
-                  <div>
-                    <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Corredores</p>
-                    <div className="space-y-1">
-                      {runnerDetails.map((detail, index) => (
-                        <div key={`${detail.runner}-${detail.from}`} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/20 px-2 py-1.5">
-                          <span className="w-6 text-[10px] font-bold text-white">{detail.runner}</span>
-                          <span className="text-[9px] text-white/35">{detail.from}→</span>
-                          <select
-                            className="flex-1 rounded-md border border-white/10 bg-black/30 px-1 py-0.5 text-[10px] text-white outline-none focus:border-mineros-gold"
-                            onChange={(e) => {
-                              const to = e.target.value as RunnerBase;
-                              setRunnerDetails((current) => current.map((r, i) => i === index ? { ...r, to, runScored: to === 'HOME' } : r));
-                            }}
-                            value={detail.to}
-                          >
-                            {['1B', '2B', '3B', 'HOME', 'OUT'].map((b) => <option key={b} value={b}>{b}</option>)}
-                          </select>
-                          <label className="flex items-center gap-0.5 text-[9px] text-white/50 cursor-pointer">
-                            <input checked={detail.to === 'HOME' ? true : detail.runScored} className="h-3 w-3" onChange={(e) => setRunnerDetails((current) => current.map((r, i) => i === index ? { ...r, runScored: r.to === 'HOME' ? true : e.target.checked } : r))} type="checkbox" />
-                            R
-                          </label>
-                          <label className="flex items-center gap-0.5 text-[9px] text-white/50 cursor-pointer">
-                            <input checked={detail.rbiCredited} className="h-3 w-3" onChange={(e) => setRunnerDetails((current) => current.map((r, i) => i === index ? { ...r, rbiCredited: e.target.checked } : r))} type="checkbox" />
-                            RBI
-                          </label>
-                        </div>
-                      ))}
+                  {/* Via del out / secuencia de fildeadores */}
+                  <div className="mt-2">
+                    <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">
+                      Vía del out <span className="text-white/25 normal-case">(ej: 6-4-3, 5-3, 1-3)</span>
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white outline-none placeholder-white/25 focus:border-mineros-gold"
+                        placeholder="6-4-3"
+                        type="text"
+                        value={outSequence}
+                        onChange={(e) => setOutSequence(e.target.value)}
+                      />
+                      <div className="flex flex-wrap gap-1">
+                        {['6-3','5-3','4-3','6-4-3','5-4-3','1-3'].map((seq) => (
+                          <button key={seq} className={`rounded-md border px-1.5 py-0.5 text-[9px] font-bold transition ${outSequence === seq ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/10 bg-black/30 text-white/45 hover:border-white/25'}`}
+                            onClick={() => setOutSequence(outSequence === seq ? '' : seq)} type="button">{seq}</button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                ) : null}
+                </div>
+
+                {/* Corredores */}
+                <div>
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">
+                    Corredores
+                    <span className="ml-1 text-[8px] text-white/25 normal-case">— ajusta destino si difiere</span>
+                  </p>
+                  {runnerDetails.length === 0 ? (
+                    <p className="text-[10px] text-white/30">Sin corredores en base.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {runnerDetails.map((detail, index) => {
+                        const runnerLabel = detail.runner === 'BR' ? 'BR (bateador)' : `${detail.runner} (${detail.from})`;
+                        return (
+                          <div key={`${detail.runner}-${detail.from}`} className="rounded-lg border border-white/10 bg-black/20 px-2 py-1.5">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="text-[10px] font-bold text-mineros-gold w-[90px] truncate">{runnerLabel}</span>
+                              <span className="text-[9px] text-white/30">→</span>
+                              <div className="flex gap-0.5 flex-1">
+                                {(['1B','2B','3B','HOME','OUT'] as const).map((base) => (
+                                  <button
+                                    key={base}
+                                    className={`flex-1 rounded border py-0.5 text-[9px] font-bold transition ${detail.to === base ? (base === 'OUT' ? 'border-mineros-red bg-mineros-red text-white' : base === 'HOME' ? 'border-emerald-400 bg-emerald-500 text-white' : 'border-mineros-gold bg-mineros-gold text-mineros-navy') : 'border-white/10 bg-black/20 text-white/40 hover:border-white/25'}`}
+                                    onClick={() => setRunnerDetails((cur) => cur.map((r, i) => i === index ? { ...r, to: base, runScored: base === 'HOME' } : r))}
+                                    type="button"
+                                  >{base}</button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex gap-3">
+                              <label className="flex items-center gap-1 text-[9px] text-white/50 cursor-pointer">
+                                <input checked={detail.runScored} className="h-3 w-3" type="checkbox"
+                                  onChange={(e) => setRunnerDetails((cur) => cur.map((r, i) => i === index ? { ...r, runScored: e.target.checked } : r))} />
+                                Anotó (R)
+                              </label>
+                              <label className="flex items-center gap-1 text-[9px] text-white/50 cursor-pointer">
+                                <input checked={detail.rbiCredited} className="h-3 w-3" type="checkbox"
+                                  onChange={(e) => setRunnerDetails((cur) => cur.map((r, i) => i === index ? { ...r, rbiCredited: e.target.checked } : r))} />
+                                RBI
+                              </label>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-2">
@@ -1368,7 +1428,7 @@ export function LiveGameScoringPage() {
                 </button>
                 <button
                   className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/55 transition hover:border-white/30"
-                  onClick={() => { setSelectedContactType(null); setSelectedHitDirection(null); setSelectedHitQuality(null); setRunnerDetails([]); setCurrentStep(2); }}
+                  onClick={() => { setSelectedContactType(null); setSelectedHitDirection(null); setSelectedHitQuality(null); setRunnerDetails([]); setOutSequence(''); setCurrentStep(2); }}
                   type="button"
                 >
                   Cancelar
