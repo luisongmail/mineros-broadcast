@@ -541,6 +541,27 @@ async function loadPlayerMeta(playerIds: string[]): Promise<Record<string, { bat
   }, {});
 }
 
+/** Mapea el resultado local al vocabulario MLBAM para event_type */
+function toMlbamEventType(result: AtBatResult): string {
+  const map: Record<AtBatResult, string> = {
+    single: 'single',
+    double: 'double',
+    triple: 'triple',
+    home_run: 'home_run',
+    walk: 'walk',
+    hbp: 'hit_by_pitch',
+    error: 'field_error',
+    strikeout: 'strikeout',
+    groundout: 'field_out',
+    flyout: 'field_out',
+    sacrifice_fly: 'sac_fly',
+    sacrifice_bunt: 'sac_bunt',
+    fielders_choice: 'fielders_choice',
+    double_play: 'grounded_into_double_play',
+  };
+  return map[result] ?? result;
+}
+
 async function insertAtBat(request: AtBatRequest): Promise<void> {
   if (!pool) {
     throw new Error('DATABASE_URL no está configurado');
@@ -625,6 +646,25 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
   if (columns.has('runners_json')) {
     insertColumns.push('runners_json');
     insertValues.push(request.runnersJson ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('event_type')) {
+    insertColumns.push('event_type');
+    insertValues.push(toMlbamEventType(request.result));
+    placeholders.push('?');
+  }
+
+  // runners: estado de bases DESPUÉS del at-bat (snapshot para contexto histórico)
+  if (columns.has('runners')) {
+    const basesAfter = stateStore.getState().bases;
+    const runnersSnapshot = {
+      first: basesAfter.first ? basesAfter.first.id : null,
+      second: basesAfter.second ? basesAfter.second.id : null,
+      third: basesAfter.third ? basesAfter.third.id : null,
+    };
+    insertColumns.push('runners');
+    insertValues.push(JSON.stringify(runnersSnapshot));
     placeholders.push('?');
   }
 
