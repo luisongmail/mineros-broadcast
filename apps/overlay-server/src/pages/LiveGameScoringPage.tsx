@@ -463,6 +463,7 @@ export function LiveGameScoringPage() {
   const [showEventsPanel, setShowEventsPanel] = useState(false);
   const [savingEvent, setSavingEvent] = useState(false);
   const [eventFeedback, setEventFeedback] = useState<string | null>(null);
+  const [legendKey, setLegendKey] = useState<string | null>(null);
 
   const loadHistory = useCallback(async (gameId: string) => {
     const payload = await requestJson<AtBatHistoryItem[]>(`/at-bats/${encodeURIComponent(gameId)}`);
@@ -901,6 +902,58 @@ export function LiveGameScoringPage() {
   const awayName = gs.awayTeam.shortName ?? gs.awayTeam.name;
   const homeName = gs.homeTeam.shortName ?? gs.homeTeam.name;
   const currentPitcherStats = selectedPitcher ? context.pitcherStats[selectedPitcher.playerId] : null;
+
+  const BASERUNNING_LEGEND: Record<string, { title: string; emoji: string; description: string; consequence: string; earnedRun: boolean }> = {
+    stolen_base: {
+      title: 'Stolen Base (SB)',
+      emoji: '🏃',
+      description: 'El corredor intenta avanzar a la siguiente base mientras el pitcher lanza, sin acción del bateador.',
+      consequence: 'El corredor avanza 1 base. Si llega a HOME anota carrera limpia. No se registra error ni hit — la responsabilidad es del corredor.',
+      earnedRun: true,
+    },
+    caught_stealing: {
+      title: 'Caught Stealing (CS)',
+      emoji: '🛑',
+      description: 'El corredor intentó robar base pero fue puesto out por el receptor u otro fildeador.',
+      consequence: 'Se registra 1 out. El corredor sale del juego. Carrera no anotada.',
+      earnedRun: false,
+    },
+    wild_pitch_advance: {
+      title: 'Wild Pitch — Avance (WP)',
+      emoji: '🌀',
+      description: 'El pitcher lanza un pitcheo tan descontrolado que el receptor no puede detenerlo razonablemente.',
+      consequence: 'Corredor avanza 1 base. La carrera que anota por WP se considera LIMPIA (responsabilidad del pitcher). Se registra error al pitcher.',
+      earnedRun: true,
+    },
+    passed_ball_advance: {
+      title: 'Passed Ball — Avance (PB)',
+      emoji: '🥎',
+      description: 'El receptor falla en detener un pitcheo que debía haber controlado razonablemente.',
+      consequence: 'Corredor avanza 1 base. La carrera que anota por PB es SUCIA (responsabilidad del receptor, no del pitcher). Se registra error al catcher.',
+      earnedRun: false,
+    },
+    throwing_error: {
+      title: 'Error de Tiro (E tiro)',
+      emoji: '💥',
+      description: 'Un fildeador hace un tiro errado que permite al corredor avanzar más allá de lo esperado.',
+      consequence: 'Corredor avanza 1 base adicional. La carrera anotada por error es SUCIA. No se carga como earned run al pitcher.',
+      earnedRun: false,
+    },
+    pickoff_out: {
+      title: 'Pickoff — Out (PO out)',
+      emoji: '🎯',
+      description: 'El pitcher o receptor tira a la base para sorprender y poner out al corredor que está demasiado lejos.',
+      consequence: 'Se registra 1 out. El corredor sale del juego. No hay carrera ni avance.',
+      earnedRun: false,
+    },
+    balk: {
+      title: 'Balk',
+      emoji: '🚨',
+      description: 'Movimiento ilegal del pitcher mientras hay corredores en base. Lo decreta el árbitro.',
+      consequence: 'TODOS los corredores avanzan 1 base automáticamente. Si R3 anota, es carrera LIMPIA. No se puede evitar — es penalidad al pitcher.',
+      earnedRun: true,
+    },
+  };
 
   return (
     <div className="flex h-screen min-w-[900px] flex-col overflow-hidden bg-broadcast-black text-white">
@@ -1593,12 +1646,56 @@ export function LiveGameScoringPage() {
           <aside className="relative z-10 flex w-[320px] flex-col overflow-y-auto border-l border-white/10 bg-mineros-navy p-3 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <span className="font-bebas text-lg uppercase tracking-[0.18em] text-blue-200">Eventos Baserunning</span>
-              <button
-                className="rounded-lg border border-white/15 px-2 py-1 text-[11px] text-white/50 hover:border-white/35"
-                onClick={() => setShowEventsPanel(false)}
-                type="button"
-              >✕</button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  className={`rounded-lg border px-2 py-1 text-[11px] transition ${legendKey !== null ? 'border-mineros-gold/50 bg-mineros-gold/10 text-mineros-gold' : 'border-white/15 text-white/40 hover:border-white/35'}`}
+                  onClick={() => setLegendKey((k) => (k !== null ? null : 'stolen_base'))}
+                  title="Ver leyenda de acciones"
+                  type="button"
+                >? Leyenda</button>
+                <button
+                  className="rounded-lg border border-white/15 px-2 py-1 text-[11px] text-white/50 hover:border-white/35"
+                  onClick={() => { setShowEventsPanel(false); setLegendKey(null); }}
+                  type="button"
+                >✕</button>
+              </div>
             </div>
+
+            {/* ── PANEL LEYENDA ── */}
+            {legendKey !== null ? (
+              <div className="mb-3 rounded-xl border border-mineros-gold/25 bg-mineros-gold/5 p-3">
+                <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.22em] text-mineros-gold/70">Leyenda de acciones</p>
+                {/* Tabs de selección */}
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {Object.entries(BASERUNNING_LEGEND).map(([key, info]) => (
+                    <button
+                      className={`rounded-md px-2 py-0.5 text-[10px] font-semibold transition ${legendKey === key ? 'bg-mineros-gold text-mineros-navy' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+                      key={key}
+                      onClick={() => setLegendKey(key)}
+                      type="button"
+                    >{info.emoji} {info.title.split(' ')[0]}</button>
+                  ))}
+                </div>
+                {/* Contenido del item seleccionado */}
+                {(() => {
+                  const item = BASERUNNING_LEGEND[legendKey];
+                  if (!item) return null;
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-[13px] font-semibold text-white">{item.emoji} {item.title}</p>
+                      <p className="text-[11px] leading-relaxed text-white/70">{item.description}</p>
+                      <div className="rounded-lg border border-blue-400/20 bg-blue-400/8 p-2">
+                        <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wider text-blue-300/70">Consecuencia</p>
+                        <p className="text-[11px] leading-relaxed text-blue-100/80">{item.consequence}</p>
+                      </div>
+                      <p className={`text-[10px] font-semibold ${item.earnedRun ? 'text-red-300' : 'text-emerald-300'}`}>
+                        {item.earnedRun ? '🔴 Carrera LIMPIA (earned run) — carga al pitcher' : '🟢 Carrera SUCIA (unearned) — no carga al pitcher'}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : null}
 
             {/* Corredores activos */}
             {(() => {
@@ -1680,7 +1777,7 @@ export function LiveGameScoringPage() {
 
               <button
                 className="w-full rounded-lg border border-white/10 bg-white/3 px-3 py-2 text-left text-[11px] text-white/50 transition hover:border-white/20"
-                onClick={() => setShowEventsPanel(false)}
+                onClick={() => { setShowEventsPanel(false); setLegendKey(null); }}
                 type="button"
               >Cerrar</button>
             </div>
