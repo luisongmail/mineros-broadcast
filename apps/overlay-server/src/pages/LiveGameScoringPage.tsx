@@ -19,12 +19,38 @@ type AtBatResult =
   | 'fielders_choice'
   | 'double_play';
 
-type PitchType = 'Recta' | 'Curva' | 'Slider' | 'Cambio' | 'Sinker' | 'Cortada' | 'Knuckle' | 'Splitter';
+type PitchType =
+  | 'Recta'
+  | 'Sinker'
+  | 'Cutter'
+  | 'Slider'
+  | 'Curva'
+  | 'Cambio'
+  | 'Splitter'
+  | 'Nudillo'
+  | 'Otro'
+  | 'Riseball'
+  | 'Dropball'
+  | 'Screwball';
 type PitchResult = 'ball' | 'called_strike' | 'swinging_strike' | 'foul' | 'in_play' | 'hit_by_pitch' | 'wild_pitch' | 'passed_ball';
 type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'home_run';
 type HitDirection = 'LF' | 'CF' | 'RF' | '3B' | 'SS' | '2B' | '1B' | 'P' | 'C';
 type BatterSide = 'R' | 'L' | 'S' | 'unknown';
 type ActiveBatterSide = 'R' | 'L' | null;
+type CatcherTargetMode = 'quick_3x3' | 'advanced_7x7' | 'same_as_location' | 'unknown';
+
+interface CatcherTarget {
+  mode: CatcherTargetMode;
+  col?: number;
+  row?: number;
+}
+
+interface PitchMetrics {
+  velocityMph: string;
+  umpireId: string;
+  videoTimestamp: string;
+  note: string;
+}
 
 interface PitcherStats {
   pitcherId: string;
@@ -132,7 +158,8 @@ const RESULT_OPTIONS: ResultOption[] = [
   { value: 'double_play', label: 'Doble play', tone: 'outs' },
 ];
 
-const PITCH_TYPES: PitchType[] = ['Recta', 'Curva', 'Slider', 'Cambio', 'Sinker', 'Cortada', 'Knuckle', 'Splitter'];
+const PITCH_TYPES_BASEBALL: PitchType[] = ['Recta', 'Sinker', 'Cutter', 'Slider', 'Curva', 'Cambio', 'Splitter', 'Nudillo', 'Otro'];
+const PITCH_TYPES_SOFTBALL: PitchType[] = ['Recta', 'Cambio', 'Riseball', 'Dropball', 'Curva', 'Screwball', 'Otro'];
 
 interface PitchResultOption {
   value: PitchResult;
@@ -183,6 +210,18 @@ const CONTACT_REQUIRED_RESULTS = new Set<AtBatResult>([
   'sacrifice_bunt',
   'double_play',
 ]);
+
+const QUICK_3X3_ZONES = [
+  { label: 'A-Ad', col: 1, row: 1 },
+  { label: 'A-C', col: 3, row: 1 },
+  { label: 'A-Af', col: 5, row: 1 },
+  { label: 'M-Ad', col: 1, row: 3 },
+  { label: 'M-C', col: 3, row: 3 },
+  { label: 'M-Af', col: 5, row: 3 },
+  { label: 'B-Ad', col: 1, row: 5 },
+  { label: 'B-C', col: 3, row: 5 },
+  { label: 'B-Af', col: 5, row: 5 },
+] as const;
 
 function resultToneClass(tone: ResultTone, active: boolean): string {
   if (tone === 'hit') {
@@ -250,6 +289,22 @@ function getTacticalReading(cell: PitchGridCell | null, side: ActiveBatterSide, 
   return 'Centro';
 }
 
+function getPitchWarning(
+  result: PitchResult | null,
+  cell: PitchGridCell | null,
+  gs: GameState | null,
+): string | null {
+  if (!result || !cell) return null;
+  const inZone = cell.col >= 2 && cell.col <= 4 && cell.row >= 2 && cell.row <= 4;
+  if (result === 'called_strike' && !inZone) return '⚠ Strike cantado fuera de zona';
+  if (result === 'ball' && inZone) return '⚠ Bola dentro de la zona de strike';
+  if ((result === 'wild_pitch' || result === 'passed_ball') && gs) {
+    const hasRunners = gs.bases.first || gs.bases.second || gs.bases.third;
+    if (hasRunners) return '⚠ WP/PB con corredores — confirma si avanzan';
+  }
+  return null;
+}
+
 function StepBadge({ active, index, title }: { active: boolean; index: number; title: string }) {
   return (
     <div className="flex items-center gap-3">
@@ -272,6 +327,9 @@ export function LiveGameScoringPage() {
   const [selectedResult, setSelectedResult] = useState<AtBatResult | null>(null);
   const [selectedContactType, setSelectedContactType] = useState<ContactType | null>(null);
   const [selectedHitDirection, setSelectedHitDirection] = useState<HitDirection | null>(null);
+  const [catcherTarget, setCatcherTarget] = useState<CatcherTarget>({ mode: 'unknown' });
+  const [pitchMetrics, setPitchMetrics] = useState<PitchMetrics>({ velocityMph: '', umpireId: '', videoTimestamp: '', note: '' });
+  const [showMetrics, setShowMetrics] = useState(false);
   const [battingSideOverride, setBattingSideOverride] = useState<ActiveBatterSide>(null);
   const [rbi, setRbi] = useState(0);
   const [runs, setRuns] = useState(0);
@@ -384,6 +442,26 @@ export function LiveGameScoringPage() {
     }
   }, [selectedResult]);
 
+  useEffect(() => {
+    if (!selectedPitchType) {
+      return;
+    }
+
+    const sport = (context?.gameState.rules as { sport?: string } | undefined)?.sport;
+    const currentPitchTypes = sport === 'softball' ? PITCH_TYPES_SOFTBALL : PITCH_TYPES_BASEBALL;
+    if (!currentPitchTypes.includes(selectedPitchType)) {
+      setSelectedPitchType('');
+    }
+  }, [context, selectedPitchType]);
+
+  useEffect(() => {
+    if (catcherTarget.mode !== 'same_as_location' || !selectedPitchCell) {
+      return;
+    }
+
+    setCatcherTarget({ mode: 'same_as_location', col: selectedPitchCell.col, row: selectedPitchCell.row });
+  }, [catcherTarget.mode, selectedPitchCell]);
+
   const recentHistory = useMemo(() => history.slice(0, 5), [history]);
 
   const selectedBatter = useMemo(
@@ -400,8 +478,12 @@ export function LiveGameScoringPage() {
   const inferredActiveBattingSide: ActiveBatterSide = batterSide === 'R' || batterSide === 'L' ? batterSide : null;
   const activeBattingSide = battingSideOverride ?? inferredActiveBattingSide;
   const shouldPromptBattingSide = batterSide === 'unknown' || batterSide === 'S';
+  const pitchTypes = (context?.gameState.rules as { sport?: string } | undefined)?.sport === 'softball'
+    ? PITCH_TYPES_SOFTBALL
+    : PITCH_TYPES_BASEBALL;
   const pitchResultOption = PITCH_RESULT_OPTIONS.find((o) => o.value === selectedPitchResult) ?? null;
   const selectedPitchReading = getTacticalReading(selectedPitchCell, activeBattingSide, batterSide);
+  const pitchWarning = getPitchWarning(selectedPitchResult, selectedPitchCell, context?.gameState ?? null);
   const canRegisterPitch = Boolean(selectedPitchCell && selectedPitchResult && selectedPitchType && selectedPitchResult !== 'in_play');
   const canSubmitAtBat = Boolean(
     context &&
@@ -417,6 +499,9 @@ export function LiveGameScoringPage() {
     setSelectedResult(null);
     setSelectedContactType(null);
     setSelectedHitDirection(null);
+    setCatcherTarget({ mode: 'unknown' });
+    setPitchMetrics({ velocityMph: '', umpireId: '', videoTimestamp: '', note: '' });
+    setShowMetrics(false);
     setRbi(0);
     setRuns(0);
     setCurrentStep(1);
@@ -461,6 +546,7 @@ export function LiveGameScoringPage() {
     setError(null);
 
     try {
+      const velocityMph = pitchMetrics.velocityMph ? Number.parseFloat(pitchMetrics.velocityMph) : undefined;
       const result = await requestJson<{ action: string }>('/pitch', {
         method: 'POST',
         body: JSON.stringify({
@@ -468,6 +554,13 @@ export function LiveGameScoringPage() {
           col: selectedPitchCell.col,
           row: selectedPitchCell.row,
           pitchType: selectedPitchType,
+          velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
+          umpireId: pitchMetrics.umpireId || undefined,
+          videoTimestamp: pitchMetrics.videoTimestamp || undefined,
+          note: pitchMetrics.note || undefined,
+          catcherTargetMode: catcherTarget.mode,
+          catcherTargetCol: catcherTarget.col,
+          catcherTargetRow: catcherTarget.row,
         }),
       });
 
@@ -495,7 +588,7 @@ export function LiveGameScoringPage() {
     } finally {
       setSavingPitch(false);
     }
-  }, [context, loadContext, resetAtBatWorkflow, savingPitch, selectedPitchCell, selectedPitchResult, selectedPitchType, showPitchFeedback]);
+  }, [catcherTarget, context, loadContext, pitchMetrics, resetAtBatWorkflow, savingPitch, selectedPitchCell, selectedPitchResult, selectedPitchType, showPitchFeedback]);
 
   const handleQuickFoul = useCallback(async () => {
     if (!context || savingPitch) {
@@ -506,6 +599,7 @@ export function LiveGameScoringPage() {
     setError(null);
 
     try {
+      const velocityMph = pitchMetrics.velocityMph ? Number.parseFloat(pitchMetrics.velocityMph) : undefined;
       const result = await requestJson<{ action: string }>('/pitch', {
         method: 'POST',
         body: JSON.stringify({
@@ -513,6 +607,13 @@ export function LiveGameScoringPage() {
           col: selectedPitchCell?.col,
           row: selectedPitchCell?.row,
           pitchType: selectedPitchType || undefined,
+          velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
+          umpireId: pitchMetrics.umpireId || undefined,
+          videoTimestamp: pitchMetrics.videoTimestamp || undefined,
+          note: pitchMetrics.note || undefined,
+          catcherTargetMode: catcherTarget.mode,
+          catcherTargetCol: catcherTarget.col,
+          catcherTargetRow: catcherTarget.row,
         }),
       });
 
@@ -526,7 +627,7 @@ export function LiveGameScoringPage() {
     } finally {
       setSavingPitch(false);
     }
-  }, [context, loadContext, savingPitch, selectedPitchCell, selectedPitchType, showPitchFeedback]);
+  }, [catcherTarget, context, loadContext, pitchMetrics, savingPitch, selectedPitchCell, selectedPitchType, showPitchFeedback]);
 
   const handleApplyPitcherChange = useCallback(async () => {
     if (!selectedPitcherId || savingPitcher) {
@@ -565,6 +666,7 @@ export function LiveGameScoringPage() {
     try {
       // Si el flujo llegó por in_play, primero registrar el pitch sin actualizar conteo
       if (selectedPitchResult === 'in_play' && selectedPitchCell && selectedPitchType) {
+        const velocityMph = pitchMetrics.velocityMph ? Number.parseFloat(pitchMetrics.velocityMph) : undefined;
         await requestJson<{ action: string }>('/pitch', {
           method: 'POST',
           body: JSON.stringify({
@@ -572,6 +674,13 @@ export function LiveGameScoringPage() {
             col: selectedPitchCell.col,
             row: selectedPitchCell.row,
             pitchType: selectedPitchType,
+            velocityMph: Number.isFinite(velocityMph) ? velocityMph : undefined,
+            umpireId: pitchMetrics.umpireId || undefined,
+            videoTimestamp: pitchMetrics.videoTimestamp || undefined,
+            note: pitchMetrics.note || undefined,
+            catcherTargetMode: catcherTarget.mode,
+            catcherTargetCol: catcherTarget.col,
+            catcherTargetRow: catcherTarget.row,
           }),
         });
       }
@@ -598,7 +707,7 @@ export function LiveGameScoringPage() {
     } finally {
       setSavingAtBat(false);
     }
-  }, [context, loadContext, resetAtBatWorkflow, rbi, runs, selectedBatterId, selectedContactType, selectedHitDirection, selectedPitchCell, selectedPitcherId, selectedPitchResult, selectedPitchType, selectedResult, showPitchFeedback]);
+  }, [catcherTarget, context, loadContext, pitchMetrics, resetAtBatWorkflow, rbi, runs, selectedBatterId, selectedContactType, selectedHitDirection, selectedPitchCell, selectedPitcherId, selectedPitchResult, selectedPitchType, selectedResult, showPitchFeedback]);
 
   if (loading && !context) {
     return <div className="min-h-screen bg-broadcast-black px-4 py-4 text-white">Cargando live scoring…</div>;
@@ -846,6 +955,94 @@ export function LiveGameScoringPage() {
               </div>
             )}
 
+            <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-mineros-gold">Objetivo receptor</p>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {([
+                  { mode: 'quick_3x3', label: 'Rápido 3×3' },
+                  { mode: 'advanced_7x7', label: 'Avanzado 7×7' },
+                  { mode: 'same_as_location', label: 'Misma ubicación' },
+                  { mode: 'unknown', label: 'Desconocido' },
+                ] as const).map((option) => {
+                  const active = catcherTarget.mode === option.mode;
+                  return (
+                    <button
+                      key={option.mode}
+                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-white/10 bg-black/20 text-white/70 hover:border-white/30'}`}
+                      onClick={() => {
+                        if (option.mode === 'same_as_location') {
+                          setCatcherTarget({
+                            mode: 'same_as_location',
+                            col: selectedPitchCell?.col,
+                            row: selectedPitchCell?.row,
+                          });
+                          return;
+                        }
+
+                        if (option.mode === 'unknown') {
+                          setCatcherTarget({ mode: 'unknown' });
+                          return;
+                        }
+
+                        setCatcherTarget({ mode: option.mode });
+                      }}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {catcherTarget.mode === 'quick_3x3' ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-white/60">A=Alto · M=Medio · B=Bajo · Ad=Adentro · C=Centro · Af=Afuera</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {QUICK_3X3_ZONES.map((zone) => {
+                      const active = catcherTarget.col === zone.col && catcherTarget.row === zone.row;
+                      return (
+                        <button
+                          key={zone.label}
+                          className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${active ? 'border-mineros-red bg-mineros-red text-white' : 'border-white/10 bg-black/20 text-white/70 hover:border-white/30'}`}
+                          onClick={() => setCatcherTarget({ mode: 'quick_3x3', col: zone.col, row: zone.row })}
+                          type="button"
+                        >
+                          <span className="block">{zone.label}</span>
+                          <span className="mt-1 block text-[10px] uppercase tracking-[0.16em] text-white/55">
+                            C{zone.col} · R{zone.row}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {catcherTarget.mode === 'advanced_7x7' ? (
+                <PitchGrid
+                  activeBattingSide={null}
+                  batterSide="unknown"
+                  onSelect={(cell) => setCatcherTarget({ mode: 'advanced_7x7', ...cell })}
+                  selectedCell={catcherTarget.col !== undefined && catcherTarget.row !== undefined ? { col: catcherTarget.col, row: catcherTarget.row } : null}
+                  showTacticalInfo={false}
+                />
+              ) : null}
+
+              {catcherTarget.mode === 'same_as_location' ? (
+                <p className="text-sm text-white/70">
+                  (Misma ubicación que el lanzamiento real)
+                  {selectedPitchCell ? ` · C${selectedPitchCell.col} · R${selectedPitchCell.row}` : ''}
+                </p>
+              ) : null}
+
+              {catcherTarget.mode === 'unknown' ? (
+                <p className="text-sm text-white/55">(No capturado)</p>
+              ) : null}
+            </div>
+
             <PitchGrid
               activeBattingSide={activeBattingSide}
               batterSide={batterSide}
@@ -899,10 +1096,16 @@ export function LiveGameScoringPage() {
               </div>
             </div>
 
+            {pitchWarning ? (
+              <div className="rounded-full border border-yellow-500/40 bg-yellow-500/10 px-4 py-2 text-sm font-semibold text-yellow-200">
+                {pitchWarning}
+              </div>
+            ) : null}
+
             <div className="space-y-2">
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Tipo de lanzamiento</p>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {PITCH_TYPES.map((pitchType) => {
+                {pitchTypes.map((pitchType) => {
                   const active = selectedPitchType === pitchType;
                   return (
                     <button
@@ -916,6 +1119,50 @@ export function LiveGameScoringPage() {
                   );
                 })}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                className="text-sm font-semibold text-white/50 transition hover:text-white/80"
+                onClick={() => setShowMetrics((current) => !current)}
+                type="button"
+              >
+                {showMetrics ? '▴ Métricas opcionales' : '▾ Métricas opcionales'}
+              </button>
+              {showMetrics ? (
+                <div className="grid gap-2 xl:grid-cols-4">
+                  <input
+                    className="rounded-xl border border-white/10 bg-broadcast-black px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                    max="120"
+                    min="0"
+                    onChange={(event) => setPitchMetrics((current) => ({ ...current, velocityMph: event.target.value }))}
+                    placeholder="—"
+                    type="number"
+                    value={pitchMetrics.velocityMph}
+                  />
+                  <input
+                    className="rounded-xl border border-white/10 bg-broadcast-black px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                    onChange={(event) => setPitchMetrics((current) => ({ ...current, umpireId: event.target.value }))}
+                    placeholder="HP-01"
+                    type="text"
+                    value={pitchMetrics.umpireId}
+                  />
+                  <input
+                    className="rounded-xl border border-white/10 bg-broadcast-black px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                    onChange={(event) => setPitchMetrics((current) => ({ ...current, videoTimestamp: event.target.value }))}
+                    placeholder="00:42:18"
+                    type="text"
+                    value={pitchMetrics.videoTimestamp}
+                  />
+                  <input
+                    className="rounded-xl border border-white/10 bg-broadcast-black px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                    onChange={(event) => setPitchMetrics((current) => ({ ...current, note: event.target.value }))}
+                    placeholder="Observación..."
+                    type="text"
+                    value={pitchMetrics.note}
+                  />
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-2">

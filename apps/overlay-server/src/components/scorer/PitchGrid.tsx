@@ -13,6 +13,7 @@ interface PitchGridProps {
   batterSide: BatterSide;
   onSelect: (cell: PitchGridCell) => void;
   selectedCell: PitchGridCell | null;
+  showTacticalInfo?: boolean;
 }
 
 export function classifyZone(col: number, row: number): ZoneClass {
@@ -71,7 +72,13 @@ const ZONE_CLASSNAMES: Record<ZoneClass, string> = {
   waste: 'border-white/[0.05] bg-black/30 text-white/45 hover:border-white/15 hover:bg-black/40',
 };
 
-export function PitchGrid({ activeBattingSide, batterSide, onSelect, selectedCell }: PitchGridProps) {
+export function PitchGrid({
+  activeBattingSide,
+  batterSide,
+  onSelect,
+  selectedCell,
+  showTacticalInfo = true,
+}: PitchGridProps) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-7 gap-1 rounded-2xl border border-white/10 bg-black/30 p-2">
@@ -98,17 +105,19 @@ export function PitchGrid({ activeBattingSide, batterSide, onSelect, selectedCel
         )}
       </div>
 
-      <div className="grid gap-2 text-xs text-white/70 sm:grid-cols-3">
+      <div className={`grid gap-2 text-xs text-white/70 ${showTacticalInfo ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
           <span className="block text-[10px] uppercase tracking-[0.2em] text-white/40">Zona</span>
           <span className="font-semibold text-white">{selectedCell ? ZONE_LABELS[classifyZone(selectedCell.col, selectedCell.row)] : 'Sin selección'}</span>
         </div>
-        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-          <span className="block text-[10px] uppercase tracking-[0.2em] text-white/40">Lectura táctica</span>
-          <span className="font-semibold text-white">
-            {selectedCell ? getTacticalSide(selectedCell.col, activeBattingSide, batterSide) : 'Selecciona una celda'}
-          </span>
-        </div>
+        {showTacticalInfo ? (
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+            <span className="block text-[10px] uppercase tracking-[0.2em] text-white/40">Lectura táctica</span>
+            <span className="font-semibold text-white">
+              {selectedCell ? getTacticalSide(selectedCell.col, activeBattingSide, batterSide) : 'Selecciona una celda'}
+            </span>
+          </div>
+        ) : null}
         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
           <span className="block text-[10px] uppercase tracking-[0.2em] text-white/40">Coordenada</span>
           <span className="font-semibold text-white">{selectedCell ? `C${selectedCell.col} · R${selectedCell.row}` : '—'}</span>
