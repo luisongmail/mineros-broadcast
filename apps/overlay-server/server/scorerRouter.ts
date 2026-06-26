@@ -31,6 +31,19 @@ interface AtBatRequest {
   onBase?: boolean;
   pitchCount?: number;
   notes?: string;
+  contactType?: ContactType;
+  hitDirection?: HitDirection;
+}
+
+type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'home_run';
+type HitDirection = 'LF' | 'CF' | 'RF' | '3B' | 'SS' | '2B' | '1B' | 'P' | 'C';
+type PitchCall = 'ball' | 'strike' | 'foul';
+
+interface PitchRequest {
+  type: PitchCall;
+  col?: number;
+  row?: number;
+  pitchType?: string;
 }
 
 interface ApiSuccessResponse {
@@ -51,12 +64,22 @@ interface AtBatColumnRow extends RowDataPacket {
   Field: string;
 }
 
+interface PitchColumnRow extends RowDataPacket {
+  Field: string;
+}
+
 interface GameLineupRow extends RowDataPacket {
   id: string;
 }
 
 interface CountRow extends RowDataPacket {
   total: number;
+}
+
+interface PlayerMetaRow extends RowDataPacket {
+  id: string;
+  bats: string | null;
+  throws: string | null;
 }
 
 const AT_BAT_RESULTS = [
@@ -89,6 +112,8 @@ const OUT_RESULTS = new Set<AtBatResult>([
 
 // Resultados que aplican avance forzado de corredores (walk / HBP)
 const WALK_RESULTS = new Set<AtBatResult>(['walk', 'hbp']);
+const CONTACT_TYPES = new Set<ContactType>(['line_drive', 'fly_ball', 'ground_ball', 'bunt', 'home_run']);
+const HIT_DIRECTIONS = new Set<HitDirection>(['LF', 'CF', 'RF', '3B', 'SS', '2B', '1B', 'P', 'C']);
 
 interface RunnerAdvancement {
   newBases: GameBases;
@@ -160,6 +185,7 @@ function advanceRunnersNBases(before: GameBases, n: 1 | 2 | 3): RunnerAdvancemen
 }
 
 let atBatColumnsPromise: Promise<Set<string>> | null = null;
+let pitchColumnsPromise: Promise<Set<string>> | null = null;
 
 function sendSuccess(response: Response, payload: unknown, status = 200): void {
   const body: ApiSuccessResponse = {
@@ -241,12 +267,48 @@ function parseOptionalBoolean(value: unknown, fieldName: string): boolean | unde
   return value;
 }
 
+function parseOptionalGridCoordinate(value: unknown, fieldName: string): number | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 6) {
+    throw new Error(`${fieldName} must be an integer between 0 and 6 when provided`);
+  }
+
+  return value;
+}
+
 function parseAtBatResult(value: unknown): AtBatResult {
   if (typeof value !== 'string' || !AT_BAT_RESULTS.includes(value as AtBatResult)) {
     throw new Error('result must be a valid at-bat result');
   }
 
   return value as AtBatResult;
+}
+
+function parseOptionalContactType(value: unknown): ContactType | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value !== 'string' || !CONTACT_TYPES.has(value as ContactType)) {
+    throw new Error('contactType must be a valid contact type');
+  }
+
+  return value as ContactType;
+}
+
+function parseOptionalHitDirection(value: unknown): HitDirection | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value !== 'string' || !HIT_DIRECTIONS.has(value as HitDirection)) {
+    throw new Error('hitDirection must be a valid field direction');
+  }
+
+  return value as HitDirection;
 }
 
 function parseAtBatRequest(body: unknown): AtBatRequest {
@@ -264,6 +326,26 @@ function parseAtBatRequest(body: unknown): AtBatRequest {
     onBase: parseOptionalBoolean(body.onBase, 'onBase'),
     pitchCount: parseOptionalInteger(body.pitchCount, 'pitchCount'),
     notes: parseOptionalString(body.notes, 'notes'),
+    contactType: parseOptionalContactType(body.contactType),
+    hitDirection: parseOptionalHitDirection(body.hitDirection),
+  };
+}
+
+function parsePitchRequest(body: unknown): PitchRequest {
+  if (!isRecord(body)) {
+    throw new Error('Request body must be a JSON object');
+  }
+
+  const { type } = body;
+  if (type !== 'ball' && type !== 'strike' && type !== 'foul') {
+    throw new Error('type debe ser "ball", "strike" o "foul"');
+  }
+
+  return {
+    type,
+    col: parseOptionalGridCoordinate(body.col, 'col'),
+    row: parseOptionalGridCoordinate(body.row, 'row'),
+    pitchType: parseOptionalString(body.pitchType, 'pitchType'),
   };
 }
 
@@ -277,6 +359,18 @@ async function getAtBatColumns(): Promise<Set<string>> {
     .then(([rows]) => new Set(rows.map((row) => row.Field)));
 
   return atBatColumnsPromise;
+}
+
+async function getPitchColumns(): Promise<Set<string>> {
+  if (!pool) {
+    return new Set();
+  }
+
+  pitchColumnsPromise ??= pool
+    .query<PitchColumnRow[]>('SHOW COLUMNS FROM pitches')
+    .then(([rows]) => new Set(rows.map((row) => row.Field)));
+
+  return pitchColumnsPromise;
 }
 
 async function findGameLineupId(gameId: string, playerId: string | undefined): Promise<string | null> {
@@ -328,6 +422,33 @@ async function countAtBatsThisInning(gameId: string, inning: number, inningHalf:
   const params = hasInningHalf ? [gameId, inning, inningHalf] : [gameId, inning];
   const [rows] = await pool.query<CountRow[]>(sql, params);
   return rows[0]?.total ?? 0;
+}
+
+function normalizeBats(value: string | null): 'R' | 'L' | 'S' | undefined {
+  return value === 'R' || value === 'L' || value === 'S' ? value : undefined;
+}
+
+async function loadPlayerMeta(playerIds: string[]): Promise<Record<string, { bats?: 'R' | 'L' | 'S'; throws?: string }>> {
+  if (!pool || playerIds.length === 0) {
+    return {};
+  }
+
+  const uniquePlayerIds = [...new Set(playerIds)];
+  const placeholders = uniquePlayerIds.map(() => '?').join(', ');
+  const [rows] = await pool.query<PlayerMetaRow[]>(
+    `SELECT id, bats, throws
+     FROM players
+     WHERE id IN (${placeholders})`,
+    uniquePlayerIds,
+  );
+
+  return rows.reduce<Record<string, { bats?: 'R' | 'L' | 'S'; throws?: string }>>((accumulator, row) => {
+    accumulator[row.id] = {
+      bats: normalizeBats(row.bats),
+      ...(row.throws ? { throws: row.throws } : {}),
+    };
+    return accumulator;
+  }, {});
 }
 
 async function insertAtBat(request: AtBatRequest): Promise<void> {
@@ -393,6 +514,18 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
     placeholders.push('?');
   }
 
+  if (columns.has('contact_type')) {
+    insertColumns.push('contact_type');
+    insertValues.push(request.contactType ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('hit_direction')) {
+    insertColumns.push('hit_direction');
+    insertValues.push(request.hitDirection ?? null);
+    placeholders.push('?');
+  }
+
   if (columns.has('pitcher_player_id')) {
     insertColumns.push('pitcher_player_id');
     insertValues.push(request.pitcherPlayerId ?? null);
@@ -406,6 +539,71 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
 
   await pool.query(
     `INSERT INTO at_bats (${insertColumns.join(', ')})
+     VALUES (${placeholders.join(', ')})`,
+    insertValues,
+  );
+}
+
+async function insertPitch(request: PitchRequest): Promise<void> {
+  if (!pool) {
+    throw new Error('DATABASE_URL no está configurado');
+  }
+
+  const columns = await getPitchColumns();
+  const state = stateStore.getState();
+  const battingRole = getBattingRole(state.inningHalf);
+  const pitchingRole = getPitchingRole(state.inningHalf);
+  const batterId = state.currentBatterId ?? state.lineup[battingRole][0]?.playerId;
+  const pitcherId = state.currentPitcherId ?? state.lineup[pitchingRole][0]?.playerId;
+
+  if (!batterId || !pitcherId) {
+    return;
+  }
+
+  const insertColumns = ['game_id', 'pitcher_player_id', 'batter_player_id', 'pitch_num', 'umpire_call', 'inning', 'inning_half', 'operator_id'];
+  const insertValues: Array<string | number | null> = [
+    state.gameId,
+    pitcherId,
+    batterId,
+    stateStore.getPitchCount() + 1,
+    request.type,
+    state.inning,
+    state.inningHalf,
+    'live-game-scoring',
+  ];
+  const placeholders = ['?', '?', '?', '?', '?', '?', '?', '?'];
+
+  if (columns.has('pitch_type')) {
+    insertColumns.push('pitch_type');
+    insertValues.push(request.pitchType ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('zone_x')) {
+    insertColumns.push('zone_x');
+    insertValues.push(request.col ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('zone_y')) {
+    insertColumns.push('zone_y');
+    insertValues.push(request.row ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('at_bat_id')) {
+    insertColumns.push('at_bat_id');
+    insertValues.push(null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('timestamp')) {
+    insertColumns.push('timestamp');
+    placeholders.push('CURRENT_TIMESTAMP(3)');
+  }
+
+  await pool.query(
+    `INSERT INTO pitches (${insertColumns.join(', ')})
      VALUES (${placeholders.join(', ')})`,
     insertValues,
   );
@@ -715,6 +913,10 @@ scorerRouter.get('/scorer/context', async (_request: Request, response: Response
       : null;
     const atBatsThisInning = await countAtBatsThisInning(gameState.gameId, gameState.inning, gameState.inningHalf);
     const pitcherStats = gameState.rules.hasPitcher ? await computePitcherStats(gameState.gameId) : {};
+    const playerMeta = await loadPlayerMeta([
+      ...gameState.lineup[battingRole].map((player) => player.playerId),
+      ...gameState.lineup[pitchingRole].map((player) => player.playerId),
+    ]);
 
     sendSuccess(response, {
       gameState,
@@ -727,6 +929,7 @@ scorerRouter.get('/scorer/context', async (_request: Request, response: Response
       atBatsThisInning,
       pitcherStats,
       pitcherChangeLog: stateStore.pitcherChangeLog,
+      playerMeta,
     });
   } catch (error) {
     sendError(response, 400, error);
@@ -744,16 +947,12 @@ scorerRouter.post('/pitch', async (request: Request, response: Response) => {
   if (!requirePool(response)) return;
 
   try {
-    const body = request.body as { type?: string };
-    const type = body.type;
-    if (type !== 'ball' && type !== 'strike' && type !== 'foul') {
-      sendError(response, 400, new Error('type debe ser "ball", "strike" o "foul"'));
-      return;
-    }
-
+    const payload = parsePitchRequest(request.body);
+    await insertPitch(payload);
     const state = stateStore.getState();
     const currentBalls = state.count.balls;
     const currentStrikes = state.count.strikes;
+    const type = payload.type;
 
     if (type === 'foul') {
       if (currentStrikes < 2) {
@@ -793,6 +992,10 @@ scorerRouter.post('/pitch', async (request: Request, response: Response) => {
           .then((stats) => { stateStore.broadcastPlayerStats(stats); })
           .catch((err: unknown) => { console.warn('[Pitch] computePlayerStats error', err); });
 
+        computePitcherStats(state.gameId)
+          .then((pitcherStats) => { stateStore.broadcastPitcherStats(pitcherStats); })
+          .catch((err: unknown) => { console.warn('[Pitch] computePitcherStats error', err); });
+
         sendSuccess(response, { gameState: stateStore.getState(), action: 'auto_walk' });
       } else {
         stateStore.sendCommand('AddBall');
@@ -829,6 +1032,10 @@ scorerRouter.post('/pitch', async (request: Request, response: Response) => {
       computePlayerStats(state.gameId)
         .then((stats) => { stateStore.broadcastPlayerStats(stats); })
         .catch((err: unknown) => { console.warn('[Pitch] computePlayerStats error', err); });
+
+      computePitcherStats(state.gameId)
+        .then((pitcherStats) => { stateStore.broadcastPitcherStats(pitcherStats); })
+        .catch((err: unknown) => { console.warn('[Pitch] computePitcherStats error', err); });
 
       sendSuccess(response, { gameState: stateStore.getState(), action: 'auto_strikeout' });
     } else {
@@ -887,4 +1094,3 @@ scorerRouter.post('/game/reset', async (_request: Request, response: Response) =
     sendError(response, 500, error);
   }
 });
-
