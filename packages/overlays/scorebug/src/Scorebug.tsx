@@ -95,13 +95,13 @@ export function Scorebug({ game, assetBaseUrl }: ScorebugProps) {
           <div className="flex flex-col gap-2">
             <span className="text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white/70">Bases</span>
             <div className="relative h-7 w-11" aria-hidden="true">
-              <BaseDiamond active={bases.second} position="left-[15px] top-0" />
-              <BaseDiamond active={bases.third} position="left-[3px] top-3" />
-              <BaseDiamond active={bases.first} position="left-[27px] top-3" />
+              <BaseDiamond active={bases.second !== null} position="left-[15px] top-0" />
+              <BaseDiamond active={bases.third !== null} position="left-[3px] top-3" />
+              <BaseDiamond active={bases.first !== null} position="left-[27px] top-3" />
             </div>
-            <span className="sr-only">1B:{bases.first ? '●' : '○'}</span>
-            <span className="sr-only">2B:{bases.second ? '●' : '○'}</span>
-            <span className="sr-only">3B:{bases.third ? '●' : '○'}</span>
+            <span className="sr-only">1B:{bases.first !== null ? '●' : '○'}</span>
+            <span className="sr-only">2B:{bases.second !== null ? '●' : '○'}</span>
+            <span className="sr-only">3B:{bases.third !== null ? '●' : '○'}</span>
           </div>
         </div>
 

@@ -52,10 +52,18 @@ export type GameStatus =
 
 export type InningHalf = 'top' | 'bottom';
 
+export interface RunnerOnBase {
+  id: string;
+  name: string;
+  number: number;
+  originBase: 'first' | 'second' | 'third' | 'home';
+  earned: boolean;
+}
+
 export interface BasesState {
-  first: boolean;
-  second: boolean;
-  third: boolean;
+  first: RunnerOnBase | null;
+  second: RunnerOnBase | null;
+  third: RunnerOnBase | null;
 }
 
 export interface CountState {

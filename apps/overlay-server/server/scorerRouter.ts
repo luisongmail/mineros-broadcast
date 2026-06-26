@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import type { GameBases, LineupEntry, TeamRole } from '@mineros/game-engine';
+import type { GameBases, LineupEntry, RunnerOnBase, TeamRole } from '@mineros/game-engine';
 import type { RowDataPacket } from 'mysql2';
 
 import { pool } from './db';
@@ -155,28 +155,29 @@ interface RunnerAdvancement {
 /**
  * Walk/HBP: el bateador toma 1ª. Los corredores avanzan solo si son forzados
  * por el nuevo ocupante de 1ª (efecto dominó hasta home si bases llenas).
+ * batterRunner: corredor placeholder para el bateador.
  */
-function advanceRunnersForced(before: GameBases): RunnerAdvancement {
+function advanceRunnersForced(before: GameBases, batterRunner: RunnerOnBase): RunnerAdvancement {
   let third = before.third;
   let second = before.second;
   let runsScored = 0;
 
-  if (before.first) {
-    if (before.second) {
-      if (before.third) {
+  if (before.first !== null) {
+    if (before.second !== null) {
+      if (before.third !== null) {
         runsScored = 1; // corredor de 3ª forzado a home
-        // third stays true: corredor de 2ª lo reemplaza en 3ª
+        third = before.second; // corredor de 2ª lo reemplaza en 3ª
       } else {
-        third = true; // corredor de 2ª forzado a 3ª
+        third = before.second; // corredor de 2ª forzado a 3ª
       }
-      second = true; // corredor de 1ª forzado a 2ª
+      second = before.first; // corredor de 1ª forzado a 2ª
     } else {
-      second = true; // corredor de 1ª forzado a 2ª
+      second = before.first; // corredor de 1ª forzado a 2ª
       // third no cambia
     }
   }
 
-  return { newBases: { first: true, second, third }, runsScored };
+  return { newBases: { first: batterRunner, second, third }, runsScored };
 }
 
 /**
@@ -186,30 +187,30 @@ function advanceRunnersForced(before: GameBases): RunnerAdvancement {
  */
 function advanceRunnersNBases(before: GameBases, n: 1 | 2 | 3): RunnerAdvancement {
   let runsScored = 0;
-  const newBases: GameBases = { first: false, second: false, third: false };
+  const newBases: GameBases = { first: null, second: null, third: null };
 
-  if (before.third) {
+  if (before.third !== null) {
     // 3 + n >= 4 para cualquier n >= 1 → siempre anota
     runsScored += 1;
   }
 
-  if (before.second) {
+  if (before.second !== null) {
     const pos = 2 + n;
     if (pos >= 4) {
       runsScored += 1; // double o triple: 2ª anota
     } else {
-      newBases.third = true; // single: 2ª → 3ª
+      newBases.third = before.second; // single: 2ª → 3ª
     }
   }
 
-  if (before.first) {
+  if (before.first !== null) {
     const pos = 1 + n;
     if (pos >= 4) {
       runsScored += 1; // triple: 1ª anota
     } else if (pos === 3) {
-      newBases.third = true; // double: 1ª → 3ª
+      newBases.third = before.first; // double: 1ª → 3ª (si 2ª ya asignó 3ª, 1ª ganó más avance y sobrescribe)
     } else {
-      newBases.second = true; // single: 1ª → 2ª
+      newBases.second = before.first; // single: 1ª → 2ª
     }
   }
 
@@ -889,27 +890,31 @@ function applyAtBatToGameState(request: AtBatRequest): void {
 
   if (request.result === 'home_run') {
     // Todos los corredores + bateador anotan; el campo `runs` del scorer se ignora
-    autoRuns = (beforeBases.first ? 1 : 0) + (beforeBases.second ? 1 : 0) + (beforeBases.third ? 1 : 0) + 1;
-    newBases = { first: false, second: false, third: false };
+    autoRuns = (beforeBases.first !== null ? 1 : 0) + (beforeBases.second !== null ? 1 : 0) + (beforeBases.third !== null ? 1 : 0) + 1;
+    newBases = { first: null, second: null, third: null };
   } else if (WALK_RESULTS.has(request.result)) {
     // Walk / HBP: avance forzado
-    const adv = advanceRunnersForced(beforeBases);
+    const batterRunner: RunnerOnBase = { id: request.batterPlayerId, name: '', number: 0, originBase: 'first', earned: true };
+    const adv = advanceRunnersForced(beforeBases, batterRunner);
     autoRuns = adv.runsScored;
     newBases = adv.newBases;
   } else if (request.result === 'single' || request.result === 'error' || request.result === 'fielders_choice') {
     // Sencillo / Error / FC: avance de 1 base; bateador a 1ª
     const adv = advanceRunnersNBases(beforeBases, 1);
     autoRuns = adv.runsScored;
-    newBases = { ...adv.newBases, first: true };
+    const batterRunner: RunnerOnBase = { id: request.batterPlayerId, name: '', number: 0, originBase: 'first', earned: true };
+    newBases = { ...adv.newBases, first: batterRunner };
   } else if (request.result === 'double') {
     // Doble: avance de 2 bases; bateador a 2ª
     const adv = advanceRunnersNBases(beforeBases, 2);
     autoRuns = adv.runsScored;
-    newBases = { first: false, second: true, third: adv.newBases.third };
+    const batterRunner: RunnerOnBase = { id: request.batterPlayerId, name: '', number: 0, originBase: 'second', earned: true };
+    newBases = { first: null, second: batterRunner, third: adv.newBases.third };
   } else if (request.result === 'triple') {
     // Triple: todos los corredores anotan; bateador a 3ª
-    autoRuns = (beforeBases.first ? 1 : 0) + (beforeBases.second ? 1 : 0) + (beforeBases.third ? 1 : 0);
-    newBases = { first: false, second: false, third: true };
+    autoRuns = (beforeBases.first !== null ? 1 : 0) + (beforeBases.second !== null ? 1 : 0) + (beforeBases.third !== null ? 1 : 0);
+    const batterRunner: RunnerOnBase = { id: request.batterPlayerId, name: '', number: 0, originBase: 'third', earned: true };
+    newBases = { first: null, second: null, third: batterRunner };
   }
 
   // Carreras totales = automáticas (avance) + manuales (operador, para casos edge)

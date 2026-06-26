@@ -168,7 +168,7 @@ export const DEMO_GAME_DETAIL: GameConfigDetail = {
   inning: 1,
   inningHalf: 'top',
   outs: 0,
-  bases: { first: false, second: false, third: false },
+  bases: { first: null, second: null, third: null },
   count: { balls: 0, strikes: 0 },
   score: { home: 0, away: 0 },
   currentBatterId: 'player-gue-01',

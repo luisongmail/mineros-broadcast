@@ -40,16 +40,14 @@ export function validateOuts(outs: number): void {
 }
 
 export function validateBases(bases: Partial<GameBases>): void {
-  if (bases.first !== undefined) {
-    assertCondition(typeof bases.first === 'boolean', 'bases.first must be a boolean');
-  }
-
-  if (bases.second !== undefined) {
-    assertCondition(typeof bases.second === 'boolean', 'bases.second must be a boolean');
-  }
-
-  if (bases.third !== undefined) {
-    assertCondition(typeof bases.third === 'boolean', 'bases.third must be a boolean');
+  for (const key of ['first', 'second', 'third'] as const) {
+    const val = bases[key];
+    if (val !== undefined) {
+      assertCondition(
+        val === null || (typeof val === 'object' && typeof val.id === 'string'),
+        `bases.${key} must be null or a RunnerOnBase object`,
+      );
+    }
   }
 }
 

@@ -20,13 +20,13 @@ export function BasesIndicator({ bases }: BasesIndicatorProps) {
   return (
     <div aria-label="Bases" className="grid grid-cols-3 grid-rows-2 gap-1">
       <span className="col-start-2 row-start-1 flex justify-center">
-        <BaseDiamond active={bases.second} />
+        <BaseDiamond active={bases.second !== null} />
       </span>
       <span className="col-start-1 row-start-2 flex justify-center">
-        <BaseDiamond active={bases.third} />
+        <BaseDiamond active={bases.third !== null} />
       </span>
       <span className="col-start-3 row-start-2 flex justify-center">
-        <BaseDiamond active={bases.first} />
+        <BaseDiamond active={bases.first !== null} />
       </span>
     </div>
   );

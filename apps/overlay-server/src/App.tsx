@@ -702,7 +702,7 @@ function OperatorControlPanel() {
   const currentBatter = createCurrentBatterData(gameConfigDetail, game);
   const nextBatters = createNextBattersData(gameConfigDetail, game);
   const inningLabel = (game.inningHalf === 'top' ? 'Alta ' : 'Baja ') + game.inning;
-  const basesLabel = [game.bases.first ? '1B' : null, game.bases.second ? '2B' : null, game.bases.third ? '3B' : null]
+  const basesLabel = [game.bases.first !== null ? '1B' : null, game.bases.second !== null ? '2B' : null, game.bases.third !== null ? '3B' : null]
     .filter(Boolean)
     .join(' · ');
 

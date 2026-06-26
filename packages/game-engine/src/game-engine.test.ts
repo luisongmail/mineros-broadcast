@@ -35,7 +35,7 @@ describe('GameEngine', () => {
       inning: 1,
       inningHalf: 'top',
       outs: 0,
-      bases: { first: false, second: false, third: false },
+      bases: { first: null, second: null, third: null },
       count: { balls: 0, strikes: 0 },
       score: { home: 0, away: 0 },
       lineup: { home: [], away: [] },
@@ -75,7 +75,7 @@ describe('GameEngine', () => {
   it('addOut agrega out y al tercer out limpia y avanza media entrada', () => {
     const engine = createEngine();
 
-    engine.setBases({ first: true, third: true });
+    engine.setBases({ first: { id: "r1", name: "Runner", number: 1, originBase: "first", earned: true }, third: { id: 'r3', name: 'Runner', number: 3, originBase: 'third', earned: true } });
     engine.setCount({ balls: 2, strikes: 1 });
     engine.addOut();
     engine.addOut();
@@ -87,7 +87,7 @@ describe('GameEngine', () => {
       inning: 1,
       inningHalf: 'bottom',
       outs: 0,
-      bases: { first: false, second: false, third: false },
+      bases: { first: null, second: null, third: null },
       count: { balls: 0, strikes: 0 },
     });
     expect(engine.getState().eventLog.at(-2)).toMatchObject({ eventType: 'inning_ended' });
@@ -97,11 +97,13 @@ describe('GameEngine', () => {
   it('setBases cambia bases y clearBases las limpia', () => {
     const engine = createEngine();
 
-    engine.setBases({ first: true, second: true });
-    expect(engine.getState().bases).toEqual({ first: true, second: true, third: false });
+    engine.setBases({ first: { id: "r1", name: "Runner", number: 1, originBase: "first", earned: true }, second: { id: "r2", name: "Runner", number: 2, originBase: "second", earned: true } });
+    expect(engine.getState().bases.first).not.toBeNull();
+    expect(engine.getState().bases.second).not.toBeNull();
+    expect(engine.getState().bases.third).toBeNull();
 
     engine.clearBases();
-    expect(engine.getState().bases).toEqual({ first: false, second: false, third: false });
+    expect(engine.getState().bases).toEqual({ first: null, second: null, third: null });
   });
 
   it('setCount cambia conteo y resetCount lo reinicia', () => {
@@ -199,56 +201,56 @@ describe('GameEngine', () => {
       engine.setCount({ balls: 3 });
       engine.setCount({ balls: 4 });
       const s = engine.getState();
-      expect(s.bases.first).toBe(true);
-      expect(s.bases.second).toBe(false);
+      expect(s.bases.first).not.toBeNull();
+      expect(s.bases.second).toBeNull();
       expect(s.count.balls).toBe(0);
     });
 
     it('walk con corredor en 1a: 1a y 2a ocupadas', () => {
       const engine = createEngine();
       engine.startGame();
-      engine.setBases({ first: true });
+      engine.setBases({ first: { id: "r1", name: "Runner", number: 1, originBase: "first", earned: true } });
       engine.setCount({ balls: 4 });
       const s = engine.getState();
-      expect(s.bases.first).toBe(true);
-      expect(s.bases.second).toBe(true);
-      expect(s.bases.third).toBe(false);
+      expect(s.bases.first).not.toBeNull();
+      expect(s.bases.second).not.toBeNull();
+      expect(s.bases.third).toBeNull();
     });
 
     it('walk con 1a y 2a ocupadas: las tres bases ocupadas', () => {
       const engine = createEngine();
       engine.startGame();
-      engine.setBases({ first: true, second: true });
+      engine.setBases({ first: { id: "r1", name: "Runner", number: 1, originBase: "first", earned: true }, second: { id: "r2", name: "Runner", number: 2, originBase: "second", earned: true } });
       engine.setCount({ balls: 4 });
       const s = engine.getState();
-      expect(s.bases.first).toBe(true);
-      expect(s.bases.second).toBe(true);
-      expect(s.bases.third).toBe(true);
+      expect(s.bases.first).not.toBeNull();
+      expect(s.bases.second).not.toBeNull();
+      expect(s.bases.third).not.toBeNull();
     });
 
     it('walk con bases llenas: anota carrera, bases siguen llenas', () => {
       const engine = createEngine();
       engine.startGame();
-      engine.setBases({ first: true, second: true, third: true });
+      engine.setBases({ first: { id: "r1", name: "Runner", number: 1, originBase: "first", earned: true }, second: { id: "r2", name: "Runner", number: 2, originBase: "second", earned: true }, third: { id: "r3", name: "Runner", number: 3, originBase: "third", earned: true } });
       const before = engine.getState().score;
       engine.setCount({ balls: 4 });
       const s = engine.getState();
       const battingTeam = 'away'; // top = visitante batea
       expect(s.score[battingTeam]).toBe(before[battingTeam] + 1);
-      expect(s.bases.first).toBe(true);
-      expect(s.bases.second).toBe(true);
-      expect(s.bases.third).toBe(true);
+      expect(s.bases.first).not.toBeNull();
+      expect(s.bases.second).not.toBeNull();
+      expect(s.bases.third).not.toBeNull();
     });
 
     it('walk con solo 2a ocupada: no hay fuerza en 2a, 1a y 2a ocupadas', () => {
       const engine = createEngine();
       engine.startGame();
-      engine.setBases({ second: true });
+      engine.setBases({ second: { id: "r2", name: "Runner", number: 2, originBase: "second", earned: true } });
       engine.setCount({ balls: 4 });
       const s = engine.getState();
-      expect(s.bases.first).toBe(true);
-      expect(s.bases.second).toBe(true);
-      expect(s.bases.third).toBe(false);
+      expect(s.bases.first).not.toBeNull();
+      expect(s.bases.second).not.toBeNull();
+      expect(s.bases.third).toBeNull();
     });
   });
 
