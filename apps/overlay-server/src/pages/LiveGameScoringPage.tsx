@@ -19,7 +19,8 @@ type AtBatResult =
   | 'fielders_choice'
   | 'double_play';
 
-type PitchType = 'Recta' | 'Curva' | 'Slider' | 'Cambio' | 'Sinker' | 'Cortada' | 'Knuckle';
+type PitchType = 'Recta' | 'Curva' | 'Slider' | 'Cambio' | 'Sinker' | 'Cortada' | 'Knuckle' | 'Splitter';
+type PitchResult = 'ball' | 'called_strike' | 'swinging_strike' | 'foul' | 'in_play' | 'hit_by_pitch' | 'wild_pitch' | 'passed_ball';
 type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'home_run';
 type HitDirection = 'LF' | 'CF' | 'RF' | '3B' | 'SS' | '2B' | '1B' | 'P' | 'C';
 type BatterSide = 'R' | 'L' | 'S' | 'unknown';
@@ -115,23 +116,41 @@ interface DirectionOption {
 const SERVER_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001/api' : '/api');
 
 const RESULT_OPTIONS: ResultOption[] = [
-  { value: 'single', label: 'Single', tone: 'hit' },
+  { value: 'single', label: 'Sencillo', tone: 'hit' },
   { value: 'double', label: 'Doble', tone: 'hit' },
   { value: 'triple', label: 'Triple', tone: 'hit' },
-  { value: 'home_run', label: 'HR', tone: 'hit' },
-  { value: 'walk', label: 'Walk', tone: 'base' },
-  { value: 'hbp', label: 'HBP', tone: 'base' },
-  { value: 'error', label: 'Error', tone: 'base' },
-  { value: 'strikeout', label: 'Strikeout', tone: 'outs' },
-  { value: 'groundout', label: 'Groundout', tone: 'outs' },
-  { value: 'flyout', label: 'Flyout', tone: 'outs' },
-  { value: 'sacrifice_fly', label: 'Sacrifice Fly', tone: 'outs' },
-  { value: 'sacrifice_bunt', label: 'Sacrifice Bunt', tone: 'outs' },
-  { value: 'fielders_choice', label: "Fielder's Choice", tone: 'base' },
-  { value: 'double_play', label: 'Doble Play', tone: 'outs' },
+  { value: 'home_run', label: 'Jonrón', tone: 'hit' },
+  { value: 'walk', label: 'Base por bolas', tone: 'base' },
+  { value: 'hbp', label: 'Golpeado por lanzamiento', tone: 'base' },
+  { value: 'error', label: 'Error defensivo', tone: 'base' },
+  { value: 'strikeout', label: 'Ponche', tone: 'outs' },
+  { value: 'groundout', label: 'Rodado out', tone: 'outs' },
+  { value: 'flyout', label: 'Elevado out', tone: 'outs' },
+  { value: 'sacrifice_fly', label: 'Fly de sacrificio', tone: 'outs' },
+  { value: 'sacrifice_bunt', label: 'Toque de sacrificio', tone: 'outs' },
+  { value: 'fielders_choice', label: 'Elección del fildeador', tone: 'base' },
+  { value: 'double_play', label: 'Doble play', tone: 'outs' },
 ];
 
-const PITCH_TYPES: PitchType[] = ['Recta', 'Curva', 'Slider', 'Cambio', 'Sinker', 'Cortada', 'Knuckle'];
+const PITCH_TYPES: PitchType[] = ['Recta', 'Curva', 'Slider', 'Cambio', 'Sinker', 'Cortada', 'Knuckle', 'Splitter'];
+
+interface PitchResultOption {
+  value: PitchResult;
+  label: string;
+  group: 'count' | 'special';
+  countsAs: 'ball' | 'strike' | 'foul' | 'none';
+}
+
+const PITCH_RESULT_OPTIONS: PitchResultOption[] = [
+  { value: 'ball', label: 'Bola', group: 'count', countsAs: 'ball' },
+  { value: 'called_strike', label: 'Strike cantado', group: 'count', countsAs: 'strike' },
+  { value: 'swinging_strike', label: 'Swing strike', group: 'count', countsAs: 'strike' },
+  { value: 'foul', label: 'Foul', group: 'count', countsAs: 'foul' },
+  { value: 'in_play', label: 'En juego', group: 'count', countsAs: 'none' },
+  { value: 'hit_by_pitch', label: 'Golpeado por lanzamiento', group: 'special', countsAs: 'none' },
+  { value: 'wild_pitch', label: 'Wild pitch', group: 'special', countsAs: 'none' },
+  { value: 'passed_ball', label: 'Passed ball', group: 'special', countsAs: 'none' },
+];
 
 const CONTACT_OPTIONS: ContactOption[] = [
   { value: 'line_drive', label: 'Línea' },
@@ -212,10 +231,6 @@ function formatBatterSideLabel(value: BatterSide | ActiveBatterSide): string {
   return 'Sin definir';
 }
 
-function isStrikeCell(cell: PitchGridCell | null): boolean {
-  return cell !== null && cell.col >= 2 && cell.col <= 4 && cell.row >= 2 && cell.row <= 4;
-}
-
 function getTacticalReading(cell: PitchGridCell | null, side: ActiveBatterSide, batterSide: BatterSide): string {
   if (!cell) return 'Selecciona ubicación';
   if (batterSide === 'S' && side === null) return 'Selecciona el lado activo';
@@ -252,6 +267,7 @@ export function LiveGameScoringPage() {
   const [selectedBatterId, setSelectedBatterId] = useState('');
   const [selectedPitcherId, setSelectedPitcherId] = useState('');
   const [selectedPitchCell, setSelectedPitchCell] = useState<PitchGridCell | null>(null);
+  const [selectedPitchResult, setSelectedPitchResult] = useState<PitchResult | null>(null);
   const [selectedPitchType, setSelectedPitchType] = useState<PitchType | ''>('');
   const [selectedResult, setSelectedResult] = useState<AtBatResult | null>(null);
   const [selectedContactType, setSelectedContactType] = useState<ContactType | null>(null);
@@ -384,9 +400,9 @@ export function LiveGameScoringPage() {
   const inferredActiveBattingSide: ActiveBatterSide = batterSide === 'R' || batterSide === 'L' ? batterSide : null;
   const activeBattingSide = battingSideOverride ?? inferredActiveBattingSide;
   const shouldPromptBattingSide = batterSide === 'unknown' || batterSide === 'S';
-  const selectedPitchCall = isStrikeCell(selectedPitchCell) ? 'strike' : 'ball';
+  const pitchResultOption = PITCH_RESULT_OPTIONS.find((o) => o.value === selectedPitchResult) ?? null;
   const selectedPitchReading = getTacticalReading(selectedPitchCell, activeBattingSide, batterSide);
-  const canRegisterPitch = Boolean(selectedPitchCell && selectedPitchType);
+  const canRegisterPitch = Boolean(selectedPitchCell && selectedPitchResult && selectedPitchType && selectedPitchResult !== 'in_play');
   const canSubmitAtBat = Boolean(
     context &&
       selectedBatterId &&
@@ -396,6 +412,7 @@ export function LiveGameScoringPage() {
 
   const resetAtBatWorkflow = useCallback(() => {
     setSelectedPitchCell(null);
+    setSelectedPitchResult(null);
     setSelectedPitchType('');
     setSelectedResult(null);
     setSelectedContactType(null);
@@ -431,7 +448,12 @@ export function LiveGameScoringPage() {
   }, []);
 
   const handleRegisterPitch = useCallback(async () => {
-    if (!context || !selectedPitchCell || !selectedPitchType || savingPitch) {
+    if (!context || !selectedPitchCell || !selectedPitchResult || !selectedPitchType || savingPitch) {
+      return;
+    }
+    // 'in_play' no se envía al contador, se maneja como captura ofensiva
+    if (selectedPitchResult === 'in_play') {
+      setCurrentStep(3);
       return;
     }
 
@@ -442,7 +464,7 @@ export function LiveGameScoringPage() {
       const result = await requestJson<{ action: string }>('/pitch', {
         method: 'POST',
         body: JSON.stringify({
-          type: selectedPitchCall,
+          type: selectedPitchResult,
           col: selectedPitchCell.col,
           row: selectedPitchCell.row,
           pitchType: selectedPitchType,
@@ -452,16 +474,20 @@ export function LiveGameScoringPage() {
       const labels: Record<string, string> = {
         ball_added: 'Bola registrada',
         strike_added: 'Strike registrado',
-        auto_walk: 'Walk automático',
+        auto_walk: 'Base por bolas automática',
         auto_strikeout: 'Ponche automático',
+        hbp: 'Golpeado — avanza a 1ª',
+        recorded: 'Lanzamiento registrado',
       };
 
       showPitchFeedback(labels[result.action] ?? result.action);
       setSelectedPitchCell(null);
+      setSelectedPitchResult(null);
       setSelectedPitchType('');
-      await loadContext(result.action === 'auto_walk' || result.action === 'auto_strikeout');
+      const autoAdvance = result.action === 'auto_walk' || result.action === 'auto_strikeout' || result.action === 'hbp';
+      await loadContext(autoAdvance);
 
-      if (result.action === 'auto_walk' || result.action === 'auto_strikeout') {
+      if (autoAdvance) {
         resetAtBatWorkflow();
       }
     } catch (pitchError) {
@@ -469,7 +495,7 @@ export function LiveGameScoringPage() {
     } finally {
       setSavingPitch(false);
     }
-  }, [context, loadContext, resetAtBatWorkflow, savingPitch, selectedPitchCall, selectedPitchCell, selectedPitchType, showPitchFeedback]);
+  }, [context, loadContext, resetAtBatWorkflow, savingPitch, selectedPitchCell, selectedPitchResult, selectedPitchType, showPitchFeedback]);
 
   const handleQuickFoul = useCallback(async () => {
     if (!context || savingPitch) {
@@ -492,6 +518,7 @@ export function LiveGameScoringPage() {
 
       showPitchFeedback(result.action === 'no_op' ? 'Foul sin cambio de conteo' : 'Foul registrado');
       setSelectedPitchCell(null);
+      setSelectedPitchResult(null);
       setSelectedPitchType('');
       await loadContext();
     } catch (pitchError) {
@@ -536,6 +563,19 @@ export function LiveGameScoringPage() {
     setError(null);
 
     try {
+      // Si el flujo llegó por in_play, primero registrar el pitch sin actualizar conteo
+      if (selectedPitchResult === 'in_play' && selectedPitchCell && selectedPitchType) {
+        await requestJson<{ action: string }>('/pitch', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'in_play',
+            col: selectedPitchCell.col,
+            row: selectedPitchCell.row,
+            pitchType: selectedPitchType,
+          }),
+        });
+      }
+
       await requestJson('/at-bats', {
         method: 'POST',
         body: JSON.stringify({
@@ -558,7 +598,7 @@ export function LiveGameScoringPage() {
     } finally {
       setSavingAtBat(false);
     }
-  }, [context, loadContext, resetAtBatWorkflow, rbi, runs, selectedBatterId, selectedContactType, selectedHitDirection, selectedPitcherId, selectedResult, showPitchFeedback]);
+  }, [context, loadContext, resetAtBatWorkflow, rbi, runs, selectedBatterId, selectedContactType, selectedHitDirection, selectedPitchCell, selectedPitcherId, selectedPitchResult, selectedPitchType, selectedResult, showPitchFeedback]);
 
   if (loading && !context) {
     return <div className="min-h-screen bg-broadcast-black px-4 py-4 text-white">Cargando live scoring…</div>;
@@ -814,6 +854,52 @@ export function LiveGameScoringPage() {
             />
 
             <div className="space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Resultado del lanzamiento</p>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {PITCH_RESULT_OPTIONS.filter((o) => o.group === 'count').map((option) => {
+                    const active = selectedPitchResult === option.value;
+                    const colorClass = option.countsAs === 'ball'
+                      ? (active ? 'border-blue-400 bg-blue-500 text-white' : 'border-blue-400/30 bg-blue-500/10 text-blue-200')
+                      : option.countsAs === 'strike'
+                        ? (active ? 'border-mineros-red bg-mineros-red text-white' : 'border-mineros-red/30 bg-mineros-red/10 text-red-200')
+                        : option.value === 'in_play'
+                          ? (active ? 'border-emerald-400 bg-emerald-500 text-white' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200')
+                          : (active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-mineros-gold/30 bg-mineros-gold/10 text-amber-200');
+                    return (
+                      <button
+                        key={option.value}
+                        className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${colorClass}`}
+                        onClick={() => {
+                          setSelectedPitchResult(option.value);
+                          if (option.value === 'in_play') setCurrentStep(3);
+                        }}
+                        type="button"
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {PITCH_RESULT_OPTIONS.filter((o) => o.group === 'special').map((option) => {
+                    const active = selectedPitchResult === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${active ? 'border-white/60 bg-white/15 text-white' : 'border-white/10 bg-white/5 text-white/55 hover:border-white/30'}`}
+                        onClick={() => setSelectedPitchResult(option.value)}
+                        type="button"
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Tipo de lanzamiento</p>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                 {PITCH_TYPES.map((pitchType) => {
@@ -833,28 +919,43 @@ export function LiveGameScoringPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button
-                className="flex-1 rounded-2xl bg-mineros-red px-5 py-3 font-bebas text-xl uppercase tracking-[0.18em] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!canRegisterPitch || savingPitch}
-                onClick={() => void handleRegisterPitch()}
-                type="button"
-              >
-                {savingPitch ? 'Registrando...' : `Registrar pitcheo · ${selectedPitchCall === 'strike' ? 'Strike' : 'Bola'}`}
-              </button>
+              {selectedPitchResult === 'in_play' ? (
+                <button
+                  className="flex-1 rounded-2xl bg-emerald-600 px-5 py-3 font-bebas text-xl uppercase tracking-[0.18em] text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!selectedPitchCell || !selectedPitchType}
+                  onClick={() => setCurrentStep(3)}
+                  type="button"
+                >
+                  En juego → Captura ofensiva
+                </button>
+              ) : (
+                <button
+                  className="flex-1 rounded-2xl bg-mineros-red px-5 py-3 font-bebas text-xl uppercase tracking-[0.18em] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!canRegisterPitch || savingPitch}
+                  onClick={() => void handleRegisterPitch()}
+                  type="button"
+                >
+                  {savingPitch
+                    ? 'Registrando...'
+                    : selectedPitchResult
+                      ? `Registrar · ${pitchResultOption?.label ?? ''}`
+                      : 'Registrar pitcheo'}
+                </button>
+              )}
               <button
                 className="rounded-2xl border border-mineros-gold/40 bg-mineros-gold/10 px-5 py-3 font-bebas text-xl uppercase tracking-[0.18em] text-mineros-gold transition hover:bg-mineros-gold/20 disabled:opacity-50"
                 disabled={savingPitch}
                 onClick={() => void handleQuickFoul()}
                 type="button"
               >
-                Foul
+                Foul rápido
               </button>
               <button
                 className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white/75 transition hover:border-white/35 hover:bg-white/10"
                 onClick={() => setCurrentStep(2)}
                 type="button"
               >
-                Registrar resultado directo
+                Resultado directo
               </button>
             </div>
           </div>

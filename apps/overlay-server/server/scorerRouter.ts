@@ -37,7 +37,16 @@ interface AtBatRequest {
 
 type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'home_run';
 type HitDirection = 'LF' | 'CF' | 'RF' | '3B' | 'SS' | '2B' | '1B' | 'P' | 'C';
-type PitchCall = 'ball' | 'strike' | 'foul';
+type PitchCall = 'ball' | 'called_strike' | 'swinging_strike' | 'foul' | 'in_play' | 'hit_by_pitch' | 'wild_pitch' | 'passed_ball';
+
+// Map pitch result to umpire_call stored value
+function toUmpireCall(type: PitchCall): string {
+  if (type === 'called_strike' || type === 'swinging_strike' || type === 'in_play') return 'strike';
+  if (type === 'hit_by_pitch') return 'hbp';
+  if (type === 'wild_pitch') return 'wild_pitch';
+  if (type === 'passed_ball') return 'passed_ball';
+  return type; // 'ball', 'foul'
+}
 
 interface PitchRequest {
   type: PitchCall;
@@ -337,12 +346,13 @@ function parsePitchRequest(body: unknown): PitchRequest {
   }
 
   const { type } = body;
-  if (type !== 'ball' && type !== 'strike' && type !== 'foul') {
-    throw new Error('type debe ser "ball", "strike" o "foul"');
+  const validTypes: PitchCall[] = ['ball', 'called_strike', 'swinging_strike', 'foul', 'in_play', 'hit_by_pitch', 'wild_pitch', 'passed_ball'];
+  if (!validTypes.includes(type as PitchCall)) {
+    throw new Error('type debe ser uno de: ball, called_strike, swinging_strike, foul, in_play, hit_by_pitch, wild_pitch, passed_ball');
   }
 
   return {
-    type,
+    type: type as PitchCall,
     col: parseOptionalGridCoordinate(body.col, 'col'),
     row: parseOptionalGridCoordinate(body.row, 'row'),
     pitchType: parseOptionalString(body.pitchType, 'pitchType'),
@@ -566,7 +576,7 @@ async function insertPitch(request: PitchRequest): Promise<void> {
     pitcherId,
     batterId,
     stateStore.getPitchCount() + 1,
-    request.type,
+    toUmpireCall(request.type),
     state.inning,
     state.inningHalf,
     'live-game-scoring',
@@ -954,12 +964,52 @@ scorerRouter.post('/pitch', async (request: Request, response: Response) => {
     const currentStrikes = state.count.strikes;
     const type = payload.type;
 
+    // wild_pitch / passed_ball / in_play — solo registrar, no actualizar conteo
+    if (type === 'wild_pitch' || type === 'passed_ball' || type === 'in_play') {
+      sendSuccess(response, { gameState: stateStore.getState(), action: 'recorded' });
+      return;
+    }
+
     if (type === 'foul') {
       if (currentStrikes < 2) {
         stateStore.sendCommand('AddStrike');
         stateStore.incrementPitchCount();
       }
       sendSuccess(response, { gameState: stateStore.getState(), action: currentStrikes < 2 ? 'strike_added' : 'no_op' });
+      return;
+    }
+
+    // hit_by_pitch → avanza bateador a 1ª (como walk)
+    if (type === 'hit_by_pitch') {
+      const pitchCount = stateStore.getPitchCount() + 1;
+      const battingRole = getBattingRole(state.inningHalf);
+      const batterId = state.currentBatterId ?? state.lineup[battingRole][0]?.playerId ?? '';
+      const pitcherId = state.rules.hasPitcher ? (state.currentPitcherId ?? undefined) : undefined;
+
+      const hbpRequest: AtBatRequest = {
+        gameId: state.gameId,
+        batterPlayerId: batterId,
+        pitcherPlayerId: pitcherId,
+        result: 'hbp',
+        rbi: 0,
+        runs: 0,
+        pitchCount,
+      };
+
+      await insertAtBat(hbpRequest);
+      applyAtBatToGameState(hbpRequest);
+      stateStore.resetPitchCount();
+      stateStore.broadcast();
+
+      computePlayerStats(state.gameId)
+        .then((stats) => { stateStore.broadcastPlayerStats(stats); })
+        .catch((err: unknown) => { console.warn('[Pitch] computePlayerStats error', err); });
+
+      computePitcherStats(state.gameId)
+        .then((pitcherStats) => { stateStore.broadcastPitcherStats(pitcherStats); })
+        .catch((err: unknown) => { console.warn('[Pitch] computePitcherStats error', err); });
+
+      sendSuccess(response, { gameState: stateStore.getState(), action: 'hbp' });
       return;
     }
 
@@ -1004,7 +1054,7 @@ scorerRouter.post('/pitch', async (request: Request, response: Response) => {
       return;
     }
 
-    // type === 'strike'
+    // called_strike | swinging_strike
     const newStrikes = currentStrikes + 1;
     stateStore.incrementPitchCount();
 
