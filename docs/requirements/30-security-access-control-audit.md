@@ -1686,133 +1686,318 @@ El bootstrap genera un `security_event` con estos campos:
 
 ---
 
-## 31. Implementación por fases
+## 31. Plan de implementación
+
+### Resumen de fases
+
+| Fase | Nombre | Bloquea | Duración estimada | Release |
+|------|--------|---------|--------------------|---------|
+| 1 | Base de autenticación | — | 3-4 días | v1.0 |
+| 2 | Roles, capabilities y MFA | Fase 1 | 3-4 días | v1.0 |
+| 3 | Gestión de usuarios | Fase 2 | 2-3 días | v1.0 |
+| 4 | Scoring protegido | Fase 2 | 2 días | v1.0 |
+| 5 | Auditoría fuerte | Fases 1-4 | 2-3 días | v1.0 |
+| 6 | Flow Builder protegido | Fase 2 | 1-2 días | v3.0 |
+| 7 | Media channels | Fase 2 | 2-3 días | v3.0 |
+| 8 | Notificaciones push | Fase 2 | 1-2 días | v3.0 |
+
+---
 
 ### Fase 1 — Base de autenticación
 
-```text
-users
-otp_challenges
-sessions
-refresh_tokens
-/api/auth/*
-LoginPage
-OtpVerifyPage
-SecurityContextProvider básico
-AuthBootstrapService (bootstrap SysAdmin al startup)
-```
+**Criterio de completitud:** Un usuario puede hacer login con OTP, obtener un JWT y mantener la sesión con refresh token. El servidor valida el JWT en cada request.
 
-### Fase 2 — Roles y capabilities
+**Prerrequisitos:**
+- Variables de entorno configuradas: `JWT_SECRET`, `EMAIL_PROVIDER`, `BOOTSTRAP_SYSADMIN_EMAIL`
+- Migración `001_security_module.sql` ejecutada en la DB
+
+**Backend — `apps/server/src/modules/auth/`**
 
 ```text
-role_assignments
-AuthorizationService (evaluador del mini-DSL de security-policy-v1.0.0.json)
-CapabilityService
-/api/security/context
-/api/security/resources/:type/:id/capabilities
-ProtectedAction
-ProtectedRoute
-SysAdmin MFA: TOTP (RFC 6238) con librería `otpauth` — tabla `user_mfa_credentials` (ver §33)
+□ AuthBootstrapService      Startup: crear SysAdmin si BOOTSTRAP_SYSADMIN_EMAIL y no existe
+□ OtpService                generar / enviar / validar OTP; rate limiting; hash SHA-256
+□ EmailService              nodemailer + Ethereal (dev) / Resend SMTP (prod)
+□ JwtService                firmar / verificar JWT HS256; payload { sub, sid, email, authLevel }
+□ SessionService            crear / leer / revocar sesiones en tabla sessions
+□ RefreshTokenService       emitir token opaco; rotation; reuse detection → revocar todas las sesiones
+□ MagicLinkService          generar / enviar / consumir magic link; redirect 302
+□ AuthMiddleware            validar Authorization: Bearer en cada request; adjuntar req.user
+□ AuthController            POST /otp/request, POST /otp/verify, POST /logout,
+                            POST /token/refresh, GET /magic-link/consume,
+                            POST /magic-link/request
 ```
+
+**Frontend — `apps/studio/src/modules/auth/`**
+
+```text
+□ SecurityContextProvider   JWT en memoria React; setScope / clearScope; paso a paso en refresh
+□ LoginPage                 /login — formulario de email + submit
+□ OtpVerifyPage             /auth/verify — ingresar código de 6 dígitos; reenvío con countdown
+□ ScopeSelectorPage         /auth/select-scope — lista de scopes disponibles del usuario
+□ useAuth hook              acceso a user, currentScope, logout desde cualquier componente
+□ PrivateRoute              redirige a /login si no hay sesión; spinner durante loading
+```
+
+**Tests:**
+
+```text
+□ OtpService: generar → validar → expirar → reintentos
+□ RefreshTokenService: rotation → reuse detection
+□ JwtService: firmar → verificar → expirado
+□ AuthMiddleware: token válido / inválido / expirado
+□ AuthBootstrapService: idempotente — no crea segundo SysAdmin
+□ E2E: flujo completo login OTP → scope selector → dashboard
+```
+
+**Definición de hecho:**
+- `pnpm turbo test --filter=server` pasa
+- `pnpm turbo typecheck` pasa
+- Login OTP funciona en dev con Ethereal (URL del email en consola)
+- `BOOTSTRAP_SYSADMIN_EMAIL` crea SysAdmin en el primer arranque
+
+---
+
+### Fase 2 — Roles, capabilities y MFA SysAdmin
+
+**Criterio de completitud:** El backend evalúa permisos usando `security-policy-v1.0.0.json`. La UI muestra/oculta acciones según capabilities. SysAdmin requiere TOTP.
+
+**Prerrequisito:** Fase 1 completa.
+
+**Backend — `apps/server/src/modules/authorization/`**
+
+```text
+□ PolicyLoader              carga security-policy-v1.0.0.json al startup; cachea en memoria
+□ PolicyEvaluator           evalúa el mini-DSL: hasRole(), isAssignedScorer(),
+                            inheritsRole(), hasDelegatedUserAdmin(), canDelegateRole()
+□ AuthorizationService      evalúa AuthorizationRequest → AuthorizationDecision;
+                            decide requiresStepUp y requiresReason
+□ CapabilityService         calcula capabilities para un usuario sobre un recurso concreto
+□ StepUpService             generar desafío; enviar OTP; verificar código; emitir step-up token;
+                            validar X-Step-Up-Token en acciones críticas
+□ SecurityContextController GET /api/security/context
+                            GET /api/security/resources/:type/:id/capabilities
+                            POST /api/security/authorize
+□ StepUpController          POST /api/auth/step-up/request
+                            POST /api/auth/step-up/verify
+□ AuthzMiddleware           evalúa permiso antes de cada action handler; inyecta decision
+```
+
+**Backend — MFA SysAdmin**
+
+```text
+□ TotpService               generar secret; generar QR URI (otpauth://totp/...);
+                            verificar código (ventana ±1); cifrar secret con AES-256
+□ MfaController             POST /api/auth/mfa/setup/init   → { qrUri, secret }
+                            POST /api/auth/mfa/setup/verify → confirmar primer código
+                            POST /api/auth/mfa/verify       → login con TOTP
+                            DELETE /api/auth/mfa            → revocar (requiere step-up)
+□ OtpVerify (modificar)     si el usuario tiene MFA activo → respuesta { mfaRequired: true }
+                            en lugar del JWT; el JWT se emite en /mfa/verify
+```
+
+**Frontend — `apps/studio/src/modules/auth/`**
+
+```text
+□ MfaSetupPage              /admin/settings/security/mfa — QR + secret + campo confirmación
+□ MfaVerifyPage             /auth/mfa — ingresar código TOTP después del OTP
+□ ProtectedAction           componente que evalúa capability antes de renderizar un botón/acción
+□ ProtectedRoute            ruta que evalúa capability antes de renderizar una página
+□ StepUpModal               modal de confirmación con campo OTP y campo motivo (si requiresReason)
+□ CapabilityProvider        fetch de capabilities por recurso activo; cache en contexto
+```
+
+**Tests:**
+
+```text
+□ PolicyEvaluator: cada tipo de condición del mini-DSL
+□ AuthorizationService: allow / deny / requiresStepUp por regla
+□ TotpService: generar → verificar → ventana de tolerancia → código incorrecto
+□ StepUpService: challenge → verify → consume (un solo uso)
+□ MFA flow: OTP → mfaRequired → TOTP → JWT
+```
+
+**Definición de hecho:**
+- Un usuario sin rol no puede acceder a rutas protegidas
+- Un SysAdmin sin TOTP configurado es redirigido al setup de MFA
+- `POST /api/security/authorize` devuelve allow/deny con razón y policyVersion
+
+---
 
 ### Fase 3 — Gestión de usuarios
 
+**Criterio de completitud:** SysAdmin y TournamentAdmin pueden gestionar usuarios, roles y sesiones desde la UI.
+
+**Prerrequisito:** Fase 2 completa.
+
+**Backend — `apps/server/src/modules/users/`**
+
 ```text
-AdminUsersPage
-UserDetailPage
-invitar usuario
-suspender/reactivar
-revocar sesiones
-asignar/revocar roles
-simulador de permisos
+□ UserService               CRUD usuarios; invitar (crear usuario + enviar magic link);
+                            suspender / reactivar
+□ RoleAssignmentService     asignar / revocar roles; validar que el actor tenga canDelegateRole
+□ UserAdminController       GET/POST/PATCH /api/admin/users
+                            POST /api/admin/users/:id/suspend|reactivate
+                            GET/POST /api/admin/users/:id/sessions
+                            POST /api/admin/users/:id/sessions/:sid/revoke
+                            GET /api/admin/users/:id/audit
+□ RoleController            GET/POST /api/admin/role-assignments
+                            DELETE /api/admin/role-assignments/:id
+                            GET /api/admin/resources/:type/:id/roles
+                            POST /api/admin/access/simulate
 ```
+
+**Frontend — `apps/studio/src/modules/admin/`**
+
+```text
+□ AdminUsersPage            /admin/users — tabla de usuarios con filtros y estado
+□ UserDetailPage            /admin/users/:id — detalle + sesiones activas + historial de roles
+□ InviteUserModal           formulario de invitación con asignación de rol inicial
+□ AssignRoleModal           asignar rol a un recurso específico
+□ RevokeSessionButton       acción protegida (step-up para suspender)
+□ PermissionSimulatorPage   /admin/access/simulate — probar allow/deny para cualquier usuario
+```
+
+**Tests:**
+
+```text
+□ RoleAssignmentService: validar canDelegateRole antes de asignar
+□ UserService: invitar → magic link enviado → primer login
+□ Simulate: escenarios allow / deny con distintos roles
+```
+
+---
 
 ### Fase 4 — Scoring protegido
 
+**Criterio de completitud:** Solo el anotador asignado puede escribir eventos estadísticos. La asignación queda auditada.
+
+**Prerrequisito:** Fase 2 completa.
+
+**Backend**
+
 ```text
-scoring_assignments
-política user_is_assigned_scorer
-integración con LiveGameScoring
-integración con Game Event Orchestrator
+□ ScoringAssignmentService  crear / revocar asignaciones; validar solapamientos
+□ ScoringAssignmentController
+                            GET/POST /api/games/:gameId/scoring-assignments
+                            DELETE   /api/games/:gameId/scoring-assignments/:id
+□ GameEventOrchestrator     verificar isAssignedScorer antes de procesar evento estadístico
+                            rechazar con 403 si no tiene permiso
+□ AuthorizationService      nueva regla: user_is_assigned_scorer evalúa scoring_assignments
 ```
+
+**Tests:**
+
+```text
+□ Anotador asignado puede anotar
+□ Anotador no asignado recibe 403
+□ Admin puede asignar; no-admin no puede
+□ Corrección estadística genera audit event
+```
+
+---
 
 ### Fase 5 — Auditoría fuerte
 
+**Criterio de completitud:** Todas las acciones críticas generan audit events con hash encadenado. La integridad es verificable.
+
+**Prerrequisito:** Fases 1-4 completas.
+
+**Backend — `apps/server/src/modules/audit/`**
+
 ```text
-audit_events
-hash encadenado
-viewer de auditoría
-verify-integrity
-lectura auditada
+□ AuditService              append audit_events; calcular hash encadenado (SHA-256 de
+                            previousHash + contenido del evento); nunca actualizar registros
+□ AuditIntegrityService     recorrer cadena de hashes; detectar gaps o modificaciones
+□ AuditMiddleware           interceptar acciones críticas y garantizar audit event incluso
+                            si la acción falla
+□ AuditController           GET /api/audit
+                            GET /api/audit/:auditId
+                            GET /api/audit/resources/:type/:id
+                            GET /api/audit/users/:userId
+                            POST /api/audit/verify-integrity
+□ AuditRetentionJob         job nocturno: exportar → JSONL gzip → purgar según §34.2
 ```
+
+**Frontend — `apps/studio/src/modules/audit/`**
+
+```text
+□ AuditViewerPage           /admin/audit — tabla con filtros por recurso/usuario/acción
+□ AuditEventDetail          detalle del evento con actor, recurso, cambio y hash
+□ IntegrityVerifyButton     disparar verify-integrity y mostrar resultado
+```
+
+**Tests:**
+
+```text
+□ AuditService: hash encadenado correcto entre eventos consecutivos
+□ AuditIntegrityService: detectar evento modificado en el medio de la cadena
+□ AuditRetentionJob: exportar → contar → purgar (sin tocar los recientes)
+□ Lectura de auditoría queda auditada (audit del audit)
+```
+
+---
 
 ### Fase 6 — Flow Builder protegido `[v3.0]`
 
+**Prerrequisito:** Fase 2 completa.
+
 ```text
-policy: flow.publish requiere step-up
-policy: flow.activate requiere step-up
+□ Policy: flow.publish → requiresStepUp + requiresReason
+□ Policy: flow.activate → requiresStepUp
+□ FlowController: validar step-up antes de publicar o activar
+□ Audit event en cada publicación y activación
 ```
+
+---
 
 ### Fase 7 — Media channels protegidos `[v3.0]`
 
+**Prerrequisito:** Fase 2 completa.
+
 ```text
-media_channel_permissions
-policy: media.connectChannel requiere step-up
-YouTube OAuth tokens cifrados en reposo
-stream key nunca en logs
+□ SecretProvider implementado (EnvSecretProvider + KeyVaultSecretProvider)
+□ StreamKeyService: cifrar/descifrar en reposo; enmascarar en UI; reveal con step-up
+□ YouTubeOAuthService: flujo OAuth con 3 scopes mínimos; tokens cifrados en DB
+□ MediaChannelController: validar Owner/Admin; step-up para connectChannel y viewStreamKey
+□ security_event en cada rotación de stream key
+□ Scopes YouTube: youtube.readonly + youtube.upload + youtube.force-ssl
 ```
+
+---
 
 ### Fase 8 — Notificaciones push `[v3.0]`
 
-```text
-push_subscriptions
-VAPID
-no datos sensibles en push payloads
-```
-scoring_assignments
-política user_is_assigned_scorer
-integración con LiveGameScoring
-integración con Game Event Orchestrator
-```
-
-### Fase 5 — Auditoría fuerte
+**Prerrequisito:** Fase 2 completa.
 
 ```text
-audit_events
-hash encadenado
-viewer de auditoría
-verify-integrity
-lectura auditada
+□ PushService: VAPID; suscripción / desuscripción
+□ Payloads: sin datos sensibles (solo tipo de evento + resourceId)
+□ PushController: POST /api/notifications/subscribe, DELETE /api/notifications/subscribe
+□ Variables: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
 ```
 
-### Fase 6 — Flow Builder protegido
+---
+
+### Orden recomendado de implementación (primera iteración)
 
 ```text
-flow.publish
-flow.rollback
-step-up
-motivo obligatorio
-audit event
-```
+Semana 1:
+  Día 1-2: Fase 1 — backend (OtpService, JwtService, SessionService, RefreshTokenService)
+  Día 2:   Fase 1 — AuthBootstrapService + EmailService
+  Día 3:   Fase 1 — frontend (LoginPage, OtpVerifyPage, SecurityContextProvider)
+  Día 4:   Fase 1 — tests + fix + ScopeSelectorPage
 
-### Fase 7 — Broadcast y WebSocket protegido
+Semana 2:
+  Día 1-2: Fase 2 — PolicyLoader + PolicyEvaluator + AuthorizationService
+  Día 2:   Fase 2 — CapabilityService + StepUpService
+  Día 3:   Fase 2 — TotpService + MFA flow
+  Día 4:   Fase 2 — frontend (ProtectedAction, StepUpModal, MfaVerifyPage) + tests
 
-```text
-autorización por canal
-comandos WS autorizados
-sesión revocable
-broadcast.start/stop auditado
-```
-
-### Fase 8 — Media Publishing / YouTube protegido
-
-```text
-media roles
-OAuth channel connect
-media_publications
-media_markers
-stream key protected access
-metadata update audit
+Semana 3:
+  Día 1:   Fase 3 — UserService + RoleAssignmentService
+  Día 2:   Fase 3 — frontend (AdminUsersPage, PermissionSimulatorPage)
+  Día 3:   Fase 4 — ScoringAssignmentService + integración GameEventOrchestrator
+  Día 4:   Fase 5 — AuditService + hash encadenado + AuditViewerPage
 ```
 
 ---
