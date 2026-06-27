@@ -117,6 +117,36 @@ interface AtBatHistoryItem {
   recorded_at: string;
 }
 
+interface PitchHistoryItem {
+  id: string;
+  game_id: string;
+  batter_player_id: string;
+  pitcher_player_id: string | null;
+  pitch_num: number;
+  umpire_call: string;
+  pitch_type: string | null;
+  col: number | null;
+  row: number | null;
+  inning: number;
+  inning_half: 'top' | 'bottom';
+  velocity_kmh: number | null;
+  batter_name: string | null;
+  pitcher_name: string | null;
+  timestamp: string;
+}
+
+/** Entrada unificada del log de eventos para el historial */
+interface GameLogEntry {
+  kind: 'pitch' | 'atbat';
+  id: string;
+  timestamp: string;
+  inning: number;
+  inning_half: 'top' | 'bottom' | null;
+  label: string;       // texto principal
+  sublabel?: string;   // texto secundario
+  deletable: boolean;  // puede ser borrado (último evento del tipo)
+}
+
 type ApiSuccess<T> = {
   result: 'ok';
   payload: T;
@@ -435,6 +465,8 @@ function getPitchWarning(
 export function LiveGameScoringPage() {
   const [context, setContext] = useState<ScorerContextPayload | null>(null);
   const [history, setHistory] = useState<AtBatHistoryItem[]>([]);
+  const [pitchHistory, setPitchHistory] = useState<PitchHistoryItem[]>([]);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [selectedBatterId, setSelectedBatterId] = useState('');
   const [selectedPitcherId, setSelectedPitcherId] = useState('');
   const [selectedPitchCell, setSelectedPitchCell] = useState<PitchGridCell | null>(null);
@@ -536,8 +568,12 @@ export function LiveGameScoringPage() {
   }, []);
 
   const loadHistory = useCallback(async (gameId: string) => {
-    const payload = await requestJson<AtBatHistoryItem[]>(`/at-bats/${encodeURIComponent(gameId)}`);
-    setHistory(payload);
+    const [atBats, pitches] = await Promise.all([
+      requestJson<AtBatHistoryItem[]>(`/at-bats/${encodeURIComponent(gameId)}`),
+      requestJson<PitchHistoryItem[]>(`/pitches/${encodeURIComponent(gameId)}`).catch(() => [] as PitchHistoryItem[]),
+    ]);
+    setHistory(atBats);
+    setPitchHistory(pitches);
   }, []);
 
   const loadContext = useCallback(async (forceUpdateBatter = false) => {
@@ -675,7 +711,45 @@ export function LiveGameScoringPage() {
 
 
 
-  const recentHistory = useMemo(() => history.slice(0, 5), [history]);
+  // Log unificado de eventos: pitches + at-bats combinados, ordenados por tiempo desc
+  const gameLog = useMemo<GameLogEntry[]>(() => {
+    const lastAtBatId = history[0]?.id;
+    const lastPitchId = pitchHistory[0]?.id;
+
+    const atBatEntries: GameLogEntry[] = history.map((ab) => ({
+      kind: 'atbat' as const,
+      id: ab.id,
+      timestamp: ab.recorded_at,
+      inning: ab.inning,
+      inning_half: ab.inning_half,
+      label: `${ab.batter_name ?? ab.batter_player_id ?? '?'} · ${formatHistoryResult(ab.event_type as AtBatResult ?? 'field_out')}`,
+      sublabel: [
+        ab.inning_half === 'top' ? `A${ab.inning}` : `B${ab.inning}`,
+        ab.rbi > 0 ? `${ab.rbi}RBI` : '',
+        ab.runs > 0 ? `${ab.runs}R` : '',
+      ].filter(Boolean).join(' · '),
+      deletable: ab.id === lastAtBatId,
+    }));
+
+    const pitchEntries: GameLogEntry[] = pitchHistory.map((p) => ({
+      kind: 'pitch' as const,
+      id: p.id,
+      timestamp: p.timestamp,
+      inning: p.inning,
+      inning_half: p.inning_half,
+      label: `Pitch #${p.pitch_num}${p.pitch_type ? ` · ${p.pitch_type}` : ''} · ${p.umpire_call}`,
+      sublabel: [
+        p.batter_name ?? '',
+        p.velocity_kmh ? `${p.velocity_kmh} km/h` : '',
+        p.inning_half === 'top' ? `A${p.inning}` : `B${p.inning}`,
+      ].filter(Boolean).join(' · '),
+      deletable: p.id === lastPitchId,
+    }));
+
+    return [...atBatEntries, ...pitchEntries].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    );
+  }, [history, pitchHistory]);
 
   const selectedBatter = useMemo(
     () => context?.battingLineup.find((player) => player.playerId === selectedBatterId) ?? context?.currentBatter ?? null,
@@ -1000,6 +1074,26 @@ export function LiveGameScoringPage() {
       setSavingEvent(false);
     }
   }, [context, loadContext, savingEvent]);
+
+  // ── DELETE EVENT HANDLER ─────────────────────────────────────────────
+  const handleDeleteEvent = useCallback(async (entry: GameLogEntry) => {
+    if (!context) return;
+    const gameId = context.gameState.gameId;
+    setDeletingEventId(entry.id);
+    try {
+      if (entry.kind === 'atbat') {
+        await requestJson(`/at-bats/${encodeURIComponent(entry.id)}`, { method: 'DELETE' });
+      } else {
+        await requestJson(`/pitches/${encodeURIComponent(entry.id)}`, { method: 'DELETE' });
+      }
+      await Promise.all([loadHistory(gameId), loadContext()]);
+      showPitchFeedback('Evento eliminado');
+    } catch (delErr) {
+      setError(delErr instanceof Error ? delErr.message : 'Error al eliminar evento');
+    } finally {
+      setDeletingEventId(null);
+    }
+  }, [context, loadContext, loadHistory, showPitchFeedback]);
 
   if (loading && !context) {
     return <div className="min-h-screen bg-broadcast-black px-4 py-4 text-white">Cargando live scoring…</div>;
@@ -1485,6 +1579,24 @@ export function LiveGameScoringPage() {
           {currentStep === 2 ? (
             <div className="flex flex-col gap-2">
 
+              {/* Resumen del pitch decisivo — solo visible si viene de in_play */}
+              {selectedPitchResult === 'in_play' && (selectedPitchType || selectedPitchCell) ? (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-emerald-400/70">Pitch en juego</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                    {selectedPitchType ? (
+                      <span className="rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white">{selectedPitchType}</span>
+                    ) : null}
+                    {selectedPitchCell ? (
+                      <span className="text-[10px] text-white/70">Zona {selectedPitchCell.zone ?? `(${selectedPitchCell.col},${selectedPitchCell.row})`}</span>
+                    ) : null}
+                    {pitchMetrics.velocityKmh ? (
+                      <span className="text-[10px] text-white/50">{pitchMetrics.velocityKmh} km/h</span>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
               {/* Resultado del turno — requerido para in_play */}
               <div>
                 <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">
@@ -1735,23 +1847,54 @@ export function LiveGameScoringPage() {
 
         </section>
 
-        {/* ── COLUMNA DERECHA — HISTORIAL ──────────────────────────────── */}
+        {/* ── COLUMNA DERECHA — LOG DE EVENTOS ─────────────────────────── */}
         <aside className="flex flex-col gap-2 overflow-y-auto rounded-xl border border-white/8 bg-white/3 p-2">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-mineros-gold/70">Historial</p>
-          {recentHistory.length === 0 ? (
-            <p className="text-[10px] text-white/30">Sin at-bats.</p>
+          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-mineros-gold/70">Log de eventos</p>
+          <p className="text-[8px] text-white/25">Pitches y jugadas · más reciente primero</p>
+          {gameLog.length === 0 ? (
+            <p className="text-[10px] text-white/30">Sin eventos registrados.</p>
           ) : (
             <div className="space-y-1">
-              {recentHistory.map((item) => (
-                <div key={item.id} className="rounded-lg border border-white/8 bg-black/20 px-2.5 py-1.5">
-                  <p className="truncate text-[11px] font-semibold text-white">
-                    {item.batter_name ?? item.batter_player_id} · {formatHistoryResult(item.event_type as AtBatResult ?? 'field_out')}
-                  </p>
-                  <p className="mt-0.5 text-[9px] text-white/40">
-                    {item.inning_half === 'top' ? 'A' : 'B'}{item.inning}{item.rbi > 0 ? ` · ${item.rbi}RBI` : ''}{item.runs > 0 ? ` · ${item.runs}R` : ''}
-                  </p>
-                </div>
-              ))}
+              {gameLog.map((entry) => {
+                const isPitch = entry.kind === 'pitch';
+                const isDeleting = deletingEventId === entry.id;
+                return (
+                  <div
+                    key={entry.id}
+                    className={`group rounded-lg border px-2.5 py-1.5 transition ${
+                      isPitch
+                        ? 'border-blue-900/40 bg-blue-950/30'
+                        : 'border-white/8 bg-black/20'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[10px] font-semibold text-white">
+                          <span className={`mr-1 text-[8px] font-bold uppercase tracking-wider ${isPitch ? 'text-blue-400/70' : 'text-mineros-gold/60'}`}>
+                            {isPitch ? 'P' : 'AB'}
+                          </span>
+                          {entry.label}
+                        </p>
+                        {entry.sublabel ? (
+                          <p className="mt-0.5 text-[9px] text-white/35">{entry.sublabel}</p>
+                        ) : null}
+                      </div>
+                      {entry.deletable ? (
+                        <button
+                          aria-label="Eliminar este evento"
+                          className="shrink-0 rounded-md border border-red-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-red-400/60 opacity-0 transition hover:border-red-500/50 hover:text-red-300 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
+                          disabled={isDeleting || deletingEventId !== null}
+                          onClick={() => void handleDeleteEvent(entry)}
+                          title="Eliminar último evento (solo el más reciente)"
+                          type="button"
+                        >
+                          {isDeleting ? '…' : '✕'}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </aside>

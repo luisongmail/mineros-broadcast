@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import type { GameBases, LineupEntry, RunnerOnBase, TeamRole } from '@playflow/game-engine';
-import type { RowDataPacket } from 'mysql2';
+import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
 import { pool } from './db';
 import { stateStore, type PitcherStats } from './stateStore';
@@ -1237,6 +1237,63 @@ scorerRouter.get('/scorer/context', async (_request: Request, response: Response
       pitcherChangeLog: stateStore.pitcherChangeLog,
       playerMeta,
     });
+  } catch (error) {
+    sendError(response, 400, error);
+  }
+});
+
+/**
+ * GET /pitches/:gameId
+ * Lista todos los pitches de un juego con nombre de bateador y pitcher,
+ * velocidad y coordenadas. Ordenados por inning ASC, timestamp ASC.
+ */
+scorerRouter.get('/pitches/:gameId', async (request: Request, response: Response) => {
+  const databasePool = requirePool(response);
+  if (!databasePool) return;
+  try {
+    const gameId = parseRequiredString(request.params.gameId, 'gameId');
+    const [rows] = await databasePool.query<RowDataPacket[]>(
+      `SELECT
+         p.id, p.game_id, p.batter_player_id, p.pitcher_player_id,
+         p.pitch_num, p.umpire_call, p.pitch_type,
+         p.zone_x AS col, p.zone_y AS row,
+         p.zone, p.plate_x, p.plate_z,
+         p.inning, p.inning_half,
+         p.start_speed AS velocity_kmh,
+         p.timestamp,
+         b.name AS batter_name,
+         pit.name AS pitcher_name
+       FROM pitches p
+       LEFT JOIN players b   ON b.id   = p.batter_player_id
+       LEFT JOIN players pit ON pit.id = p.pitcher_player_id
+       WHERE p.game_id = ?
+       ORDER BY p.inning ASC, p.timestamp ASC, p.pitch_num ASC`,
+      [gameId],
+    );
+    sendSuccess(response, rows);
+  } catch (error) {
+    sendError(response, 400, error);
+  }
+});
+
+/**
+ * DELETE /at-bats/:id
+ * Elimina un at-bat por ID. Solo el más reciente puede borrarse en operación normal.
+ */
+scorerRouter.delete('/at-bats/:id', async (request: Request, response: Response) => {
+  const databasePool = requirePool(response);
+  if (!databasePool) return;
+  try {
+    const id = parseRequiredString(request.params.id, 'id');
+    const [result] = await databasePool.query<ResultSetHeader>(
+      'DELETE FROM at_bats WHERE id = ?',
+      [id],
+    );
+    if (result.affectedRows === 0) {
+      sendError(response, 404, 'At-bat no encontrado');
+      return;
+    }
+    sendSuccess(response, { deleted: id });
   } catch (error) {
     sendError(response, 400, error);
   }
