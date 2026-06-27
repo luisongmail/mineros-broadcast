@@ -35,6 +35,8 @@ interface AtBatRequest {
   hitDirection?: HitDirection;
   hitQuality?: HitQuality;
   runnersJson?: string;
+  /** Timecode del stream de transmisión, ej. "1:23:45.500" */
+  videoTimestamp?: string;
 }
 
 type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'pop_up';
@@ -674,6 +676,31 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
     placeholders.push('?');
   }
 
+  // Momento de la transmisión: outs, score y timecode del stream al inicio del play
+  if (columns.has('outs_before')) {
+    insertColumns.push('outs_before');
+    insertValues.push(state.outs);
+    placeholders.push('?');
+  }
+
+  if (columns.has('score_home')) {
+    insertColumns.push('score_home');
+    insertValues.push(state.score.home);
+    placeholders.push('?');
+  }
+
+  if (columns.has('score_away')) {
+    insertColumns.push('score_away');
+    insertValues.push(state.score.away);
+    placeholders.push('?');
+  }
+
+  if (columns.has('video_timestamp') && request.videoTimestamp) {
+    insertColumns.push('video_timestamp');
+    insertValues.push(request.videoTimestamp);
+    placeholders.push('?');
+  }
+
   if (columns.has('timestamp')) {
     insertColumns.push('timestamp');
     placeholders.push('CURRENT_TIMESTAMP(3)');
@@ -796,6 +823,13 @@ async function insertPitch(request: PitchRequest): Promise<void> {
   if (columns.has('at_bat_id')) {
     insertColumns.push('at_bat_id');
     insertValues.push(null);
+    placeholders.push('?');
+  }
+
+  // Momento de la transmisión: outs al momento del lanzamiento
+  if (columns.has('outs_before')) {
+    insertColumns.push('outs_before');
+    insertValues.push(state.outs);
     placeholders.push('?');
   }
 
