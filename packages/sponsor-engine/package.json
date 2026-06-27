@@ -1,15 +1,10 @@
 {
   "name": "@mineros/sponsor-engine",
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
@@ -22,6 +17,5 @@
     "@types/node": "^20.0.0",
     "typescript": "*",
     "vitest": "^1.0.0"
-  },
-  "private": true
+  }
 }
