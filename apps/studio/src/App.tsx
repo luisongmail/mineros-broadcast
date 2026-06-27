@@ -36,6 +36,8 @@ import { createScoreboardOverlayData } from './scoreboardData';
 import { LiveGameScoringPage } from './pages/LiveGameScoringPage';
 import { OverlayPage } from './pages/OverlayPage';
 import { ScorerPage } from './pages/ScorerPage';
+import { LoginPage, OtpVerifyPage, ScopeSelectorPage } from './modules/auth/AuthPages';
+import { PrivateRoute } from './modules/auth/PrivateRoute';
 
 const CANVAS_SCALE = 0.33;
 const CANVAS_WIDTH = 1920;
@@ -266,12 +268,18 @@ function CanvasFrame({
 export function App() {
   return (
     <Routes>
+      {/* Rutas públicas de autenticación */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/verify" element={<OtpVerifyPage />} />
+      <Route path="/auth/select-scope" element={<ScopeSelectorPage />} />
+
+      {/* Rutas protegidas */}
       <Route path="/broadcast" element={<BroadcastPage />} />
       <Route path="/overlay/:overlayId" element={<OverlayPage />} />
-      <Route path="/control" element={<OperatorControlPanel />} />
-      <Route path="/scorer" element={<ScorerPage />} />
-      <Route path="/live-game-scoring" element={<LiveGameScoringPage />} />
-      <Route path="/" element={<OperatorControlPanel />} />
+      <Route path="/control" element={<PrivateRoute><OperatorControlPanel /></PrivateRoute>} />
+      <Route path="/scorer" element={<PrivateRoute><ScorerPage /></PrivateRoute>} />
+      <Route path="/live-game-scoring" element={<PrivateRoute><LiveGameScoringPage /></PrivateRoute>} />
+      <Route path="/" element={<PrivateRoute><OperatorControlPanel /></PrivateRoute>} />
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
   );

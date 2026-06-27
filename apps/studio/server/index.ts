@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { bootstrapSysAdmin } from './auth/bootstrapService';
 
 import cors, { type CorsOptions } from 'cors';
 import express, { type Request, type Response } from 'express';
@@ -26,6 +27,7 @@ import { stateStore } from './stateStore';
 import teamsRouter from './teamsRouter';
 import venuesRouter from './venuesRouter';
 import { attachWebSocketServer } from './wsServer';
+import authRouter from './auth/authRouter';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -124,6 +126,10 @@ app.use((_request, response, next) => {
   setCompatibilityHeaders(response);
   next();
 });
+
+// Auth — rutas públicas (sin requireAuth)
+app.use('/api/auth', authRouter);
+
 app.use('/api/baserunning-events', baserunningRouter);
 app.use('/api', clubsRouter);
 app.use('/api', categoriesRouter);
@@ -209,8 +215,11 @@ function freePort(p: number): void {
 
 freePort(port);
 
-// Restaurar estado desde DB antes de abrir el puerto
-stateStore.init().finally(() => {
+// Restaurar estado desde DB + bootstrap de seguridad antes de abrir el puerto
+Promise.all([
+  stateStore.init(),
+  bootstrapSysAdmin(),
+]).finally(() => {
   server.listen(port, () => {
     console.log(`PlayFlow server listening on http://localhost:${port}`);
   });
