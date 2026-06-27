@@ -33,6 +33,7 @@ import { loadPolicy } from './authorization/policyLoader';
 import { usersRouter } from './users/usersRouter';
 import { auditRouter } from './audit/auditRouter';
 import { scoringRouter } from './scoring/scoringRouter';
+import { startRetentionScheduler } from './audit/auditRetentionJob';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -235,6 +236,7 @@ Promise.all([
   bootstrapSysAdmin(),
 ]).finally(() => {
   loadPolicy(); // cargar política en memoria al arrancar
+  startRetentionScheduler(); // job de retención de audit logs (24 h)
   server.listen(port, () => {
     console.log(`PlayFlow server listening on http://localhost:${port}`);
   });

@@ -41,6 +41,7 @@ import { PrivateRoute } from './modules/auth/PrivateRoute';
 import { MfaSetupPage } from './modules/security/MfaSetupPage';
 import { AdminUsersPage } from './modules/admin/AdminUsersPage';
 import { AuditViewerPage } from './modules/admin/AuditViewerPage';
+import { PermissionSimulatorPage } from './modules/admin/PermissionSimulatorPage';
 
 const CANVAS_SCALE = 0.33;
 const CANVAS_WIDTH = 1920;
@@ -285,6 +286,7 @@ export function App() {
       <Route path="/settings/mfa" element={<PrivateRoute><MfaSetupPage /></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute><AdminUsersPage /></PrivateRoute>} />
       <Route path="/admin/audit" element={<PrivateRoute><AuditViewerPage /></PrivateRoute>} />
+      <Route path="/admin/permissions" element={<PrivateRoute><PermissionSimulatorPage /></PrivateRoute>} />
       <Route path="/" element={<PrivateRoute><OperatorControlPanel /></PrivateRoute>} />
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
