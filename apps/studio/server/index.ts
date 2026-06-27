@@ -28,6 +28,10 @@ import teamsRouter from './teamsRouter';
 import venuesRouter from './venuesRouter';
 import { attachWebSocketServer } from './wsServer';
 import authRouter from './auth/authRouter';
+import securityRouter from './authorization/securityRouter';
+import { loadPolicy } from './authorization/policyLoader';
+import { usersRouter } from './users/usersRouter';
+import { auditRouter } from './audit/auditRouter';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -129,6 +133,13 @@ app.use((_request, response, next) => {
 
 // Auth — rutas públicas (sin requireAuth)
 app.use('/api/auth', authRouter);
+// Security — rutas de autorización, context y step-up
+app.use('/api/security', securityRouter);
+app.use('/api/auth', securityRouter); // step-up y mfa comparten prefijo /api/auth
+// Users & Roles (Fase 3)
+app.use('/api/users', usersRouter);
+// Audit (Fase 5)
+app.use('/api/audit', auditRouter);
 
 app.use('/api/baserunning-events', baserunningRouter);
 app.use('/api', clubsRouter);
@@ -220,6 +231,7 @@ Promise.all([
   stateStore.init(),
   bootstrapSysAdmin(),
 ]).finally(() => {
+  loadPolicy(); // cargar política en memoria al arrancar
   server.listen(port, () => {
     console.log(`PlayFlow server listening on http://localhost:${port}`);
   });
