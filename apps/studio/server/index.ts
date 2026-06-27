@@ -32,6 +32,7 @@ import securityRouter from './authorization/securityRouter';
 import { loadPolicy } from './authorization/policyLoader';
 import { usersRouter } from './users/usersRouter';
 import { auditRouter } from './audit/auditRouter';
+import { scoringRouter } from './scoring/scoringRouter';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -138,6 +139,8 @@ app.use('/api/security', securityRouter);
 app.use('/api/auth', securityRouter); // step-up y mfa comparten prefijo /api/auth
 // Users & Roles (Fase 3)
 app.use('/api/users', usersRouter);
+// Scoring Assignments (Fase 4)
+app.use('/api/scoring', scoringRouter);
 // Audit (Fase 5)
 app.use('/api/audit', auditRouter);
 
