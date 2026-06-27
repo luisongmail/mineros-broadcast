@@ -47,6 +47,7 @@ interface SecurityContextValue {
   setStepUpToken: (token: string) => void;
   clearStepUpToken: () => void;
   setAccessToken: (token: string) => void;
+  getAccessToken: () => string | null;
   logout: () => Promise<void>;
 }
 
@@ -70,6 +71,8 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
   const setAccessToken = useCallback((token: string) => {
     accessTokenRef.current = token;
   }, []);
+
+  const getAccessToken = useCallback(() => accessTokenRef.current, []);
 
   /** Carga el contexto de seguridad desde el servidor */
   const loadSecurityContext = useCallback(async (token: string): Promise<void> => {
@@ -161,6 +164,7 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
         setStepUpToken,
         clearStepUpToken,
         setAccessToken,
+        getAccessToken,
         logout,
       }}
     >

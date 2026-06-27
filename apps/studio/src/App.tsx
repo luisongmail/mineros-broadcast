@@ -38,6 +38,9 @@ import { OverlayPage } from './pages/OverlayPage';
 import { ScorerPage } from './pages/ScorerPage';
 import { LoginPage, OtpVerifyPage, ScopeSelectorPage } from './modules/auth/AuthPages';
 import { PrivateRoute } from './modules/auth/PrivateRoute';
+import { MfaSetupPage } from './modules/security/MfaSetupPage';
+import { AdminUsersPage } from './modules/admin/AdminUsersPage';
+import { AuditViewerPage } from './modules/admin/AuditViewerPage';
 
 const CANVAS_SCALE = 0.33;
 const CANVAS_WIDTH = 1920;
@@ -279,6 +282,9 @@ export function App() {
       <Route path="/control" element={<PrivateRoute><OperatorControlPanel /></PrivateRoute>} />
       <Route path="/scorer" element={<PrivateRoute><ScorerPage /></PrivateRoute>} />
       <Route path="/live-game-scoring" element={<PrivateRoute><LiveGameScoringPage /></PrivateRoute>} />
+      <Route path="/settings/mfa" element={<PrivateRoute><MfaSetupPage /></PrivateRoute>} />
+      <Route path="/admin/users" element={<PrivateRoute><AdminUsersPage /></PrivateRoute>} />
+      <Route path="/admin/audit" element={<PrivateRoute><AuditViewerPage /></PrivateRoute>} />
       <Route path="/" element={<PrivateRoute><OperatorControlPanel /></PrivateRoute>} />
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
