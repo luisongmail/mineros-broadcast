@@ -1,0 +1,40 @@
+<svg width="480" height="120" viewBox="0 0 480 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap');
+    </style>
+    <!-- Gradiente de izquierda a derecha: Flow Cyan → Flow Green -->
+    <linearGradient id="flowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#00C4E0"/>
+      <stop offset="100%" stop-color="#00E096"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="480" height="120" fill="#0D1F3C" rx="14"/>
+
+  <!-- ══ ISOTIPO: 3 Flow Lines en diagonal ascendente ══
+       Líneas de longitud creciente organizadas diagonalmente.
+       Evoca velocidad, datos en streaming y la estela de una pelota.
+       La diagonal (≈25°) sugiere momentum y crecimiento.
+  -->
+
+  <!-- Línea 1 — la más corta, más abajo (el pasado) -->
+  <line x1="18" y1="84" x2="44" y2="84"
+        stroke="url(#flowGrad)" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Línea 2 — mediana, al centro -->
+  <line x1="26" y1="62" x2="68" y2="62"
+        stroke="url(#flowGrad)" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Línea 3 — la más larga, más arriba (el momentum) -->
+  <line x1="34" y1="40" x2="94" y2="40"
+        stroke="url(#flowGrad)" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- ══ WORDMARK ══ -->
+  <text font-family="'Space Grotesk', 'Outfit', system-ui, -apple-system, sans-serif"
+        font-weight="700" font-size="46" letter-spacing="-1"
+        x="114" y="75">
+    <tspan fill="#F4F7FA">Play</tspan><tspan fill="#00C4E0">Flow</tspan>
+  </text>
+</svg>

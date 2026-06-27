@@ -1,0 +1,39 @@
+<svg width="480" height="120" viewBox="0 0 480 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap');
+    </style>
+    <linearGradient id="comboGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#00C4E0"/>
+      <stop offset="100%" stop-color="#00E096"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="480" height="120" fill="#0D1F3C" rx="14"/>
+
+  <!-- ══ ISOTIPO COMBO: ▶ + Flow Lines ══
+       El triángulo de play y las flow lines fusionados en un solo glifo.
+       El triángulo emite las líneas como si fueran datos en vivo.
+       Comunica broadcast (▶) + flujo de datos (≡≡) en un símbolo.
+  -->
+
+  <!-- Triángulo (sólido, más compacto — el play) -->
+  <path d="M 18,32 L 18,88 L 50,60 Z" fill="#00C4E0"/>
+
+  <!-- Flow lines que emergen del vértice del triángulo -->
+  <!-- Separadas verticalmente simétricas respecto al centro (y=60) -->
+  <line x1="56" y1="44" x2="78" y2="44"
+        stroke="url(#comboGrad)" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="56" y1="60" x2="90" y2="60"
+        stroke="url(#comboGrad)" stroke-width="5" stroke-linecap="round"/>
+  <line x1="56" y1="76" x2="74" y2="76"
+        stroke="url(#comboGrad)" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- ══ WORDMARK ══ -->
+  <text font-family="'Space Grotesk', 'Outfit', system-ui, -apple-system, sans-serif"
+        font-weight="700" font-size="46" letter-spacing="-1"
+        x="110" y="75">
+    <tspan fill="#F4F7FA">Play</tspan><tspan fill="#00C4E0">Flow</tspan>
+  </text>
+</svg>

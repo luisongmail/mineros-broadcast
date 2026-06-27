@@ -1,0 +1,6 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" fill="#0D1F3C" rx="14"/>
+  <!-- P con ángulos de 45° y counter diamante -->
+  <path d="M 10,56 L 10,10 L 36,10 L 52,22 L 52,36 L 36,48 L 20,48 L 20,56 Z" fill="#00C4E0"/>
+  <path d="M 34,18 L 46,30 L 34,42 L 22,30 Z" fill="#0D1F3C"/>
+</svg>

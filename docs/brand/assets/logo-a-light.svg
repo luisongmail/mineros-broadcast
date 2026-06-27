@@ -1,0 +1,21 @@
+<svg width="480" height="120" viewBox="0 0 480 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap');</style>
+    <linearGradient id="fg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#00C4E0"/>
+      <stop offset="100%" stop-color="#00E096"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="120" fill="#F4F7FA" rx="14"/>
+
+  <!-- A — fondo claro -->
+  <path d="M 22,26 L 22,94 L 62,60 Z" fill="#0D1F3C"/>
+  <line x1="70" y1="40" x2="90" y2="40" stroke="#0D1F3C" stroke-width="4" stroke-linecap="round" opacity="0.40"/>
+  <line x1="70" y1="60" x2="96" y2="60" stroke="#0D1F3C" stroke-width="4" stroke-linecap="round"/>
+  <line x1="70" y1="80" x2="84" y2="80" stroke="#0D1F3C" stroke-width="4" stroke-linecap="round" opacity="0.40"/>
+  <text font-family="'Space Grotesk', system-ui, sans-serif" font-weight="700" font-size="46" letter-spacing="-1" x="116" y="75">
+    <tspan fill="#0D1F3C">Play</tspan><tspan fill="#00A8C2">Flow</tspan>
+  </text>
+
+  <!-- B — fondo claro -->
+</svg>

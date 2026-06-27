@@ -1,0 +1,30 @@
+<svg width="480" height="120" viewBox="0 0 480 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap');
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="480" height="120" fill="#0D1F3C" rx="14"/>
+
+  <!-- ══ ISOTIPO: Play triangle + speed lines ══ -->
+
+  <!-- Triángulo de reproducción (sólido, cyan) -->
+  <path d="M 22,26 L 22,94 L 62,60 Z" fill="#00C4E0"/>
+
+  <!-- Líneas de velocidad — desde el área del vértice, grosor decreciente -->
+  <line x1="70" y1="40" x2="90" y2="40" stroke="#00C4E0" stroke-width="4" stroke-linecap="round" opacity="0.50"/>
+  <line x1="70" y1="60" x2="96" y2="60" stroke="#00C4E0" stroke-width="4" stroke-linecap="round" opacity="1.00"/>
+  <line x1="70" y1="80" x2="84" y2="80" stroke="#00C4E0" stroke-width="4" stroke-linecap="round" opacity="0.50"/>
+
+  <!-- ══ WORDMARK ══ -->
+  <text font-family="'Space Grotesk', 'Outfit', system-ui, -apple-system, sans-serif"
+        font-weight="700" font-size="46" letter-spacing="-1"
+        x="116" y="75">
+    <tspan fill="#F4F7FA">Play</tspan><tspan fill="#00C4E0">Flow</tspan>
+  </text>
+
+  <!-- Tagline opcional (descomentar si se usa) -->
+  <!-- <text x="116" y="97" font-family="system-ui" font-size="12" fill="#4A5D72" letter-spacing="2" font-weight="500">SPORTS BROADCAST SOFTWARE</text> -->
+</svg>

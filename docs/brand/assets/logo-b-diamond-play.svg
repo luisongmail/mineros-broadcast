@@ -1,0 +1,32 @@
+<svg width="480" height="120" viewBox="0 0 480 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap');
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="480" height="120" fill="#0D1F3C" rx="14"/>
+
+  <!-- ══ ISOTIPO: Letra P con counter diamante ══
+       La P geométrica cuyos ángulos son exactamente 45°,
+       imitando la geometría de un diamante de béisbol.
+       El "counter" interior (espacio negativo) es un diamante rotado.
+  -->
+
+  <!-- P exterior — forma geométrica angular (ángulos 45°) -->
+  <path d="M 16,100 L 16,20 L 56,20 L 80,40 L 80,60 L 56,80 L 30,80 L 30,100 Z"
+        fill="#00C4E0"/>
+
+  <!-- Counter interior (diamante que punch-out el interior del bowl de la P) -->
+  <!-- Crea el efecto dual: quien ve béisbol ve el diamante, quien lee ve la P -->
+  <path d="M 54,32 L 70,52 L 54,70 L 38,52 Z"
+        fill="#0D1F3C"/>
+
+  <!-- ══ WORDMARK ══ -->
+  <text font-family="'Space Grotesk', 'Outfit', system-ui, -apple-system, sans-serif"
+        font-weight="700" font-size="46" letter-spacing="-1"
+        x="100" y="75">
+    <tspan fill="#F4F7FA">Play</tspan><tspan fill="#00C4E0">Flow</tspan>
+  </text>
+</svg>
