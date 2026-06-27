@@ -42,6 +42,9 @@ type CatcherTargetMode = 'quick_3x3' | 'advanced_7x7' | 'same_as_location' | 'un
 /** MLBAM hitData.hardness: soft | medium | hard */
 type HitQuality = 'soft' | 'medium' | 'hard';
 type RunnerBase = '1B' | '2B' | '3B' | 'HOME' | 'OUT';
+type TeamRole = 'home' | 'away';
+type SubstitutionType = 'pitching_change' | 'pinch_hitter' | 'pinch_runner' | 'defensive_change' | 'double_switch';
+type SubstitutionBase = 'first' | 'second' | 'third';
 
 interface CatcherTarget {
   mode: CatcherTargetMode;
@@ -87,6 +90,27 @@ interface PitcherChangeEntry {
 interface PlayerMeta {
   bats?: 'R' | 'L' | 'S';
   throws?: string;
+}
+
+interface TeamPlayerPayload {
+  id: string;
+  name: string;
+  number: string;
+  position: string;
+  bats: string | null;
+  throws: string | null;
+  status: string;
+  team_id: string | null;
+}
+
+interface SubstitutionFormState {
+  substitutionType: SubstitutionType;
+  outgoingPlayerId: string;
+  incomingPlayerId: string;
+  position: string;
+  base: SubstitutionBase | '';
+  battingOrder: string;
+  notes: string;
 }
 
 interface ScorerContextPayload {
@@ -197,6 +221,23 @@ const RESULT_OPTIONS: ResultOption[] = [
 
 const PITCH_TYPES_BASEBALL: PitchType[] = ['Recta', 'Sinker', 'Cutter', 'Slider', 'Curva', 'Cambio', 'Splitter', 'Nudillo', 'Otro'];
 const PITCH_TYPES_SOFTBALL: PitchType[] = ['Recta', 'Cambio', 'Riseball', 'Dropball', 'Curva', 'Screwball', 'Otro'];
+const SUBSTITUTION_TYPES: { value: SubstitutionType; label: string }[] = [
+  { value: 'pitching_change', label: 'Cambio de lanzador' },
+  { value: 'pinch_hitter', label: 'Bateador emergente' },
+  { value: 'pinch_runner', label: 'Corredor emergente' },
+  { value: 'defensive_change', label: 'Cambio defensivo' },
+  { value: 'double_switch', label: 'Doble cambio' },
+];
+const DEFENSIVE_POSITION_OPTIONS = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'] as const;
+const DEFAULT_SUBSTITUTION_FORM: SubstitutionFormState = {
+  substitutionType: 'pitching_change',
+  outgoingPlayerId: '',
+  incomingPlayerId: '',
+  position: 'P',
+  base: '',
+  battingOrder: '',
+  notes: '',
+};
 
 interface PitchResultOption {
   value: PitchResult;
@@ -496,6 +537,11 @@ export function LiveGameScoringPage() {
   const [savingEvent, setSavingEvent] = useState(false);
   const [eventFeedback, setEventFeedback] = useState<string | null>(null);
   const [legendKey, setLegendKey] = useState<string | null>(null);
+  const [showSubModal, setShowSubModal] = useState(false);
+  const [savingSubstitution, setSavingSubstitution] = useState(false);
+  const [loadingSubstitutionPlayers, setLoadingSubstitutionPlayers] = useState(false);
+  const [teamPlayers, setTeamPlayers] = useState<Record<TeamRole, TeamPlayerPayload[]>>({ home: [], away: [] });
+  const [substitutionForm, setSubstitutionForm] = useState<SubstitutionFormState>(DEFAULT_SUBSTITUTION_FORM);
 
   // Builder para jugadas con múltiples corredores (E tiro, SB+E)
   type CompoundDest = '2B' | '3B' | 'HOME' | 'OUT' | 'same';
@@ -608,6 +654,42 @@ export function LiveGameScoringPage() {
     );
     setRunnerMap(inferred);
   }, [context, history, inferRunnersFromHistory]);
+
+  useEffect(() => {
+    if (!context) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadTeamPlayers = async () => {
+      setLoadingSubstitutionPlayers(true);
+      try {
+        const [homePlayers, awayPlayers] = await Promise.all([
+          requestJson<TeamPlayerPayload[]>(`/teams/${encodeURIComponent(context.gameState.homeTeam.id)}/players`),
+          requestJson<TeamPlayerPayload[]>(`/teams/${encodeURIComponent(context.gameState.awayTeam.id)}/players`),
+        ]);
+
+        if (!cancelled) {
+          setTeamPlayers({ home: homePlayers, away: awayPlayers });
+        }
+      } catch {
+        if (!cancelled) {
+          setTeamPlayers({ home: [], away: [] });
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingSubstitutionPlayers(false);
+        }
+      }
+    };
+
+    void loadTeamPlayers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [context?.gameState.awayTeam.id, context?.gameState.homeTeam.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -778,6 +860,180 @@ export function LiveGameScoringPage() {
       selectedResult &&
       (!CONTACT_REQUIRED_RESULTS.has(selectedResult) || (selectedContactType && selectedHitDirection)),
   );
+  const battingTeamRole: TeamRole = context?.inningHalf === 'top' ? 'away' : 'home';
+  const defensiveTeamRole: TeamRole = battingTeamRole === 'home' ? 'away' : 'home';
+  const substitutionTeamRole: TeamRole = substitutionForm.substitutionType === 'pinch_hitter' || substitutionForm.substitutionType === 'pinch_runner'
+    ? battingTeamRole
+    : defensiveTeamRole;
+  const substitutionTeamName = substitutionTeamRole === 'home'
+    ? (context?.gameState.homeTeam.shortName ?? context?.gameState.homeTeam.name ?? '')
+    : (context?.gameState.awayTeam.shortName ?? context?.gameState.awayTeam.name ?? '');
+  const substitutionTeamLineup = context?.gameState.lineup[substitutionTeamRole] ?? [];
+  const substitutionRoster = useMemo(() => {
+    if (!context) {
+      return { home: [] as TeamPlayerPayload[], away: [] as TeamPlayerPayload[] };
+    }
+
+    const mapLineupToPlayer = (entry: LineupEntry, role: TeamRole): TeamPlayerPayload => ({
+      id: entry.playerId,
+      name: entry.name,
+      number: entry.number,
+      position: entry.position,
+      bats: context.playerMeta[entry.playerId]?.bats ?? null,
+      throws: context.playerMeta[entry.playerId]?.throws ?? null,
+      status: entry.status,
+      team_id: role === 'home' ? context.gameState.homeTeam.id : context.gameState.awayTeam.id,
+    });
+
+    return {
+      home: teamPlayers.home.length > 0 ? teamPlayers.home : context.gameState.lineup.home.map((entry) => mapLineupToPlayer(entry, 'home')),
+      away: teamPlayers.away.length > 0 ? teamPlayers.away : context.gameState.lineup.away.map((entry) => mapLineupToPlayer(entry, 'away')),
+    };
+  }, [context, teamPlayers.away, teamPlayers.home]);
+  const substitutionActiveIds = useMemo(
+    () => new Set(substitutionTeamLineup.map((player) => player.playerId)),
+    [substitutionTeamLineup],
+  );
+  const occupiedBaseOptions = useMemo(() => {
+    if (!context) {
+      return [] as Array<{ base: SubstitutionBase; label: string; playerId: string; battingOrder: number; position: string }>;
+    }
+
+    const entries: Array<{ base: SubstitutionBase; label: string; playerId: string; battingOrder: number; position: string }> = [];
+    const baseLabels: Record<SubstitutionBase, string> = { first: '1ª', second: '2ª', third: '3ª' };
+
+    (['first', 'second', 'third'] as const).forEach((base) => {
+      const runner = context.gameState.bases[base];
+      if (!runner) {
+        return;
+      }
+
+      const lineupEntry = context.battingLineup.find((player) => player.playerId === runner.id);
+      entries.push({
+        base,
+        label: `${baseLabels[base]} · #${runner.number} ${runner.name}`,
+        playerId: runner.id,
+        battingOrder: lineupEntry?.order ?? 0,
+        position: lineupEntry?.position ?? 'PR',
+      });
+    });
+
+    return entries;
+  }, [context]);
+  const substitutionOutgoingOptions = useMemo(() => {
+    if (!context) {
+      return [] as Array<{ value: string; label: string; battingOrder: number; position: string }>;
+    }
+
+    if (substitutionForm.substitutionType === 'pinch_runner') {
+      return occupiedBaseOptions.map((runner) => ({
+        value: runner.playerId,
+        label: runner.label,
+        battingOrder: runner.battingOrder,
+        position: runner.position,
+      }));
+    }
+
+    const entries = substitutionForm.substitutionType === 'pitching_change'
+      ? substitutionTeamLineup.filter((player) => player.position.toUpperCase() === 'P' || player.playerId === context.currentPitcher?.playerId)
+      : substitutionTeamLineup;
+
+    return entries.map((player) => ({
+      value: player.playerId,
+      label: `#${player.number} ${player.name}${player.position ? ` · ${player.position}` : ''}`,
+      battingOrder: player.order,
+      position: player.position,
+    }));
+  }, [context, occupiedBaseOptions, substitutionForm.substitutionType, substitutionTeamLineup]);
+  const substitutionIncomingOptions = useMemo(() => {
+    const roster = substitutionRoster[substitutionTeamRole] ?? [];
+    const bench = roster.filter((player) => !substitutionActiveIds.has(player.id));
+    const filtered = substitutionForm.substitutionType === 'pitching_change'
+      ? bench.filter((player) => player.position.toUpperCase() === 'P')
+      : bench;
+
+    return filtered.map((player) => ({
+      value: player.id,
+      label: `#${player.number} ${player.name}${player.position ? ` · ${player.position}` : ''}`,
+    }));
+  }, [substitutionActiveIds, substitutionForm.substitutionType, substitutionRoster, substitutionTeamRole]);
+
+  useEffect(() => {
+    if (!showSubModal) {
+      return;
+    }
+
+    setSubstitutionForm((current) => {
+      let changed = false;
+      let next = current;
+
+      const validOutgoingIds = new Set(substitutionOutgoingOptions.map((option) => option.value));
+      const validIncomingIds = new Set(substitutionIncomingOptions.map((option) => option.value));
+
+      if (!validOutgoingIds.has(next.outgoingPlayerId)) {
+        next = { ...next, outgoingPlayerId: substitutionOutgoingOptions[0]?.value ?? '' };
+        changed = true;
+      }
+
+      if (!validIncomingIds.has(next.incomingPlayerId)) {
+        next = { ...next, incomingPlayerId: substitutionIncomingOptions[0]?.value ?? '' };
+        changed = true;
+      }
+
+      if (next.substitutionType === 'pinch_runner') {
+        const validBases = new Set(occupiedBaseOptions.map((option) => option.base));
+        const resolvedBase = validBases.has(next.base as SubstitutionBase) ? next.base : occupiedBaseOptions[0]?.base ?? '';
+        if (resolvedBase !== next.base) {
+          next = { ...next, base: resolvedBase };
+          changed = true;
+        }
+
+        const runnerForBase = occupiedBaseOptions.find((option) => option.base === resolvedBase);
+        if (runnerForBase && runnerForBase.playerId !== next.outgoingPlayerId) {
+          next = {
+            ...next,
+            outgoingPlayerId: runnerForBase.playerId,
+            battingOrder: runnerForBase.battingOrder > 0 ? String(runnerForBase.battingOrder) : '',
+          };
+          changed = true;
+        }
+
+        if (next.position !== '') {
+          next = { ...next, position: '' };
+          changed = true;
+        }
+      } else if (next.base !== '') {
+        next = { ...next, base: '' };
+        changed = true;
+      }
+
+      const outgoingMeta = substitutionOutgoingOptions.find((option) => option.value === next.outgoingPlayerId);
+      if (outgoingMeta) {
+        const nextBattingOrder = outgoingMeta.battingOrder > 0 ? String(outgoingMeta.battingOrder) : '';
+        if (nextBattingOrder !== next.battingOrder) {
+          next = { ...next, battingOrder: nextBattingOrder };
+          changed = true;
+        }
+
+        if (next.substitutionType === 'pitching_change' && next.position !== 'P') {
+          next = { ...next, position: 'P' };
+          changed = true;
+        }
+
+        if ((next.substitutionType === 'defensive_change' || next.substitutionType === 'double_switch') && next.position !== outgoingMeta.position) {
+          next = { ...next, position: outgoingMeta.position };
+          changed = true;
+        }
+
+        if (next.substitutionType === 'pinch_hitter' && next.position !== '') {
+          next = { ...next, position: '' };
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [occupiedBaseOptions, showSubModal, substitutionIncomingOptions, substitutionOutgoingOptions]);
 
   const resetAtBatWorkflow = useCallback(() => {
     setSelectedPitchCell(null);
@@ -1095,6 +1351,86 @@ export function LiveGameScoringPage() {
     }
   }, [context, loadContext, loadHistory, showPitchFeedback]);
 
+  const openSubstitutionModal = useCallback(() => {
+    setError(null);
+    setShowSubModal(true);
+    setSubstitutionForm(DEFAULT_SUBSTITUTION_FORM);
+  }, []);
+
+  const handleSubmitSubstitution = useCallback(async () => {
+    if (!context || savingSubstitution) {
+      return;
+    }
+
+    if (!substitutionForm.outgoingPlayerId || !substitutionForm.incomingPlayerId) {
+      setError('Selecciona quién sale y quién entra antes de registrar la sustitución.');
+      return;
+    }
+
+    if (substitutionForm.outgoingPlayerId === substitutionForm.incomingPlayerId) {
+      setError('El jugador que entra debe ser distinto al jugador que sale.');
+      return;
+    }
+
+    if (substitutionForm.substitutionType === 'pinch_runner' && !substitutionForm.base) {
+      setError('Selecciona la base ocupada para registrar el corredor emergente.');
+      return;
+    }
+
+    if (substitutionForm.substitutionType === 'defensive_change' && !substitutionForm.position) {
+      setError('Selecciona la posición defensiva para el cambio.');
+      return;
+    }
+
+    setSavingSubstitution(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${SERVER_BASE_URL}/scorer/substitutions/${encodeURIComponent(context.gameState.gameId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameId: context.gameState.gameId,
+          substitutionType: substitutionForm.substitutionType,
+          incomingPlayerId: substitutionForm.incomingPlayerId,
+          outgoingPlayerId: substitutionForm.outgoingPlayerId,
+          position: substitutionForm.position || undefined,
+          base: substitutionForm.substitutionType === 'pinch_runner' ? substitutionForm.base || undefined : undefined,
+          battingOrder: substitutionForm.battingOrder ? Number.parseInt(substitutionForm.battingOrder, 10) : undefined,
+          notes: substitutionForm.notes.trim() || undefined,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | ApiResponse<unknown>
+        | { error?: string; message?: string }
+        | null;
+
+      if (!response.ok) {
+        if (payload && typeof payload === 'object' && 'result' in payload && payload.result === 'error') {
+          throw new Error(payload.payload.message);
+        }
+        const fallbackMessage = payload && typeof payload === 'object'
+          ? ('error' in payload && typeof payload.error === 'string'
+            ? payload.error
+            : 'message' in payload && typeof payload.message === 'string'
+              ? payload.message
+              : null)
+          : null;
+        throw new Error(fallbackMessage ?? 'No se pudo registrar la sustitución');
+      }
+
+      await loadContext(true);
+      setShowSubModal(false);
+      setSubstitutionForm(DEFAULT_SUBSTITUTION_FORM);
+      showPitchFeedback('Sustitución registrada');
+    } catch (substitutionError) {
+      setError(substitutionError instanceof Error ? substitutionError.message : 'No se pudo registrar la sustitución');
+    } finally {
+      setSavingSubstitution(false);
+    }
+  }, [context, loadContext, savingSubstitution, showPitchFeedback, substitutionForm]);
+
   if (loading && !context) {
     return <div className="min-h-screen bg-broadcast-black px-4 py-4 text-white">Cargando live scoring…</div>;
   }
@@ -1220,6 +1556,13 @@ export function LiveGameScoringPage() {
             {eventFeedback}
           </span>
         ) : null}
+        <button
+          className="ml-1 rounded-lg border border-mineros-gold/40 bg-mineros-gold/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-mineros-gold transition hover:bg-mineros-gold/20"
+          onClick={openSubstitutionModal}
+          type="button"
+        >
+          Sustitución
+        </button>
         <button
           className="ml-1 rounded-lg border border-blue-400/30 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-blue-200 transition hover:bg-blue-500/20"
           onClick={() => setShowEventsPanel((v) => !v)}
@@ -2295,6 +2638,189 @@ export function LiveGameScoringPage() {
               >Cerrar</button>
             </div>
           </aside>
+        </div>
+      ) : null}
+
+      {showSubModal ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
+          <button
+            aria-label="Cerrar modal de sustitución"
+            className="absolute inset-0 bg-black/75"
+            onClick={() => setShowSubModal(false)}
+            type="button"
+          />
+          <div className="relative z-10 flex w-full max-w-2xl flex-col gap-4 rounded-2xl border border-white/10 bg-gray-900 p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-bebas text-2xl uppercase tracking-[0.18em] text-mineros-gold">Registrar sustitución</p>
+                <p className="mt-1 text-sm text-white/55">
+                  Equipo activo: <span className="font-semibold text-white">{substitutionTeamName}</span>
+                </p>
+              </div>
+              <button
+                className="rounded-lg border border-white/15 px-2 py-1 text-xs text-white/50 transition hover:border-white/35 hover:text-white"
+                onClick={() => setShowSubModal(false)}
+                type="button"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Tipo</p>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                {SUBSTITUTION_TYPES.map((option) => {
+                  const active = substitutionForm.substitutionType === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      className={`rounded-xl border px-3 py-2 text-left text-xs font-semibold transition ${
+                        active
+                          ? 'border-mineros-red bg-mineros-red text-white'
+                          : 'border-white/10 bg-gray-800 text-white/70 hover:border-white/30'
+                      }`}
+                      onClick={() => setSubstitutionForm({
+                        ...DEFAULT_SUBSTITUTION_FORM,
+                        substitutionType: option.value,
+                      })}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Jugador que sale</p>
+                <select
+                  className="w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                  onChange={(event) => {
+                    const nextOutgoingPlayerId = event.target.value;
+                    setSubstitutionForm((current) => {
+                      const nextBase = current.substitutionType === 'pinch_runner'
+                        ? occupiedBaseOptions.find((option) => option.playerId === nextOutgoingPlayerId)?.base ?? current.base
+                        : current.base;
+                      return {
+                        ...current,
+                        outgoingPlayerId: nextOutgoingPlayerId,
+                        base: nextBase,
+                      };
+                    });
+                  }}
+                  value={substitutionForm.outgoingPlayerId}
+                >
+                  <option value="">Seleccionar…</option>
+                  {substitutionOutgoingOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Jugador que entra</p>
+                <select
+                  className="w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold disabled:opacity-50"
+                  disabled={loadingSubstitutionPlayers && substitutionIncomingOptions.length === 0}
+                  onChange={(event) => setSubstitutionForm((current) => ({ ...current, incomingPlayerId: event.target.value }))}
+                  value={substitutionForm.incomingPlayerId}
+                >
+                  <option value="">
+                    {loadingSubstitutionPlayers && substitutionIncomingOptions.length === 0 ? 'Cargando roster…' : 'Seleccionar…'}
+                  </option>
+                  {substitutionIncomingOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                {substitutionIncomingOptions.length === 0 && !loadingSubstitutionPlayers ? (
+                  <p className="mt-1 text-[11px] text-amber-300/80">No hay jugadores disponibles fuera de la alineación activa.</p>
+                ) : null}
+              </div>
+
+              {substitutionForm.substitutionType === 'pinch_runner' ? (
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Base ocupada</p>
+                  <select
+                    className="w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                    onChange={(event) => {
+                      const nextBase = event.target.value as SubstitutionBase | '';
+                      const runner = occupiedBaseOptions.find((option) => option.base === nextBase);
+                      setSubstitutionForm((current) => ({
+                        ...current,
+                        base: nextBase,
+                        outgoingPlayerId: runner?.playerId ?? '',
+                      }));
+                    }}
+                    value={substitutionForm.base}
+                  >
+                    <option value="">Seleccionar…</option>
+                    {occupiedBaseOptions.map((option) => (
+                      <option key={option.base} value={option.base}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              {substitutionForm.substitutionType === 'defensive_change' || substitutionForm.substitutionType === 'double_switch' ? (
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Posición defensiva</p>
+                  <select
+                    className="w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                    onChange={(event) => setSubstitutionForm((current) => ({ ...current, position: event.target.value }))}
+                    value={substitutionForm.position}
+                  >
+                    <option value="">Seleccionar…</option>
+                    {DEFENSIVE_POSITION_OPTIONS.map((position) => (
+                      <option key={position} value={position}>{position}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[160px_minmax(0,1fr)]">
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Orden al bate</p>
+                <input
+                  className="w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                  inputMode="numeric"
+                  onChange={(event) => setSubstitutionForm((current) => ({ ...current, battingOrder: event.target.value.replace(/\D/g, '') }))}
+                  placeholder="Ej: 5"
+                  value={substitutionForm.battingOrder}
+                />
+              </div>
+
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Notas</p>
+                <textarea
+                  className="min-h-[88px] w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                  onChange={(event) => setSubstitutionForm((current) => ({ ...current, notes: event.target.value }))}
+                  placeholder="Opcional: motivo o detalle del cambio"
+                  value={substitutionForm.notes}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/60 transition hover:border-white/30"
+                onClick={() => setShowSubModal(false)}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button
+                className="rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-red-700 disabled:opacity-50"
+                disabled={savingSubstitution || !substitutionForm.outgoingPlayerId || !substitutionForm.incomingPlayerId}
+                onClick={() => void handleSubmitSubstitution()}
+                type="button"
+              >
+                {savingSubstitution ? 'Registrando…' : 'Registrar sustitución'}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 

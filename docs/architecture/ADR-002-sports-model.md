@@ -1,10 +1,11 @@
 # ADR-002 — Modelo Multideporte
 ## Sports, Leagues, Tournaments, Players & Game Rules
 
-**Versión:** 1.0  
-**Fecha:** 2026-06-24  
+**Versión:** 1.1  
+**Fecha:** 2026-06-27  
 **Estado:** APROBADO  
-**Depende de:** ADR-001
+**Depende de:** ADR-001  
+**Cambios v1.1:** at_bats y pitches actualizados con campos MLBAM (Spec 29); sustituciones MLBAM documentadas.
 
 ---
 
@@ -73,10 +74,25 @@ game_lineups (alineación día de partido)
   is_dp, is_flex, substituted_at, substituted_by_roster_id
   re_entry_used, courtesy_running_for_roster_id
 
-at_bats (log granular de turno al bate)
+at_bats (log granular de turno al bate — MLBAM-compliant)
   id, game_id, batter_roster_id, pitcher_roster_id (nullable)
-  inning, inning_half, result
-  rbi, runs, on_base, pitch_count (nullable)
+  inning, inning_half
+  event_type           -- vocabulario MLBAM: single/double/triple/home_run/walk/
+                       --   hit_by_pitch/field_error/strikeout/field_out/sac_fly/
+                       --   sac_bunt/fielders_choice/grounded_into_double_play
+  rbi, runs
+  earned_runs          -- MLBAM earnedRuns (para ERA del pitcher)
+  unearned_runs        -- MLBAM unearnedRuns
+  is_plate_appearance  -- 0 solo para sac_bunt
+  is_at_bat            -- 0 para walk, HBP, sac_fly, sac_bunt
+  on_base, pitch_count
+  contact_type         -- line_drive | fly_ball | ground_ball | popup | bunt_grounder
+  hit_direction        -- LF/LCF/CF/RCF/RF/3B/SS/2B/1B/P/C
+  hit_data JSON        -- { type, direction, hardness }
+  runners JSON         -- snapshot bases post at-bat con responsiblePitcherId
+  substitution_type    -- pinch_hitter | pinch_runner | null
+  batting_team_id, outs_before, score_home, score_away
+  video_timestamp, ext JSON
   timestamp
 ```
 

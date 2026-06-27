@@ -1,26 +1,28 @@
 # ADR-001 — Arquitectura de Producción
-## Broadcast System — Club Mineros de Santiago
+## PlayFlow — Sistema de Overlays para Transmisión de Béisbol
 
-**Versión:** 1.0  
-**Fecha:** 2026-06-24  
+**Versión:** 2.0  
+**Fecha:** 2026-06-27  
 **Estado:** APROBADO  
 **Autores:** Squad (Sandy, Babe, Jeter, Robinson, Mariano) + Luis (product owner)
+**Cambios v2.0:** Rename a PlayFlow, estructura real del monorepo, schema MLBAM actualizado, endpoints de API documentados, tareas pendientes sincronizadas.
 
 ---
 
 ## 1. VISIÓN GENERAL DEL SISTEMA
 
-**Nombre técnico del sistema:** `broadcast-server`  
-**Propósito:** Sistema de overlays en tiempo real para transmisiones de béisbol del Club Mineros de Santiago. Controla la presentación visual desde un panel de operador y distribuye overlays a múltiples fuentes en OBS/Meld Studio vía WebSocket.
+**Nombre del producto:** PlayFlow  
+**Nombre técnico interno:** `broadcast-server`  
+**Propósito:** Sistema de overlays en tiempo real para transmisiones de béisbol. Controla la presentación visual desde un panel de operador y distribuye overlays a múltiples fuentes en OBS/Meld Studio vía WebSocket. Incluye un módulo de scoring en vivo (LiveGameScoring) con captura de pitches y at-bats compatible con estándares MLBAM/WBSC.
 
 ### Audiencia
 
-| Rol | Interfaz | Acceso |
-|-----|---------|--------|
-| Operador de broadcast | `/control` — Control Panel web | Red local / VPN |
-| Scorer / estadísticas | `/scorer` — Scorer interface web | Red local / acceso externo |
-| OBS / Meld Studio | `/overlay/:id` — Browser Source | Red local |
-| Administrador | GitHub Actions + Azure Portal | Cloud |
+| Rol | Interfaz | Ruta | Acceso |
+|-----|---------|------|--------|
+| Operador de broadcast | Control Panel | `/control` | Red local / VPN |
+| Scorer / estadísticas | Live Game Scoring | `/live-game-scoring` | Red local / acceso externo |
+| OBS / Meld Studio | Browser Source | `/overlay/:id` | Red local |
+| Administrador | GitHub Actions + Azure Portal | — | Cloud |
 
 ---
 
@@ -190,27 +192,37 @@ rg-broadcast-prod-eastus/
 ### 5.1 Estructura del monorepo
 
 ```
-broadcast/                            ← raíz del monorepo
+playflow/                             ← raíz del monorepo
 ├── apps/
-│   └── overlay-server/               ← app principal
+│   └── studio/                       ← app principal (antes overlay-server)
 │       ├── server/                   ← Node.js Express + WebSocket
 │       │   ├── index.ts              ← entry point, CORS, static files
-│       │   ├── stateStore.ts         ← game state + broadcast hub
-│       │   ├── commandHandler.ts     ← procesamiento de comandos
-│       │   ├── gameConfigRouter.ts   ← API /api/games
-│       │   └── db/                   ← cliente MySQL (mysql2)
+│       │   ├── stateStore.ts         ← game state + broadcast hub + RunnerOnBaseWithPitcher
+│       │   ├── commandHandler.ts     ← procesamiento de comandos WS
+│       │   ├── scorerRouter.ts       ← API /api/scorer/pitches, /at-bats, /substitutions
+│       │   ├── pitchesRouter.ts      ← API /api/games/:id/pitches, /game-events
+│       │   ├── baserunningRouter.ts  ← API /api/games/:id/baserunning (responsible_pitcher_id)
+│       │   ├── gameConfigRouter.ts   ← API /api/games, /api/context
+│       │   ├── gameConfigRouter.ts   ← API /api/games, /api/lineups
+│       │   ├── leaguesTournamentsRouter.ts ← API torneos, ligas, standings
+│       │   ├── teamsRouter.ts        ← API equipos y jugadores
+│       │   ├── sponsorsRouter.ts     ← API sponsors y campañas
+│       │   ├── layoutRouter.ts       ← API layouts de transmisión
+│       │   ├── venuesRouter.ts       ← API recintos deportivos
+│       │   └── db.ts                 ← cliente MySQL (mysql2)
 │       ├── src/                      ← React SPA (Vite)
 │       │   ├── pages/
-│       │   │   ├── OverlayPage.tsx   ← Browser Source OBS
-│       │   │   ├── ControlPanel.tsx  ← panel operador /control
-│       │   │   └── ScorerPanel.tsx   ← panel scorer /scorer [PENDIENTE]
+│       │   │   ├── OverlayPage.tsx         ← Browser Source OBS
+│       │   │   ├── OperatorControlPanel.tsx ← panel operador /control
+│       │   │   ├── LiveGameScoringPage.tsx  ← scorer en vivo /live-game-scoring
+│       │   │   └── ScorerPage.tsx           ← scorer legacy /scorer
 │       │   └── App.tsx               ← router principal
 │       ├── Dockerfile                ← multi-stage build
-│       └── vite.config.ts
+│       └── vite.config.ts            ← strictPort: 5173
 ├── packages/
 │   ├── core/                         ← contratos IC-003, tipos, envelopes
 │   ├── design-system/                ← tokens visuales, componentes base
-│   ├── game-engine/                  ← motor deportivo (fuente única)
+│   ├── game-engine/                  ← motor deportivo (fuente única de verdad)
 │   ├── event-engine/                 ← eventos → acciones visuales
 │   ├── scene-engine/                 ← gestión de escenas
 │   ├── overlay-manager/              ← orquestador de renders
@@ -218,7 +230,7 @@ broadcast/                            ← raíz del monorepo
 │   ├── sponsor-engine/               ← reglas comerciales
 │   ├── layout-manager/               ← zonas, Preview/Program
 │   ├── event-bus/                    ← bus de eventos interno
-│   └── overlays/                     ← 12 overlays individuales
+│   └── overlays/                     ← 13 overlays individuales
 │       ├── scorebug/
 │       ├── batter/
 │       ├── pitcher/
@@ -233,10 +245,10 @@ broadcast/                            ← raíz del monorepo
 │       ├── social-lower-third/
 │       └── countdown/
 ├── infra/
-│   ├── mysql/migrations/             ← schema MySQL [PENDIENTE]
-│   └── supabase/                     ← schema legacy (referencia)
+│   ├── mysql/migrations/             ← 000_playflow_seed.sql + 001_gap_fields.sql
+│   └── supabase/                     ← schema legacy (referencia histórica)
 ├── docker-compose.yml                ← entorno local completo
-├── .env.example                      ← plantilla de variables
+├── .env.example                      ← plantilla de variables (puertos documentados)
 └── turbo.json                        ← pipeline de build
 ```
 
@@ -275,29 +287,108 @@ broadcast/                            ← raíz del monorepo
 - Sin foreign keys enforced (performance en insert intensivo de stats)
 - Índices explícitos en `game_id`, `player_id`, `timestamp`
 
-### 6.2 Entidades
+### 6.2 Entidades (31 tablas en producción)
 
 ```sql
--- Estado de transmisión
-broadcast_sessions  (id, game_id, state_json, started_at, updated_at)
+-- ─── ESTADO DE TRANSMISIÓN ────────────────────────────────────────────
+broadcast_sessions  (id, game_id, state_json JSON, started_at, updated_at)
 
--- Identidad
-teams               (id, name, abbreviation, primary_color, logo_asset_id)
-players             (id, team_id, name, number, position, bats, throws)
-games               (id, home_team_id, away_team_id, scheduled_at, status)
-game_lineups        (game_id, team_id, player_id, batting_order, position)
+-- ─── IDENTIDAD / ESTRUCTURA ───────────────────────────────────────────
+associations        (id, name, country_code, ...)
+sports              (id, name, has_pitcher, default_rules JSON)
+leagues             (id, sport_id, name, country, mlbam_id, wbsc_id)
+tournaments         (id, league_id, name, type, season, rules JSON,
+                     structure_type, has_playoffs, playoff_format)
+clubs               (id, name, city, country, federated)
+teams               (id, name, short_name, abbreviation,
+                     mlbam_id, wbsc_id, primary_color, secondary_color)
+players             (id, first_name, last_name, bats, throws, position,
+                     mlbam_id, wbsc_id, ext_ref JSON)
+venues              (id, name, city, latitude, longitude, capacity)
 
--- Estadísticas [módulo pendiente]
-at_bats             (id, game_id, player_id, inning, result, rbi, runs, timestamp)
-game_stats          (game_id, player_id, ab, h, hr, rbi, avg)
+-- ─── TORNEO / COMPETENCIA ─────────────────────────────────────────────
+tournament_teams    (tournament_id, team_id, seeding, eliminated)
+tournament_groups   (id, tournament_id, name)
+tournament_group_teams (group_id, team_id, seeding)
+standings           (id, tournament_id, team_id, JG, JP, PCT, RA, RC, GB)
+rosters             (id, tournament_id, team_id, player_id,
+                     number, position, is_dp, is_flex, re_entry_used)
+coaching_staff      (id, team_id, tournament_id, name, role)
 
--- Comercial
-sponsors            (id, name, logo_asset_id, active)
-campaigns           (id, sponsor_id, placement, start_date, end_date)
-overlay_configs     (overlay_type, config_json, updated_at)
+-- ─── PARTIDO ──────────────────────────────────────────────────────────
+games               (id, tournament_id, home_team_id, away_team_id,
+                     status, scheduled_at, started_at, finished_at,
+                     final_score JSON, game_state JSON, rules_override JSON,
+                     ext JSON)
+game_lineups        (id, game_id, team_id, player_id, roster_id,
+                     batting_order, position, defensive_position,
+                     is_starter, is_dp, is_flex, re_entry_used,
+                     substituted_at, substituted_by)
 
--- Auditoría (GE-017)
-operator_actions    (id, operator, command, prev_state, new_state, reason, timestamp)
+-- ─── SCORING EN VIVO (MLBAM-compliant) ───────────────────────────────
+pitches             (id, game_id, at_bat_id, pitcher_player_id,
+                     batter_player_id, pitch_num, umpire_call,
+                     pitch_type,                          -- tipo FF/SL/CU/CH
+                     plate_x, plate_z,                    -- coordenadas métricas
+                     pfx_x, pfx_z,                        -- movimiento en metros
+                     start_speed, end_speed,              -- km/h
+                     spin_rate, spin_axis,                 -- RPM / grados
+                     zone, sz_top, sz_bottom,             -- zona MLBAM 1-14
+                     pitch_class, confidence, device_id, ext JSON)
+
+at_bats             (id, game_id, inning, inning_half,
+                     batter_player_id, pitcher_player_id,
+                     batter_roster_id, pitcher_roster_id,
+                     event_type,        -- vocabulario MLBAM: single/double/walk/field_out/…
+                     rbi, runs,
+                     earned_runs,       -- MLBAM earnedRuns (para ERA)
+                     unearned_runs,     -- MLBAM unearnedRuns
+                     is_plate_appearance, -- 0 para sac_bunt
+                     is_at_bat,           -- 0 para walk/HBP/sac_fly/sac_bunt
+                     on_base, pitch_count,
+                     contact_type,      -- line_drive/fly_ball/ground_ball/popup/bunt_grounder
+                     hit_direction,     -- LF/CF/RF/3B/SS/2B/1B/P/C
+                     hit_data JSON,     -- type, direction, hardness
+                     runners JSON,      -- snapshot bases post at-bat
+                     substitution_type, -- pinch_hitter | pinch_runner | null
+                     batting_team_id, outs_before, score_home, score_away,
+                     video_timestamp, ext JSON)
+
+baserunning_events  (id, game_id, inning, inning_half,
+                     event_type,        -- advance/score/caught_stealing/…
+                     player_id, responsible_pitcher_id,  -- pitcher que puso al corredor
+                     from_base, to_base, run_scored,
+                     earned_run,        -- 1=limpia, 0=sucia
+                     scoring_team_id, fielder_pos,
+                     outs_before, video_timestamp, ext JSON)
+
+game_events         (id, game_id, event_type, at_bat_id,
+                     inning, inning_half,
+                     batter_player_id, pitcher_player_id,
+                     payload JSON,      -- datos específicos del tipo de evento
+                     sequence,          -- orden secuencial por juego
+                     context_before JSON, -- estado del juego antes del evento
+                     context_after JSON,  -- estado del juego después del evento
+                     review_status,     -- confirmed | pending_review | corrected
+                     operator_id, outs_before, score_home, score_away,
+                     video_timestamp)
+
+-- ─── COMERCIAL ────────────────────────────────────────────────────────
+sponsors            (id, name, brand, status, priority, weight,
+                     allowed_placements JSON, exposure_limits JSON)
+campaigns           (id, name, sponsor_id, status, placements JSON,
+                     start_date, end_date, rules JSON)
+campaign_sponsors   (campaign_id, sponsor_id)
+sponsor_impressions (id, sponsor_id, campaign_id, game_id, placement,
+                     trigger, started_at, ended_at, duration_seconds)
+
+-- ─── OPERACIÓN / OVERLAY ──────────────────────────────────────────────
+operator_actions    (id, game_id, operator_id, role, action,
+                     overlay_id, payload JSON, result)
+overlay_configs     (overlay_id, default_variant, auto_hide_ms,
+                     priority, preferred_zone, config JSON)
+layouts             (id, name, is_default, zones JSON)
+game_layouts        (game_id, layout_id, assigned_at)
 ```
 
 ### 6.3 Migración PostgreSQL → MySQL
@@ -347,7 +438,7 @@ services:
 
   server:
     image: broadcast-server:latest
-    build: apps/overlay-server
+    build: apps/studio              # ← directorio correcto
     ports: ["8080:8080"]
     environment:
       NODE_ENV: production
@@ -357,6 +448,15 @@ services:
 volumes:
   db_dev_data:
 ```
+
+### Puertos fijos del sistema
+
+| Servicio | Puerto | Notas |
+|---------|--------|-------|
+| Express API + WS | `:3001` | Dev local (`NODE_ENV=development`) |
+| Vite SPA | `:5173` | `strictPort: true` |
+| MySQL | `:3306` | Docker Compose y local |
+| Docker (studio full) | `:8080` | Producción |
 
 ### 7.3 Comandos de desarrollo
 
@@ -534,33 +634,72 @@ jobs:
 
 ---
 
-## 12. MÓDULO DE ESTADÍSTICAS
+## 12. MÓDULO DE SCORING EN VIVO
 
 ### 12.1 Flujos de ingesta
 
 ```
-Flujo A — Scorer manual (entre innings):
-  Scorer → /scorer → POST /api/at-bats → MySQL → WS broadcast → Overlays
+Flujo A — Pitch por pitch (durante at-bat):
+  Scorer → /live-game-scoring → POST /api/scorer/pitches/:gameId
+    → MySQL pitches (persistencia)
+    → stateStore.sendCommand('AddBall'|'AddStrike'|'ResetCount') (WS broadcast)
+    → Scorebug overlay actualiza conteo
 
-Flujo B — Tiempo real (durante at-bat):
-  Scorer → /scorer → POST /api/at-bats?realtime=true
-    → MySQL (persistencia)
-    → stateStore.broadcastStats() (inmediato a todos los clientes WS)
-    → Batter Overlay actualiza AVG / HR / RBI en pantalla
+Flujo B — Registro del at-bat:
+  Scorer → POST /api/scorer/at-bats/:gameId
+    → MySQL at_bats (is_at_bat, is_plate_appearance, earned_runs automáticos)
+    → stateStore.sendCommand('AddOut'|'IncrementScore') (WS broadcast)
+    → Overlays actualizan marcador / stats
 
-Flujo C — Corrección post at-bat:
-  Scorer → PATCH /api/at-bats/:id
-    → MySQL update
-    → Recalcular game_stats (GROUP BY player_id)
-    → WS broadcast con stats actualizadas
+Flujo C — Corrimiento de bases:
+  Scorer → POST /api/games/:gameId/baserunning
+    → MySQL baserunning_events (responsible_pitcher_id del corredor en base)
+    → stateStore.sendCommand('SetBase') (WS broadcast)
+
+Flujo D — Sustitución:
+  Scorer → POST /api/scorer/substitutions/:gameId
+    Tipos: pitching_change | pinch_hitter | pinch_runner | defensive_change | double_switch
+    → stateStore (SetPitcher/SetBatter/SetBase según tipo)
+    → MySQL game_lineups (substituted_at, substituted_by)
+    → MySQL game_events (event_type='substitution', payload JSON, context_before)
+
+Flujo E — Corrección post at-bat:
+  Scorer → DELETE /api/scorer/at-bats/:id (eliminar para reingreso)
+  (PATCH de edición: pendiente de implementar)
 ```
 
-### 12.2 Impacto en arquitectura
+### 12.2 Estándares de datos (Spec 29 / MLBAM)
 
-- `at_bats`: ~1 insert cada 4 minutos por at-bat — write volume bajo
-- Aggregations (`AVG = H/AB`) calculadas on-the-fly con SQL `GROUP BY` — sin materializar en v1
-- MySQL B1ms (2 GB RAM) soporta este volumen sin problema
-- Si stats crecen > 1M registros (temporadas acumuladas): evaluar índice compuesto `(game_id, player_id)`
+| Estándar | Campo | Implementado |
+|---------|-------|-------------|
+| Coordenadas métricas | `plate_x`, `plate_z` (metros) | ✅ |
+| Movimiento | `pfx_x`, `pfx_z` (metros) | ✅ |
+| Velocidad | `start_speed`, `velocityKmh` (km/h) | ✅ |
+| Spin | `spin_rate` (RPM), `spin_axis` (grados) | ✅ |
+| Zonas | MLBAM 1-9 / 11-14 | ✅ |
+| IDs externos | `mlbam_id`, `wbsc_id` en players/teams/leagues | ✅ |
+| Vocab eventos | `field_out`, `walk`, `hit_by_pitch`, `sac_fly`… | ✅ |
+| PA vs AB | `is_plate_appearance`, `is_at_bat` | ✅ |
+| Earned runs | `earned_runs`, `unearned_runs` en at_bats | ✅ |
+| Pitcher responsable | `responsible_pitcher_id` en baserunning_events | ✅ |
+| `RunnerOnBaseWithPitcher` | stateStore rastrea pitcher por corredor | ✅ |
+| Contexto de evento | `context_before/after` en game_events | ✅ |
+| Sustituciones | 5 tipos MLBAM en game_events | ✅ |
+
+### 12.3 API endpoints del scorer
+
+```
+POST /api/scorer/pitches/:gameId         — registrar lanzamiento
+GET  /api/scorer/pitches/:gameId         — historial de pitches del juego
+POST /api/scorer/at-bats/:gameId         — registrar at-bat
+DELETE /api/scorer/at-bats/:id           — eliminar último at-bat
+POST /api/scorer/substitutions/:gameId   — registrar sustitución
+GET  /api/scorer/context/:gameId         — contexto del juego (lineups, score, estado)
+GET  /api/games/:gameId/baserunning      — eventos de corrimiento
+POST /api/games/:gameId/baserunning      — registrar corrimiento/carrera
+GET  /api/games/:gameId/game-events      — log de eventos del partido
+POST /api/games/:gameId/game-events      — registrar evento arbitrario
+```
 
 ---
 
@@ -589,22 +728,37 @@ Flujo C — Corrección post at-bat:
 
 ---
 
-## 14. TAREAS PENDIENTES — ORDEN DE IMPLEMENTACIÓN
+## 14. ESTADO DE IMPLEMENTACIÓN
 
-| # | Tarea | Estado | Prioridad |
-|---|-------|--------|----------|
-| 1 | Schema MySQL (`infra/mysql/migrations/`) | ⏳ Pendiente | 🔴 Bloqueante |
-| 2 | Reemplazar Supabase → mysql2 en server | ⏳ Pendiente | 🔴 Bloqueante |
-| 3 | Write-through game state → `broadcast_sessions` | ⏳ Pendiente | 🔴 Alta |
-| 4 | Restore-on-startup desde MySQL | ⏳ Pendiente | 🔴 Alta |
-| 5 | Actualizar `docker-compose.yml` con MySQL local | ⏳ Pendiente | 🟡 Media |
-| 6 | Actualizar `.env.example` con `DATABASE_URL` | ⏳ Pendiente | 🟡 Media |
-| 7 | GitHub Actions CI workflow | ⏳ Pendiente | 🟡 Media |
-| 8 | GitHub Actions deploy workflow | ⏳ Pendiente | 🟡 Media |
-| 9 | Scorer panel (`/scorer`) + API at-bats | ⏳ Pendiente | 🟡 Media |
-| 10 | Módulo estadísticas — at_bats + aggregations | ⏳ Pendiente | 🟡 Media |
-| 11 | Overlays stats en tiempo real (Batter overlay) | ⏳ Pendiente | 🟡 Media |
-| 12 | Aprovisionamiento Azure (az CLI scripts) | ⏳ Pendiente | 🟡 Media |
+### 14.1 Completado ✅
+
+| Módulo | Detalle |
+|--------|---------|
+| Schema MySQL | 31 tablas — `000_playflow_seed.sql` + `001_gap_fields.sql` |
+| mysql2 integration | `db.ts` con pool de conexiones |
+| write-through game state | `broadcast_sessions` actualizado en cada comando WS |
+| restore-on-startup | Lee último estado de `broadcast_sessions` al arrancar |
+| Docker Compose | MySQL + App Service en local, puertos fijos documentados |
+| `.env.example` | Tabla de puertos y variables documentadas |
+| Scorer en vivo (`/live-game-scoring`) | Pitches, at-bats, log unificado, bloqueo in_play |
+| Sustituciones backend | 5 tipos MLBAM en `POST /api/scorer/substitutions/:gameId` |
+| MLBAM compliance | field_out, is_at_bat, is_pa, earned_runs, spin_rate/axis, responsible_pitcher_id |
+| context_before/after | game_events con snapshot de estado antes/después |
+| RunnerOnBaseWithPitcher | stateStore rastrea pitcher responsable por corredor |
+| Overlays (13) | scorebug, batter, pitcher, lineup, next-batters, substitution, game-event, inning-transition, final-score, sponsor-break, announcement, social-lower-third, countdown |
+| Panel operador (`/control`) | OperatorControlPanel con WS real |
+
+### 14.2 Pendiente ⏳
+
+| # | Tarea | Prioridad |
+|---|-------|----------|
+| 1 | UI de sustituciones en LiveGameScoringPage | 🔴 Alta |
+| 2 | PATCH /api/scorer/at-bats/:id (edición del último evento) | 🔴 Alta |
+| 3 | Modo edición del último at-bat en LiveGameScoringPage | 🔴 Alta |
+| 4 | Agregaciones de stats en tiempo real (AVG/ERA/etc.) | 🟡 Media |
+| 5 | GitHub Actions CI workflow | 🟡 Media |
+| 6 | GitHub Actions deploy workflow | 🟡 Media |
+| 7 | Aprovisionamiento Azure (az CLI scripts) | 🟡 Media |
 
 ---
 
