@@ -14,6 +14,7 @@ COPY packages/*/package.json packages/
 COPY packages/asset-manager/package.json packages/asset-manager/
 COPY packages/core/package.json packages/core/
 COPY packages/design-system/package.json packages/design-system/
+COPY packages/device-adapters/package.json packages/device-adapters/
 COPY packages/event-bus/package.json packages/event-bus/
 COPY packages/event-engine/package.json packages/event-engine/
 COPY packages/game-engine/package.json packages/game-engine/
@@ -30,6 +31,7 @@ COPY packages/overlays/inning-transition/package.json packages/overlays/inning-t
 COPY packages/overlays/lineup/package.json packages/overlays/lineup/
 COPY packages/overlays/next-batters/package.json packages/overlays/next-batters/
 COPY packages/overlays/pitcher/package.json packages/overlays/pitcher/
+COPY packages/overlays/scoreboard/package.json packages/overlays/scoreboard/
 COPY packages/overlays/scorebug/package.json packages/overlays/scorebug/
 COPY packages/overlays/social-lower-third/package.json packages/overlays/social-lower-third/
 COPY packages/overlays/sponsor-break/package.json packages/overlays/sponsor-break/
