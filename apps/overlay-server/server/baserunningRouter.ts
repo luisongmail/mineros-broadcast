@@ -47,8 +47,8 @@ const EARNED_EVENTS = new Set<BaserunningEventType>([
   'catcher_interference',
 ]);
 
-function toBasesUpdate(moves: RunnerMove[]): Partial<Record<'first' | 'second' | 'third', boolean>> {
-  const update: Partial<Record<'first' | 'second' | 'third', boolean>> = {};
+function toBasesUpdate(moves: RunnerMove[]): Partial<Record<'first' | 'second' | 'third', { playerId: string | null }>> {
+  const update: Partial<Record<'first' | 'second' | 'third', { playerId: string | null }>> = {};
   const baseMap: Record<string, 'first' | 'second' | 'third'> = {
     '1B': 'first',
     '2B': 'second',
@@ -57,10 +57,10 @@ function toBasesUpdate(moves: RunnerMove[]): Partial<Record<'first' | 'second' |
 
   for (const move of moves) {
     const fromKey = baseMap[move.fromBase];
-    if (fromKey) update[fromKey] = false;
+    if (fromKey) update[fromKey] = { playerId: null };   // base liberada
 
     const toKey = baseMap[move.toBase];
-    if (toKey) update[toKey] = true;
+    if (toKey) update[toKey] = { playerId: move.playerId ?? null };  // corredor llega
   }
 
   return update;
@@ -118,10 +118,11 @@ baserunningRouter.post('/', async (req: Request, res: Response) => {
       stateStore.sendCommand('AddOut');
     }
 
-    // 3. Actualizar bases
+    // 3. Actualizar bases preservando identidad del corredor (Spec 29 S2 RunnerOnBase)
     const basesUpdate = toBasesUpdate(body.runners);
-    for (const [base, occupied] of Object.entries(basesUpdate) as [string, boolean][]) {
-      stateStore.sendCommand('SetBase', `${base}:${String(occupied)}`);
+    for (const [base, info] of Object.entries(basesUpdate) as [string, { playerId: string | null }][]) {
+      const cmd = info.playerId ? `${base}:playerId:${info.playerId}` : `${base}:false`;
+      stateStore.sendCommand('SetBase', cmd);
     }
 
     // 4. Sumar carreras si aplica
