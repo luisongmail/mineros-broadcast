@@ -27,7 +27,7 @@ export async function createSession(
   ip: string,
   userAgent: string,
 ): Promise<{ sessionId: string; refreshToken: string }> {
-  const sessionId = `sess_${crypto.randomUUID()}`;
+  const sessionId = `sess_${crypto.randomUUID().replace(/-/g, '')}`;
   const refreshToken = generateOpaqueToken();
   const tokenHash = hashToken(refreshToken);
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 86_400_000);
@@ -40,7 +40,7 @@ export async function createSession(
   const conn = await pool.getConnection();
   try {
     await conn.execute<ResultSetHeader>(
-      `INSERT INTO sessions (session_id, user_id, started_at, last_active_at, ip, user_agent_hash, status)
+      `INSERT INTO sessions (session_id, user_id, created_at, last_seen_at, ip, user_agent_hash, status)
        VALUES (?, ?, NOW(), NOW(), ?, ?, 'active')`,
       [sessionId, userId, ip, hashToken(userAgent)],
     );
@@ -48,7 +48,7 @@ export async function createSession(
     await conn.execute<ResultSetHeader>(
       `INSERT INTO refresh_tokens (token_id, session_id, user_id, token_hash, expires_at, status)
        VALUES (?, ?, ?, ?, ?, 'active')`,
-      [`rt_${crypto.randomUUID()}`, sessionId, userId, tokenHash, expiresAt],
+      [`rt_${crypto.randomUUID().replace(/-/g, '')}`, sessionId, userId, tokenHash, expiresAt],
     );
   } finally {
     conn.release();
@@ -72,7 +72,7 @@ export async function rotateRefreshToken(incomingToken: string): Promise<Refresh
   const conn = await pool.getConnection();
   try {
     const [rows] = await conn.execute<RowDataPacket[]>(
-      `SELECT token_id, session_id, user_id, status, expires_at, rotated_to
+      `SELECT token_id, session_id, user_id, status, expires_at, replaced_by_token_id
        FROM refresh_tokens WHERE token_hash = ?`,
       [tokenHash],
     );
@@ -82,7 +82,7 @@ export async function rotateRefreshToken(incomingToken: string): Promise<Refresh
     const rt = rows[0];
 
     // Si ya fue rotado → reuso detectado → revocar todas las sesiones del usuario
-    if (rt.rotated_to || rt.status === 'rotated') {
+    if (rt.replaced_by_token_id || rt.status === 'rotated') {
       await conn.execute(
         `UPDATE sessions SET status = 'revoked' WHERE user_id = ? AND status = 'active'`,
         [rt.user_id],
@@ -105,7 +105,7 @@ export async function rotateRefreshToken(incomingToken: string): Promise<Refresh
     const newToken = generateOpaqueToken();
     const newHash = hashToken(newToken);
     const newExpires = new Date(Date.now() + REFRESH_TOKEN_DAYS * 86_400_000);
-    const newTokenId = `rt_${crypto.randomUUID()}`;
+    const newTokenId = `rt_${crypto.randomUUID().replace(/-/g, '')}`;
 
     await conn.execute(
       `INSERT INTO refresh_tokens (token_id, session_id, user_id, token_hash, expires_at, status)
@@ -115,13 +115,13 @@ export async function rotateRefreshToken(incomingToken: string): Promise<Refresh
 
     // Marcar el anterior como rotado, apuntando al nuevo
     await conn.execute(
-      `UPDATE refresh_tokens SET status = 'rotated', rotated_to = ? WHERE token_id = ?`,
+      `UPDATE refresh_tokens SET status = 'rotated', replaced_by_token_id = ? WHERE token_id = ?`,
       [newTokenId, rt.token_id],
     );
 
-    // Actualizar last_active_at de la sesión
+    // Actualizar last_seen_at de la sesión
     await conn.execute(
-      `UPDATE sessions SET last_active_at = NOW() WHERE session_id = ? AND status = 'active'`,
+      `UPDATE sessions SET last_seen_at = NOW() WHERE session_id = ? AND status = 'active'`,
       [rt.session_id],
     );
 
@@ -137,7 +137,7 @@ export async function revokeSession(sessionId: string, userId: string): Promise<
   const conn = await pool.getConnection();
   try {
     await conn.execute(
-      `UPDATE sessions SET status = 'revoked', ended_at = NOW() WHERE session_id = ? AND user_id = ?`,
+      `UPDATE sessions SET status = 'revoked', revoked_at = NOW() WHERE session_id = ? AND user_id = ?`,
       [sessionId, userId],
     );
     await conn.execute(

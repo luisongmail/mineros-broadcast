@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS user_identities (
 );
 
 CREATE TABLE IF NOT EXISTS otp_challenges (
-  challenge_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  challenge_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
   user_id CHAR(36) NOT NULL,
   otp_hash VARCHAR(255) NOT NULL,
   status VARCHAR(32) NOT NULL DEFAULT 'pending',
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS otp_challenges (
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-  session_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  session_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
   user_id CHAR(36) NOT NULL,
   status VARCHAR(32) NOT NULL DEFAULT 'active',
   auth_level VARCHAR(64) NOT NULL DEFAULT 'otp',
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
-  token_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  token_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
   session_id CHAR(36) NOT NULL,
   user_id CHAR(36) NOT NULL,
   token_hash VARCHAR(255) NOT NULL UNIQUE,
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 
 CREATE TABLE IF NOT EXISTS role_assignments (
-  assignment_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  assignment_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
   user_id CHAR(36) NOT NULL,
   role VARCHAR(80) NOT NULL,
   resource_type VARCHAR(80) NOT NULL,
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS role_assignments (
 );
 
 CREATE TABLE IF NOT EXISTS scoring_assignments (
-  assignment_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  assignment_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
   game_id CHAR(36) NOT NULL,
   user_id CHAR(36) NOT NULL,
   role VARCHAR(80) NOT NULL,
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS scoring_assignments (
 );
 
 CREATE TABLE IF NOT EXISTS step_up_challenges (
-  challenge_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  challenge_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
   user_id CHAR(36) NOT NULL,
   session_id CHAR(36) NOT NULL,
   action VARCHAR(160) NOT NULL,
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS step_up_challenges (
 );
 
 CREATE TABLE IF NOT EXISTS audit_events (
-  audit_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  audit_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
   timestamp DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   actor_user_id CHAR(36),
   actor_email VARCHAR(255),
