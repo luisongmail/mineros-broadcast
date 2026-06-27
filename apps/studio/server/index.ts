@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { bootstrapSysAdmin } from './auth/bootstrapService';
 
 import cors, { type CorsOptions } from 'cors';
 import express, { type Request, type Response } from 'express';
@@ -26,6 +27,13 @@ import { stateStore } from './stateStore';
 import teamsRouter from './teamsRouter';
 import venuesRouter from './venuesRouter';
 import { attachWebSocketServer } from './wsServer';
+import authRouter from './auth/authRouter';
+import securityRouter from './authorization/securityRouter';
+import { loadPolicy } from './authorization/policyLoader';
+import { usersRouter } from './users/usersRouter';
+import { auditRouter } from './audit/auditRouter';
+import { scoringRouter } from './scoring/scoringRouter';
+import { startRetentionScheduler } from './audit/auditRetentionJob';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -124,6 +132,19 @@ app.use((_request, response, next) => {
   setCompatibilityHeaders(response);
   next();
 });
+
+// Auth — rutas públicas (sin requireAuth)
+app.use('/api/auth', authRouter);
+// Security — rutas de autorización, context y step-up
+app.use('/api/security', securityRouter);
+app.use('/api/auth', securityRouter); // step-up y mfa comparten prefijo /api/auth
+// Users & Roles (Fase 3)
+app.use('/api/users', usersRouter);
+// Scoring Assignments (Fase 4)
+app.use('/api/scoring', scoringRouter);
+// Audit (Fase 5)
+app.use('/api/audit', auditRouter);
+
 app.use('/api/baserunning-events', baserunningRouter);
 app.use('/api', clubsRouter);
 app.use('/api', categoriesRouter);
@@ -209,8 +230,13 @@ function freePort(p: number): void {
 
 freePort(port);
 
-// Restaurar estado desde DB antes de abrir el puerto
-stateStore.init().finally(() => {
+// Restaurar estado desde DB + bootstrap de seguridad antes de abrir el puerto
+Promise.all([
+  stateStore.init(),
+  bootstrapSysAdmin(),
+]).finally(() => {
+  loadPolicy(); // cargar política en memoria al arrancar
+  startRetentionScheduler(); // job de retención de audit logs (24 h)
   server.listen(port, () => {
     console.log(`PlayFlow server listening on http://localhost:${port}`);
   });

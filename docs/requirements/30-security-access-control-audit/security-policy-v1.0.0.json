@@ -1,0 +1,582 @@
+{
+  "policyId": "security-policy-v1.0.0",
+  "version": "1.0.0",
+  "status": "draft",
+  "product": "PlayFlow",
+  "description": "Política base de autorización para PlayFlow. Define acciones protegidas, recursos, condiciones, requisitos de step-up y nivel de auditoría.",
+  "effectiveFrom": "2026-06-27T00:00:00Z",
+  "appliesTo": {
+    "server": "playflow-server",
+    "database": "playflow_db",
+    "application": "apps/studio"
+  },
+  "principles": [
+    "deny_by_default",
+    "least_privilege",
+    "backend_authoritative",
+    "object_scoped_roles",
+    "capability_based_ui",
+    "security_before_orchestration",
+    "stats_protection",
+    "media_protection",
+    "audit_critical_actions",
+    "no_secrets_in_logs"
+  ],
+  "roles": {
+    "global": [
+      "SysAdmin"
+    ],
+    "base": [
+      "Owner",
+      "Admin",
+      "Operator",
+      "User",
+      "Viewer"
+    ],
+    "specialized": [
+      "AssignedScorer",
+      "Reviewer",
+      "FlowAdmin",
+      "FlowViewer",
+      "MediaAdmin",
+      "MediaOperator",
+      "SecurityAuditor"
+    ]
+  },
+  "resources": [
+    "Platform",
+    "League",
+    "Tournament",
+    "Team",
+    "Stadium",
+    "Game",
+    "Broadcast",
+    "Scorebug",
+    "Overlay",
+    "FlowDefinition",
+    "Sponsor",
+    "Asset",
+    "Player",
+    "Roster",
+    "Stats",
+    "AuditLog",
+    "User",
+    "RoleAssignment",
+    "ScoringAssignment",
+    "ExecutionLog",
+    "Insight",
+    "PushSubscription",
+    "ExternalChannel",
+    "MediaPublication",
+    "MediaMarker",
+    "YouTubeChannel",
+    "YouTubeBroadcast",
+    "YouTubeVideo"
+  ],
+  "defaults": {
+    "decision": "deny",
+    "auditDenied": true,
+    "auditAllowedCritical": true
+  },
+  "rules": [
+    {
+      "ruleId": "sysadmin.allow.all",
+      "description": "SysAdmin puede ejecutar cualquier acción, salvo que la acción requiera step-up.",
+      "actions": [
+        "*"
+      ],
+      "resources": [
+        "*"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')"
+      ],
+      "denyIf": [
+        "subject.status != 'active'"
+      ],
+      "requiresStepUp": "action.isCritical == true",
+      "requiresReason": "action.requiresReason == true",
+      "auditLevel": "high"
+    },
+    {
+      "ruleId": "league.view",
+      "actions": [
+        "league.view"
+      ],
+      "resources": [
+        "League"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['Owner','Admin','User'])"
+      ],
+      "auditLevel": "low"
+    },
+    {
+      "ruleId": "league.manage",
+      "actions": [
+        "league.update",
+        "league.configure",
+        "league.createTournament"
+      ],
+      "resources": [
+        "League"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['Owner','Admin'])"
+      ],
+      "auditLevel": "medium"
+    },
+    {
+      "ruleId": "league.assignRole",
+      "actions": [
+        "league.assignRole"
+      ],
+      "resources": [
+        "League"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['Owner'])"
+      ],
+      "denyIf": [
+        "requestedRole == 'SysAdmin'",
+        "requestedRole.isHigherThan(subject.roleOn(resource))"
+      ],
+      "requiresStepUp": true,
+      "requiresReason": true,
+      "auditLevel": "high"
+    },
+    {
+      "ruleId": "tournament.view",
+      "actions": [
+        "tournament.view"
+      ],
+      "resources": [
+        "Tournament"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['Owner','Admin','Operator','User'])",
+        "subject.inheritsRole(resource.league, ['Owner','Admin','User'])"
+      ],
+      "auditLevel": "low"
+    },
+    {
+      "ruleId": "tournament.manage",
+      "actions": [
+        "tournament.update",
+        "tournament.createGame",
+        "tournament.updateSchedule",
+        "tournament.assignTeams",
+        "tournament.publishFixture"
+      ],
+      "resources": [
+        "Tournament"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['Owner','Admin'])"
+      ],
+      "auditLevel": "medium"
+    },
+    {
+      "ruleId": "tournament.operator.schedule",
+      "actions": [
+        "tournament.createGame",
+        "tournament.updateSchedule"
+      ],
+      "resources": [
+        "Tournament"
+      ],
+      "allowIf": [
+        "subject.hasRole(resource, ['Operator'])"
+      ],
+      "auditLevel": "medium"
+    },
+    {
+      "ruleId": "game.view",
+      "actions": [
+        "game.view"
+      ],
+      "resources": [
+        "Game"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['Admin','Operator','User'])",
+        "subject.isAssignedScorer(resource)",
+        "subject.inheritsRole(resource.tournament, ['Owner','Admin','Operator','User'])"
+      ],
+      "auditLevel": "low"
+    },
+    {
+      "ruleId": "game.manage.general",
+      "actions": [
+        "game.update",
+        "game.start",
+        "game.close"
+      ],
+      "resources": [
+        "Game"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['Admin','Operator'])",
+        "subject.inheritsRole(resource.tournament, ['Owner','Admin'])"
+      ],
+      "auditLevel": "medium"
+    },
+    {
+      "ruleId": "game.assignScorer",
+      "actions": [
+        "game.assignScorer"
+      ],
+      "resources": [
+        "Game"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.inheritsRole(resource.tournament, ['Owner','Admin'])"
+      ],
+      "requiresStepUp": true,
+      "requiresReason": true,
+      "auditLevel": "high"
+    },
+    {
+      "ruleId": "game.scoreEventCreate",
+      "actions": [
+        "game.scoreEventCreate"
+      ],
+      "resources": [
+        "Game"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.isAssignedScorer(resource, ['official_scorer','assistant_scorer'])"
+      ],
+      "denyIf": [
+        "resource.status in ['closed','finalized']"
+      ],
+      "auditLevel": "high"
+    },
+    {
+      "ruleId": "game.scoreEventCorrect",
+      "actions": [
+        "game.scoreEventCorrect"
+      ],
+      "resources": [
+        "Game"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.isAssignedScorer(resource, ['official_scorer'])"
+      ],
+      "requiresReason": true,
+      "auditLevel": "high"
+    },
+    {
+      "ruleId": "game.finalizeStats",
+      "actions": [
+        "game.finalizeStats"
+      ],
+      "resources": [
+        "Game"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.isAssignedScorer(resource, ['official_scorer'])"
+      ],
+      "requiresStepUp": true,
+      "requiresReason": true,
+      "auditLevel": "high"
+    },
+    {
+      "ruleId": "game.reopen",
+      "actions": [
+        "game.reopen"
+      ],
+      "resources": [
+        "Game"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')"
+      ],
+      "requiresStepUp": true,
+      "requiresReason": true,
+      "auditLevel": "critical"
+    },
+    {
+      "ruleId": "broadcast.operate",
+      "actions": [
+        "broadcast.start",
+        "broadcast.stop",
+        "broadcast.showOverlay",
+        "broadcast.hideOverlay",
+        "broadcast.publishNotification",
+        "scorebug.operate"
+      ],
+      "resources": [
+        "Game",
+        "Broadcast"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['Admin','Operator'])",
+        "subject.inheritsRole(resource.game, ['Admin','Operator'])",
+        "subject.isAssignedScorer(resource.game)"
+      ],
+      "auditLevel": "high"
+    },
+    {
+      "ruleId": "flow.view",
+      "actions": [
+        "flow.view",
+        "flow.simulate"
+      ],
+      "resources": [
+        "FlowDefinition"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['FlowAdmin','FlowViewer'])"
+      ],
+      "auditLevel": "low"
+    },
+    {
+      "ruleId": "flow.manageDraft",
+      "actions": [
+        "flow.create",
+        "flow.editDraft",
+        "flow.archive"
+      ],
+      "resources": [
+        "FlowDefinition"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['FlowAdmin'])"
+      ],
+      "auditLevel": "medium"
+    },
+    {
+      "ruleId": "flow.publish",
+      "actions": [
+        "flow.publish",
+        "flow.rollback"
+      ],
+      "resources": [
+        "FlowDefinition"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['FlowAdmin'])"
+      ],
+      "requiresStepUp": true,
+      "requiresReason": true,
+      "auditLevel": "critical"
+    },
+    {
+      "ruleId": "media.view",
+      "actions": [
+        "media.publication.view",
+        "media.analytics.read"
+      ],
+      "resources": [
+        "MediaPublication",
+        "ExternalChannel",
+        "YouTubeBroadcast",
+        "YouTubeVideo"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['MediaAdmin','MediaOperator','Viewer'])"
+      ],
+      "auditLevel": "low"
+    },
+    {
+      "ruleId": "media.operate",
+      "actions": [
+        "media.broadcast.create",
+        "media.broadcast.link",
+        "media.broadcast.start",
+        "media.broadcast.end",
+        "media.metadata.update",
+        "media.marker.create"
+      ],
+      "resources": [
+        "MediaPublication",
+        "ExternalChannel",
+        "YouTubeBroadcast",
+        "YouTubeVideo"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['MediaAdmin','MediaOperator'])"
+      ],
+      "auditLevel": "high"
+    },
+    {
+      "ruleId": "media.sensitive",
+      "actions": [
+        "media.channel.connect",
+        "media.channel.disconnect",
+        "media.oauth.revoke",
+        "media.streamKey.read",
+        "media.broadcast.visibilityChange",
+        "media.broadcast.delete",
+        "media.highlight.publish"
+      ],
+      "resources": [
+        "ExternalChannel",
+        "YouTubeChannel",
+        "YouTubeBroadcast",
+        "YouTubeVideo"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['MediaAdmin'])"
+      ],
+      "requiresStepUp": true,
+      "requiresReason": true,
+      "auditLevel": "critical",
+      "prohibitedLogFields": [
+        "oauthAccessToken",
+        "oauthRefreshToken",
+        "streamKey",
+        "rtmpSecret",
+        "authorizationHeader",
+        "cookie"
+      ]
+    },
+    {
+      "ruleId": "audit.read",
+      "actions": [
+        "audit.read"
+      ],
+      "resources": [
+        "AuditLog"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['SecurityAuditor'])"
+      ],
+      "auditLevel": "high"
+    },
+    {
+      "ruleId": "audit.export",
+      "actions": [
+        "audit.export",
+        "audit.verifyIntegrity"
+      ],
+      "resources": [
+        "AuditLog"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasRole(resource, ['SecurityAuditor'])"
+      ],
+      "requiresStepUp": true,
+      "requiresReason": true,
+      "auditLevel": "critical"
+    },
+    {
+      "ruleId": "user.manage",
+      "actions": [
+        "user.invite",
+        "user.suspend",
+        "user.reactivate",
+        "user.revokeSession"
+      ],
+      "resources": [
+        "User"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.hasDelegatedUserAdmin(resource.scope)"
+      ],
+      "requiresStepUp": "action in ['user.suspend','user.revokeSession']",
+      "requiresReason": "action in ['user.suspend','user.revokeSession']",
+      "auditLevel": "high"
+    },
+    {
+      "ruleId": "role.assign",
+      "actions": [
+        "role.assign",
+        "role.revoke"
+      ],
+      "resources": [
+        "RoleAssignment"
+      ],
+      "allowIf": [
+        "subject.hasGlobalRole('SysAdmin')",
+        "subject.canDelegateRole(targetRole, targetResource)"
+      ],
+      "denyIf": [
+        "targetRole == 'SysAdmin' and !subject.hasGlobalRole('SysAdmin')",
+        "targetRole.isHigherThan(subject.roleOn(targetResource))"
+      ],
+      "requiresStepUp": true,
+      "requiresReason": true,
+      "auditLevel": "critical"
+    }
+  ],
+  "capabilityGroups": {
+    "liveGameScoring": [
+      "game.view",
+      "game.scoreEventCreate",
+      "game.scoreEventCorrect",
+      "game.finalizeStats",
+      "scorebug.operate"
+    ],
+    "broadcastControl": [
+      "broadcast.start",
+      "broadcast.stop",
+      "broadcast.showOverlay",
+      "broadcast.hideOverlay",
+      "broadcast.publishNotification",
+      "scorebug.operate"
+    ],
+    "flowBuilder": [
+      "flow.view",
+      "flow.create",
+      "flow.editDraft",
+      "flow.simulate",
+      "flow.publish",
+      "flow.rollback"
+    ],
+    "mediaPublishing": [
+      "media.publication.view",
+      "media.broadcast.create",
+      "media.broadcast.link",
+      "media.metadata.update",
+      "media.marker.create",
+      "media.highlight.publish",
+      "media.analytics.read"
+    ],
+    "userAccessManagement": [
+      "user.invite",
+      "user.suspend",
+      "user.reactivate",
+      "role.assign",
+      "role.revoke"
+    ]
+  },
+  "versioning": {
+    "scheme": "semantic-versioning",
+    "format": "security-policy-vMAJOR.MINOR.PATCH",
+    "breakingChangeRequiresMajor": true,
+    "minorChangeExamples": [
+      "additive rule",
+      "new resource type",
+      "new capability with no change to existing decisions"
+    ],
+    "patchChangeExamples": [
+      "description correction",
+      "non-functional metadata",
+      "typo fix"
+    ],
+    "compatibilityRule": "A stored authorization decision must include policyId and policyVersion used at decision time."
+  }
+}

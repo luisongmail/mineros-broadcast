@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PlayFlow Security Policy",
+  "type": "object",
+  "required": [
+    "policyId",
+    "version",
+    "status",
+    "principles",
+    "roles",
+    "resources",
+    "defaults",
+    "rules",
+    "versioning"
+  ],
+  "properties": {
+    "policyId": {
+      "type": "string",
+      "pattern": "^security-policy-v\\d+\\.\\d+\\.\\d+$"
+    },
+    "version": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published",
+        "deprecated",
+        "archived"
+      ]
+    },
+    "product": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "effectiveFrom": {
+      "type": "string"
+    },
+    "appliesTo": {
+      "type": "object"
+    },
+    "principles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "roles": {
+      "type": "object"
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "defaults": {
+      "type": "object"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "ruleId",
+          "actions",
+          "resources",
+          "allowIf",
+          "auditLevel"
+        ],
+        "properties": {
+          "ruleId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowIf": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "denyIf": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requiresStepUp": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "requiresReason": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "auditLevel": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "prohibitedLogFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "capabilityGroups": {
+      "type": "object"
+    },
+    "versioning": {
+      "type": "object"
+    }
+  }
+}

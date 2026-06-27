@@ -3,9 +3,12 @@ import { BrowserRouter } from 'react-router-dom';
 
 import './styles.css';
 import { App } from './App';
+import { SecurityContextProvider } from './modules/auth/SecurityContextProvider';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
-    <App />
+    <SecurityContextProvider>
+      <App />
+    </SecurityContextProvider>
   </BrowserRouter>,
 );

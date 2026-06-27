@@ -10,6 +10,8 @@ import {
   type PitcherStats,
   type RunnerOnBaseWithPitcher,
 } from './stateStore';
+import { optionalAuth, type AuthenticatedRequest } from './auth/authMiddleware';
+import { canScore } from './scoring/scoringAssignmentService';
 
 type AtBatResult =
   | 'single'
@@ -1439,7 +1441,27 @@ function applyAtBatToGameState(request: AtBatRequest): void {
 
 export const scorerRouter = Router();
 
-scorerRouter.post('/at-bats', async (request: Request, response: Response) => {
+/**
+ * Middleware: si el request lleva JWT, verifica que el usuario
+ * esté asignado como scorer del juego. En modo dev (sin pool) se omite.
+ * No-breaking: sin token el request pasa (compatibilidad con clientes legacy).
+ */
+async function checkScorerAccess(request: Request, response: Response): Promise<boolean> {
+  const authReq = request as AuthenticatedRequest;
+  if (!authReq.user) return true; // sin token — legacy/dev
+  const gameId = (request.body as { gameId?: string }).gameId
+    ?? (request.params.gameId ?? '');
+  if (!gameId) return true;
+  const allowed = await canScore(authReq.user.sub, gameId);
+  if (!allowed) {
+    response.status(403).json({ error: 'not_assigned_scorer', gameId });
+    return false;
+  }
+  return true;
+}
+
+scorerRouter.post('/at-bats', optionalAuth, async (request: Request, response: Response) => {
+  if (!(await checkScorerAccess(request, response))) return;
   if (!requirePool(response)) {
     return;
   }
@@ -1630,7 +1652,8 @@ scorerRouter.delete('/at-bats/:id', async (request: Request, response: Response)
  * - Strike 3 → auto-ponche
  * - Foul con 2 strikes → no-op
  */
-scorerRouter.post('/pitch', async (request: Request, response: Response) => {
+scorerRouter.post('/pitch', optionalAuth, async (request: Request, response: Response) => {
+  if (!(await checkScorerAccess(request, response))) return;
   if (!requirePool(response)) return;
 
   try {
