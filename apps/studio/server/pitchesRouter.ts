@@ -3,6 +3,7 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
 import { demoGameEvents, demoPitches, type DemoGameEvent, type DemoPitch } from './editorDemoData';
 import { pool } from './db';
+import { stateStore } from './stateStore';
 import {
   isRecord,
   optionalFloat,
@@ -14,6 +15,31 @@ import {
   sendOk,
   toIsoString,
 } from './routerUtils';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Captura un snapshot compacto del estado del juego para context_before/context_after */
+function buildGameContext(): object {
+  try {
+    const s = stateStore.getState();
+    return {
+      inning: s.inning,
+      inningHalf: s.inningHalf,
+      outs: s.outs,
+      count: s.count,
+      score: s.score,
+      bases: {
+        first: s.bases.first?.id ?? null,
+        second: s.bases.second?.id ?? null,
+        third: s.bases.third?.id ?? null,
+      },
+    };
+  } catch {
+    return {};
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -63,6 +89,10 @@ interface GameEventRow extends RowDataPacket {
   payload: unknown;
   operator_id: string;
   created_at: string | Date;
+  sequence?: number;
+  context_before?: unknown;
+  context_after?: unknown;
+  review_status?: string;
 }
 
 interface PitchPayload {
@@ -195,6 +225,10 @@ function mapGameEvent(row: GameEventRow | DemoGameEvent): GameEventPayload {
     payload: parseJsonColumn<Record<string, unknown>>(row.payload, {}),
     operator_id: row.operator_id,
     created_at: toIsoString(row.created_at),
+    sequence: (row as GameEventRow).sequence,
+    context_before: parseJsonColumn<Record<string, unknown> | null>((row as GameEventRow).context_before, null),
+    context_after: parseJsonColumn<Record<string, unknown> | null>((row as GameEventRow).context_after, null),
+    review_status: (row as GameEventRow).review_status,
   };
 }
 
@@ -417,8 +451,13 @@ router.post('/games/:gameId/events', async (request: Request, response: Response
     await pool.query<ResultSetHeader>(
       `INSERT INTO game_events (
         id, game_id, event_type, at_bat_id, inning, inning_half, batter_player_id,
-        pitcher_player_id, payload, operator_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        pitcher_player_id, payload, operator_id,
+        sequence, context_before, review_status
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        (SELECT COALESCE(MAX(ge.sequence), 0) + 1 FROM game_events ge WHERE ge.game_id = ?),
+        ?, 'confirmed'
+      )`,
       [
         id,
         request.params.gameId,
@@ -430,12 +469,17 @@ router.post('/games/:gameId/events', async (request: Request, response: Response
         optionalString(body.pitcher_player_id),
         JSON.stringify(isRecord(body.payload) ? body.payload : {}),
         operatorId,
+        // sequence subquery param:
+        request.params.gameId,
+        // context_before: snapshot del estado del juego en el momento del evento
+        JSON.stringify(buildGameContext()),
       ],
     );
 
     const [rows] = await pool.query<GameEventRow[]>(
       `SELECT id, game_id, event_type, at_bat_id, inning, inning_half, batter_player_id,
-              pitcher_player_id, payload, operator_id, created_at
+              pitcher_player_id, payload, operator_id, created_at,
+              sequence, context_before, context_after, review_status
        FROM game_events WHERE id = ? LIMIT 1`,
       [id],
     );
@@ -463,20 +507,6 @@ interface PitchRow extends RowDataPacket {
   inning_half: string;
   operator_id: string;
   timestamp: string | Date;
-}
-
-interface GameEventRow extends RowDataPacket {
-  id: string;
-  game_id: string;
-  event_type: string;
-  at_bat_id: string | null;
-  inning: number;
-  inning_half: string;
-  batter_player_id: string | null;
-  pitcher_player_id: string | null;
-  payload: unknown;
-  operator_id: string;
-  created_at: string | Date;
 }
 
 interface PitchPayload {
@@ -508,5 +538,9 @@ interface GameEventPayload {
   payload: Record<string, unknown>;
   operator_id: string;
   created_at: string;
+  sequence?: number;
+  context_before?: Record<string, unknown> | null;
+  context_after?: Record<string, unknown> | null;
+  review_status?: string;
 }
 

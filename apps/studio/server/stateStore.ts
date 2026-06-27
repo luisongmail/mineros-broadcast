@@ -45,6 +45,16 @@ export interface CommandResult {
   data: unknown;
 }
 
+export interface RunnerOnBaseWithPitcher extends RunnerOnBase {
+  responsiblePitcherId?: string;
+}
+
+export interface GameBasesWithPitcherResponsibility extends GameBases {
+  first: RunnerOnBaseWithPitcher | null;
+  second: RunnerOnBaseWithPitcher | null;
+  third: RunnerOnBaseWithPitcher | null;
+}
+
 export interface StateMessage {
   type: 'state';
   payload: Readonly<GameState>;
@@ -219,9 +229,28 @@ function parseBooleanToken(value: string): boolean {
   throw new Error('Boolean value must be "true" or "false"');
 }
 
-function parseBaseValue(value: string | undefined): Partial<GameBases> {
+export function toSetBaseCommand(
+  base: 'first' | 'second' | 'third',
+  runner: RunnerOnBaseWithPitcher | null,
+): string {
+  if (!runner) {
+    return `${base}:false`;
+  }
+
+  let command = `${base}:playerId:${runner.id}`;
+  if (runner.responsiblePitcherId) {
+    command += `:responsiblePitcherId:${runner.responsiblePitcherId}`;
+  }
+
+  return command;
+}
+
+function parseBaseValue(
+  value: string | undefined,
+  currentPitcherId?: string,
+): Partial<GameBasesWithPitcherResponsibility> {
   const normalized = assertNonEmpty(value, 'value');
-  const parts = normalized.split(':', 3);
+  const parts = normalized.split(':');
   const base = parts[0]?.trim() as 'first' | 'second' | 'third' | undefined;
   const token = parts[1]?.trim();
 
@@ -229,28 +258,53 @@ function parseBaseValue(value: string | undefined): Partial<GameBases> {
     throw new Error('SetBase expects "first:true", "second:false", "first:false" or "first:playerId:<id>"');
   }
 
-  let runner: RunnerOnBase | null;
+  let runner: RunnerOnBaseWithPitcher | null;
 
   if (token === 'playerId') {
     // Formato: first:playerId:<id> — corredor identificado
     const playerId = parts[2]?.trim();
     if (!playerId) throw new Error('SetBase playerId format requires an id: "first:playerId:<id>"');
+    const responsiblePitcherToken = parts[3]?.trim();
+    const explicitResponsiblePitcherId = parts[4]?.trim();
+    if (responsiblePitcherToken && responsiblePitcherToken !== 'responsiblePitcherId') {
+      throw new Error(
+        'SetBase optional responsible pitcher format must be "first:playerId:<id>:responsiblePitcherId:<pitcherId>"',
+      );
+    }
+    if (responsiblePitcherToken === 'responsiblePitcherId' && !explicitResponsiblePitcherId) {
+      throw new Error('SetBase responsiblePitcherId format requires an id');
+    }
     const originMap: Record<'first' | 'second' | 'third', RunnerOnBase['originBase']> = {
       first: 'first', second: 'second', third: 'third',
     };
-    runner = { id: playerId, name: '', number: 0, originBase: originMap[base], earned: true };
+    const responsiblePitcherId = explicitResponsiblePitcherId ?? currentPitcherId;
+    runner = {
+      id: playerId,
+      name: '',
+      number: 0,
+      originBase: originMap[base],
+      earned: true,
+      ...(responsiblePitcherId ? { responsiblePitcherId } : {}),
+    };
   } else if (token === 'false' || token === 'null' || token === 'clear') {
     runner = null;
   } else if (token === 'true') {
     // Corredor anónimo — compatibilidad legada y operador manual sin ficha
-    runner = { id: `anon-${base}`, name: '', number: 0, originBase: base, earned: true };
+    runner = {
+      id: `anon-${base}`,
+      name: '',
+      number: 0,
+      originBase: base,
+      earned: true,
+      ...(currentPitcherId ? { responsiblePitcherId: currentPitcherId } : {}),
+    };
   } else {
     // Intentar parsear como boolean para dar mensaje de error claro
     void parseBooleanToken(token); // lanza si no es "true"/"false"
     throw new Error('SetBase requires boolean or playerId format: "first:true", "first:false", "first:playerId:<id>"');
   }
 
-  return { [base]: runner } satisfies Partial<GameBases>;
+  return { [base]: runner } satisfies Partial<GameBasesWithPitcherResponsibility>;
 }
 
 function parseBatterValue(value: string | undefined): string {
@@ -803,7 +857,7 @@ class StateStore {
         return { command, data: this.getState() };
       }
       case 'SetBase': {
-        const bases = parseBaseValue(value);
+        const bases = parseBaseValue(value, this.engine.getState().currentPitcherId);
         this.engine.setBases(bases, DEMO_OPERATOR_ID);
         return { command, value, data: this.getState() };
       }

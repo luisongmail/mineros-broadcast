@@ -94,6 +94,16 @@ describe('handleCommand — estado de juego', () => {
     expect(bases.first).not.toBeNull();
   });
 
+  it('SetBase asigna responsiblePitcherId al corredor nuevo', () => {
+    handleCommand('SetPitcher', 'playerId:player-pitcher-01');
+    handleCommand('SetBase', 'second:playerId:runner-01');
+    const state = handleCommand('GetState').payload as {
+      bases: { second: { id: string; responsiblePitcherId?: string } | null };
+    };
+    expect(state.bases.second?.id).toBe('runner-01');
+    expect(state.bases.second?.responsiblePitcherId).toBe('player-pitcher-01');
+  });
+
   it('AddBall incrementa balls en el conteo', () => {
     handleCommand('ResetCount');
     handleCommand('AddBall');
@@ -131,6 +141,18 @@ describe('handleCommand — estado de juego', () => {
     handleCommand('SetPitcher', 'playerId:player-cai-09');
     const state = handleCommand('GetState').payload as { currentPitcherId?: string };
     expect(state.currentPitcherId).toBe('player-cai-09');
+  });
+
+  it('SetPitcher conserva responsiblePitcherId de corredores heredados', () => {
+    handleCommand('SetPitcher', 'playerId:player-pitcher-legacy');
+    handleCommand('SetBase', 'third:playerId:runner-legacy');
+    handleCommand('SetPitcher', 'playerId:player-pitcher-new');
+    const state = handleCommand('GetState').payload as {
+      currentPitcherId?: string;
+      bases: { third: { responsiblePitcherId?: string } | null };
+    };
+    expect(state.currentPitcherId).toBe('player-pitcher-new');
+    expect(state.bases.third?.responsiblePitcherId).toBe('player-pitcher-legacy');
   });
 
   it('SetLineupHome establece el lineup local', () => {

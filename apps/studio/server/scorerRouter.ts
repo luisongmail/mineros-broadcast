@@ -1,9 +1,15 @@
 import { Router, type Request, type Response } from 'express';
-import type { GameBases, LineupEntry, RunnerOnBase, TeamRole } from '@playflow/game-engine';
+import type { LineupEntry, TeamRole } from '@playflow/game-engine';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
 import { pool } from './db';
-import { stateStore, type PitcherStats } from './stateStore';
+import {
+  stateStore,
+  toSetBaseCommand,
+  type GameBasesWithPitcherResponsibility,
+  type PitcherStats,
+  type RunnerOnBaseWithPitcher,
+} from './stateStore';
 
 type AtBatResult =
   | 'single'
@@ -14,8 +20,9 @@ type AtBatResult =
   | 'hbp'
   | 'error'
   | 'strikeout'
-  | 'groundout'
-  | 'flyout'
+  | 'field_out'       // MLBAM vocab — reemplaza groundout/flyout; contact_type distingue
+  | 'groundout'       // legacy alias — se normaliza a field_out en el parser
+  | 'flyout'          // legacy alias — se normaliza a field_out en el parser
   | 'sacrifice_fly'
   | 'sacrifice_bunt'
   | 'fielders_choice'
@@ -42,6 +49,12 @@ interface AtBatRequest {
   runnersJson?: string;
   /** Timecode del stream de transmisión, ej. "1:23:45.500" */
   videoTimestamp?: string;
+  /** MLBAM: carreras limpias del turno (para ERA) */
+  earnedRuns?: number;
+  /** MLBAM: carreras sucias del turno */
+  unearnedRuns?: number;
+  /** Tipo de sustitución si el bateador es emergente */
+  substitutionType?: 'pinch_hitter' | 'pinch_runner';
   /** Pitch decisivo (in_play): datos del lanzamiento que resultó en contacto */
   decisivePitch?: {
     pitchType?: string;
@@ -95,6 +108,20 @@ interface PitchRequest {
   device_id?: string;
 }
 
+type SubstitutionType = 'pitching_change' | 'pinch_hitter' | 'pinch_runner' | 'defensive_change' | 'double_switch';
+type BaseName = 'first' | 'second' | 'third';
+
+interface SubstitutionRequest {
+  gameId: string;
+  substitutionType: SubstitutionType;
+  incomingPlayerId: string;
+  outgoingPlayerId: string;
+  position?: string;
+  base?: BaseName;
+  battingOrder?: number;
+  notes?: string;
+}
+
 interface ApiSuccessResponse {
   status: number;
   result: 'ok';
@@ -131,6 +158,28 @@ interface PlayerMetaRow extends RowDataPacket {
   throws: string | null;
 }
 
+interface PlayerInfoRow extends RowDataPacket {
+  id: string;
+  name: string;
+  number: string;
+  position: string;
+  photo_asset_id: string | null;
+  team_id: string | null;
+}
+
+interface ActiveGameLineupRow extends RowDataPacket {
+  id: string;
+  team_id: string;
+  batting_order: number;
+  position: string;
+  defensive_position: string | null;
+  is_starter: 0 | 1;
+  is_dp: 0 | 1;
+  is_flex: 0 | 1;
+  re_entry_used: 0 | 1;
+  courtesy_running_for_roster_id: string | null;
+}
+
 const AT_BAT_RESULTS = [
   'single',
   'double',
@@ -140,8 +189,9 @@ const AT_BAT_RESULTS = [
   'hbp',
   'error',
   'strikeout',
-  'groundout',
-  'flyout',
+  'field_out',        // MLBAM canonical
+  'groundout',        // legacy alias
+  'flyout',           // legacy alias
   'sacrifice_fly',
   'sacrifice_bunt',
   'fielders_choice',
@@ -151,8 +201,9 @@ const AT_BAT_RESULTS = [
 const ON_BASE_RESULTS = new Set<AtBatResult>(['single', 'double', 'triple', 'home_run', 'walk', 'hbp', 'error', 'fielders_choice']);
 const OUT_RESULTS = new Set<AtBatResult>([
   'strikeout',
-  'groundout',
-  'flyout',
+  'field_out',
+  'groundout',        // legacy
+  'flyout',           // legacy
   'sacrifice_fly',
   'sacrifice_bunt',
   // fielders_choice: el bateador llega a base (el out es de otro corredor)
@@ -164,9 +215,17 @@ const WALK_RESULTS = new Set<AtBatResult>(['walk', 'hbp']);
 const CONTACT_TYPES = new Set<ContactType>(['line_drive', 'fly_ball', 'ground_ball', 'bunt_grounder', 'popup']);
 const HIT_DIRECTIONS = new Set<HitDirection>(['LF', 'LCF', 'CF', 'RCF', 'RF', '3B', 'SS', '2B', '1B', 'P', 'C']);
 const HIT_QUALITIES = new Set<HitQuality>(['soft', 'medium', 'hard']);
+const SUBSTITUTION_TYPES = new Set<SubstitutionType>([
+  'pitching_change',
+  'pinch_hitter',
+  'pinch_runner',
+  'defensive_change',
+  'double_switch',
+]);
+const pendingPinchHitters = new Map<string, { batterPlayerId: string; substitutionType: 'pinch_hitter' }>();
 
 interface RunnerAdvancement {
-  newBases: GameBases;
+  newBases: GameBasesWithPitcherResponsibility;
   runsScored: number;
 }
 
@@ -175,7 +234,10 @@ interface RunnerAdvancement {
  * por el nuevo ocupante de 1ª (efecto dominó hasta home si bases llenas).
  * batterRunner: corredor placeholder para el bateador.
  */
-function advanceRunnersForced(before: GameBases, batterRunner: RunnerOnBase): RunnerAdvancement {
+function advanceRunnersForced(
+  before: GameBasesWithPitcherResponsibility,
+  batterRunner: RunnerOnBaseWithPitcher,
+): RunnerAdvancement {
   let third = before.third;
   let second = before.second;
   let runsScored = 0;
@@ -203,9 +265,9 @@ function advanceRunnersForced(before: GameBases, batterRunner: RunnerOnBase): Ru
  * Si llega a home (posición >= 4), anota.
  * NOTA: la posición final del bateador NO se incluye en newBases — se aplica por separado.
  */
-function advanceRunnersNBases(before: GameBases, n: 1 | 2 | 3): RunnerAdvancement {
+function advanceRunnersNBases(before: GameBasesWithPitcherResponsibility, n: 1 | 2 | 3): RunnerAdvancement {
   let runsScored = 0;
-  const newBases: GameBases = { first: null, second: null, third: null };
+  const newBases: GameBasesWithPitcherResponsibility = { first: null, second: null, third: null };
 
   if (before.third !== null) {
     // 3 + n >= 4 para cualquier n >= 1 → siempre anota
@@ -374,9 +436,30 @@ function parseOptionalGridCoordinate(value: unknown, fieldName: string): number 
   return value;
 }
 
+/**
+ * Para enteros no negativos sin límite superior (spin_rate RPM ~1000-3500, spin_axis grados 0-360).
+ * No confundir con parseOptionalGridCoordinate que limita a 0-6.
+ */
+function parseOptionalNonNegativeInt(value: unknown, fieldName: string): number | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new Error(`${fieldName} must be a non-negative integer when provided`);
+  }
+
+  return value;
+}
+
 function parseAtBatResult(value: unknown): AtBatResult {
   if (typeof value !== 'string' || !AT_BAT_RESULTS.includes(value as AtBatResult)) {
     throw new Error('result must be a valid at-bat result');
+  }
+
+  // Normalizar aliases legacy al vocabulario MLBAM canónico
+  if (value === 'groundout' || value === 'flyout') {
+    return 'field_out';
   }
 
   return value as AtBatResult;
@@ -442,6 +525,16 @@ function parseAtBatRequest(body: unknown): AtBatRequest {
     } : undefined,
     runnersJson: parseOptionalString(body.runnersJson, 'runnersJson'),
     videoTimestamp: parseOptionalString(body.videoTimestamp, 'videoTimestamp'),
+    earnedRuns: parseOptionalInteger(body.earnedRuns, 'earnedRuns'),
+    unearnedRuns: parseOptionalInteger(body.unearnedRuns, 'unearnedRuns'),
+    substitutionType: (() => {
+      const st = body.substitutionType;
+      if (st === undefined || st === null || st === '') return undefined;
+      if (st !== 'pinch_hitter' && st !== 'pinch_runner') {
+        throw new Error('substitutionType must be pinch_hitter or pinch_runner when provided');
+      }
+      return st;
+    })(),
     decisivePitch: isRecord(body.decisivePitch) ? {
       pitchType:  parseOptionalString(body.decisivePitch.pitchType, 'decisivePitch.pitchType'),
       col:        parseOptionalGridCoordinate(body.decisivePitch.col, 'decisivePitch.col'),
@@ -484,12 +577,57 @@ function parsePitchRequest(body: unknown): PitchRequest {
     start_speed: parseOptionalFloat(body.start_speed, 'start_speed'),
     pfx_x: parseOptionalSignedFloat(body.pfx_x, 'pfx_x'),
     pfx_z: parseOptionalSignedFloat(body.pfx_z, 'pfx_z'),
-    spin_rate: parseOptionalGridCoordinate(body.spin_rate, 'spin_rate'),
-    spin_axis: parseOptionalGridCoordinate(body.spin_axis, 'spin_axis'),
+    spin_rate: parseOptionalNonNegativeInt(body.spin_rate, 'spin_rate'),
+    spin_axis: parseOptionalNonNegativeInt(body.spin_axis, 'spin_axis'),
     pitch_class: parseOptionalString(body.pitch_class, 'pitch_class'),
     confidence: parseOptionalFloat(body.confidence, 'confidence'),
     device_id: parseOptionalString(body.device_id, 'device_id'),
   };
+}
+
+function parseOptionalBase(value: unknown, fieldName: string): BaseName | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (value !== 'first' && value !== 'second' && value !== 'third') {
+    throw new Error(`${fieldName} must be one of: first, second, third`);
+  }
+
+  return value;
+}
+
+function parseSubstitutionRequest(body: unknown, routeGameId: string): SubstitutionRequest {
+  if (!isRecord(body)) {
+    throw new Error('Request body must be a JSON object');
+  }
+
+  const gameId = parseRequiredString(body.gameId, 'gameId');
+  if (gameId !== routeGameId) {
+    throw new Error('gameId in body must match :gameId route parameter');
+  }
+
+  const substitutionType = parseRequiredString(body.substitutionType, 'substitutionType') as SubstitutionType;
+  if (!SUBSTITUTION_TYPES.has(substitutionType)) {
+    throw new Error('substitutionType must be a valid MLBAM substitution type');
+  }
+
+  const payload: SubstitutionRequest = {
+    gameId,
+    substitutionType,
+    incomingPlayerId: parseRequiredString(body.incomingPlayerId, 'incomingPlayerId'),
+    outgoingPlayerId: parseRequiredString(body.outgoingPlayerId, 'outgoingPlayerId'),
+    position: parseOptionalString(body.position, 'position'),
+    base: parseOptionalBase(body.base, 'base'),
+    battingOrder: parseOptionalInteger(body.battingOrder, 'battingOrder'),
+    notes: parseOptionalString(body.notes, 'notes'),
+  };
+
+  if (payload.substitutionType === 'pinch_runner' && !payload.base) {
+    throw new Error('base is required for pinch_runner substitutions');
+  }
+
+  return payload;
 }
 
 async function getAtBatColumns(): Promise<Set<string>> {
@@ -531,6 +669,85 @@ async function findGameLineupId(gameId: string, playerId: string | undefined): P
   );
 
   return rows[0]?.id ?? null;
+}
+
+async function loadPlayersById(playerIds: string[]): Promise<Record<string, PlayerInfoRow>> {
+  if (!pool || playerIds.length === 0) {
+    return {};
+  }
+
+  const uniquePlayerIds = [...new Set(playerIds)];
+  const placeholders = uniquePlayerIds.map(() => '?').join(', ');
+  const [rows] = await pool.query<PlayerInfoRow[]>(
+    `SELECT id, name, number, position, photo_asset_id, team_id
+     FROM players
+     WHERE id IN (${placeholders})`,
+    uniquePlayerIds,
+  );
+
+  return rows.reduce<Record<string, PlayerInfoRow>>((accumulator, row) => {
+    accumulator[row.id] = row;
+    return accumulator;
+  }, {});
+}
+
+async function findActiveGameLineupRow(gameId: string, playerId: string): Promise<ActiveGameLineupRow | null> {
+  if (!pool) {
+    return null;
+  }
+
+  const [rows] = await pool.query<ActiveGameLineupRow[]>(
+    `SELECT id, team_id, batting_order, position, defensive_position, is_starter, is_dp, is_flex, re_entry_used, courtesy_running_for_roster_id
+     FROM game_lineups
+     WHERE game_id = ? AND player_id = ? AND substituted_at IS NULL
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [gameId, playerId],
+  );
+
+  return rows[0] ?? null;
+}
+
+function resolveSubstitutionPosition(request: SubstitutionRequest, outgoingLineup: ActiveGameLineupRow): string {
+  if (request.substitutionType === 'pitching_change') {
+    return 'P';
+  }
+
+  if (request.substitutionType === 'pinch_hitter') {
+    return request.position ?? 'PH';
+  }
+
+  if (request.substitutionType === 'pinch_runner') {
+    return request.position ?? 'PR';
+  }
+
+  return request.position ?? outgoingLineup.defensive_position ?? outgoingLineup.position;
+}
+
+function resolveDefensivePosition(
+  request: SubstitutionRequest,
+  outgoingLineup: ActiveGameLineupRow,
+  lineupPosition: string,
+): string | null {
+  if (request.substitutionType === 'pinch_hitter' || request.substitutionType === 'pinch_runner') {
+    return request.position ?? null;
+  }
+
+  return request.position ?? outgoingLineup.defensive_position ?? lineupPosition;
+}
+
+function getLineupRoleForTeam(state: ReturnType<typeof stateStore.getState>, teamId: string): TeamRole {
+  return state.homeTeam.id === teamId ? 'home' : 'away';
+}
+
+function replaceLineupEntry(
+  entries: LineupEntry[],
+  outgoingPlayerId: string,
+  incomingEntry: LineupEntry,
+): LineupEntry[] {
+  return entries
+    .map((entry) => (entry.playerId === outgoingPlayerId ? incomingEntry : entry))
+    .sort((left, right) => left.order - right.order);
 }
 
 function getBattingRole(inningHalf: 'top' | 'bottom'): TeamRole {
@@ -605,14 +822,27 @@ function toMlbamEventType(result: AtBatResult): string {
     hbp: 'hit_by_pitch',
     error: 'field_error',
     strikeout: 'strikeout',
-    groundout: 'field_out',
-    flyout: 'field_out',
+    field_out: 'field_out',       // MLBAM canonical
+    groundout: 'field_out',       // legacy alias
+    flyout: 'field_out',          // legacy alias
     sacrifice_fly: 'sac_fly',
     sacrifice_bunt: 'sac_bunt',
     fielders_choice: 'fielders_choice',
     double_play: 'grounded_into_double_play',
   };
   return map[result] ?? result;
+}
+
+/** Determina si el resultado cuenta como At-Bat oficial (no walk, HBP, sac) */
+function isOfficialAtBat(result: AtBatResult): boolean {
+  const NON_AB_RESULTS = new Set<AtBatResult>(['walk', 'hbp', 'sacrifice_fly', 'sacrifice_bunt']);
+  return !NON_AB_RESULTS.has(result);
+}
+
+/** Determina si el resultado cuenta como Plate Appearance oficial (no sac_bunt, interference) */
+function isOfficialPA(result: AtBatResult): boolean {
+  // MLBAM: sacrifice_bunt no cuenta como PA; sacrifice_fly SÍ cuenta
+  return result !== 'sacrifice_bunt';
 }
 
 async function insertAtBat(request: AtBatRequest): Promise<void> {
@@ -622,6 +852,9 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
 
   const state = stateStore.getState();
   const columns = await getAtBatColumns();
+  const pendingPinchHitter = !request.substitutionType ? pendingPinchHitters.get(request.gameId) : undefined;
+  const substitutionType = request.substitutionType
+    ?? (pendingPinchHitter?.batterPlayerId === request.batterPlayerId ? pendingPinchHitter.substitutionType : undefined);
   const batterRosterId = await findGameLineupId(request.gameId, request.batterPlayerId);
   const pitcherRosterId = request.pitcherPlayerId ? await findGameLineupId(request.gameId, request.pitcherPlayerId) : null;
   const onBase = request.onBase ?? ON_BASE_RESULTS.has(request.result);
@@ -733,11 +966,17 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
 
   // runners: estado de bases DESPUÉS del at-bat (snapshot para contexto histórico)
   if (columns.has('runners')) {
-    const basesAfter = stateStore.getState().bases;
+    const basesAfter = stateStore.getState().bases as GameBasesWithPitcherResponsibility;
     const runnersSnapshot = {
-      first: basesAfter.first ? basesAfter.first.id : null,
-      second: basesAfter.second ? basesAfter.second.id : null,
-      third: basesAfter.third ? basesAfter.third.id : null,
+      first: basesAfter.first
+        ? { id: basesAfter.first.id, responsiblePitcherId: basesAfter.first.responsiblePitcherId ?? null }
+        : null,
+      second: basesAfter.second
+        ? { id: basesAfter.second.id, responsiblePitcherId: basesAfter.second.responsiblePitcherId ?? null }
+        : null,
+      third: basesAfter.third
+        ? { id: basesAfter.third.id, responsiblePitcherId: basesAfter.third.responsiblePitcherId ?? null }
+        : null,
     };
     insertColumns.push('runners');
     insertValues.push(JSON.stringify(runnersSnapshot));
@@ -775,6 +1014,39 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
     placeholders.push('?');
   }
 
+  // MLBAM: is_at_bat / is_plate_appearance (F3/F4)
+  if (columns.has('is_at_bat')) {
+    insertColumns.push('is_at_bat');
+    insertValues.push(isOfficialAtBat(request.result) ? 1 : 0);
+    placeholders.push('?');
+  }
+
+  if (columns.has('is_plate_appearance')) {
+    insertColumns.push('is_plate_appearance');
+    insertValues.push(isOfficialPA(request.result) ? 1 : 0);
+    placeholders.push('?');
+  }
+
+  // MLBAM: earned_runs / unearned_runs (F1/F2) — el servidor los recibe del cliente o los deja en 0
+  if (columns.has('earned_runs')) {
+    insertColumns.push('earned_runs');
+    insertValues.push(request.earnedRuns ?? 0);
+    placeholders.push('?');
+  }
+
+  if (columns.has('unearned_runs')) {
+    insertColumns.push('unearned_runs');
+    insertValues.push(request.unearnedRuns ?? 0);
+    placeholders.push('?');
+  }
+
+  // substitution_type: pinch_hitter | pinch_runner | null (F5)
+  if (columns.has('substitution_type') && substitutionType) {
+    insertColumns.push('substitution_type');
+    insertValues.push(substitutionType);
+    placeholders.push('?');
+  }
+
   // ext: PFX namespace — incluye pitch decisivo si viene de un in_play
   if (columns.has('ext') && request.decisivePitch) {
     const extVal = { playflow: { decisivePitch: request.decisivePitch } };
@@ -793,6 +1065,10 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
      VALUES (${placeholders.join(', ')})`,
     insertValues,
   );
+
+  if (pendingPinchHitter && substitutionType === 'pinch_hitter' && pendingPinchHitter.batterPlayerId === request.batterPlayerId) {
+    pendingPinchHitters.delete(request.gameId);
+  }
 }
 
 async function insertPitch(request: PitchRequest): Promise<void> {
@@ -1030,9 +1306,10 @@ async function computePitcherStats(gameId: string): Promise<Record<string, Pitch
 function applyAtBatToGameState(request: AtBatRequest): void {
   const state = stateStore.getState();
   const battingTeamRole = getBattingRole(state.inningHalf);
-  const beforeBases = state.bases;
+  const beforeBases = state.bases as GameBasesWithPitcherResponsibility;
   const beforeInningHalf = state.inningHalf;
   const outsToRecord = request.result === 'double_play' ? 2 : OUT_RESULTS.has(request.result) ? 1 : 0;
+  const responsiblePitcherId = request.pitcherPlayerId ?? state.currentPitcherId;
 
   // Asegurar que el bateador y pitcher correctos están activos en el engine
   if (state.currentBatterId !== request.batterPlayerId) {
@@ -1045,7 +1322,7 @@ function applyAtBatToGameState(request: AtBatRequest): void {
 
   // Calcular avance de corredores y carreras automáticas según el resultado
   let autoRuns = 0;
-  let newBases: GameBases | null = null;
+  let newBases: GameBasesWithPitcherResponsibility | null = null;
 
   if (request.result === 'home_run') {
     // Todos los corredores + bateador anotan; el campo `runs` del scorer se ignora
@@ -1053,7 +1330,14 @@ function applyAtBatToGameState(request: AtBatRequest): void {
     newBases = { first: null, second: null, third: null };
   } else if (WALK_RESULTS.has(request.result)) {
     // Walk / HBP: avance forzado
-    const batterRunner: RunnerOnBase = { id: request.batterPlayerId, name: '', number: 0, originBase: 'first', earned: true };
+    const batterRunner: RunnerOnBaseWithPitcher = {
+      id: request.batterPlayerId,
+      name: '',
+      number: 0,
+      originBase: 'first',
+      earned: true,
+      ...(responsiblePitcherId ? { responsiblePitcherId } : {}),
+    };
     const adv = advanceRunnersForced(beforeBases, batterRunner);
     autoRuns = adv.runsScored;
     newBases = adv.newBases;
@@ -1061,18 +1345,39 @@ function applyAtBatToGameState(request: AtBatRequest): void {
     // Sencillo / Error / FC: avance de 1 base; bateador a 1ª
     const adv = advanceRunnersNBases(beforeBases, 1);
     autoRuns = adv.runsScored;
-    const batterRunner: RunnerOnBase = { id: request.batterPlayerId, name: '', number: 0, originBase: 'first', earned: true };
+    const batterRunner: RunnerOnBaseWithPitcher = {
+      id: request.batterPlayerId,
+      name: '',
+      number: 0,
+      originBase: 'first',
+      earned: true,
+      ...(responsiblePitcherId ? { responsiblePitcherId } : {}),
+    };
     newBases = { ...adv.newBases, first: batterRunner };
   } else if (request.result === 'double') {
     // Doble: avance de 2 bases; bateador a 2ª
     const adv = advanceRunnersNBases(beforeBases, 2);
     autoRuns = adv.runsScored;
-    const batterRunner: RunnerOnBase = { id: request.batterPlayerId, name: '', number: 0, originBase: 'second', earned: true };
+    const batterRunner: RunnerOnBaseWithPitcher = {
+      id: request.batterPlayerId,
+      name: '',
+      number: 0,
+      originBase: 'second',
+      earned: true,
+      ...(responsiblePitcherId ? { responsiblePitcherId } : {}),
+    };
     newBases = { first: null, second: batterRunner, third: adv.newBases.third };
   } else if (request.result === 'triple') {
     // Triple: todos los corredores anotan; bateador a 3ª
     autoRuns = (beforeBases.first !== null ? 1 : 0) + (beforeBases.second !== null ? 1 : 0) + (beforeBases.third !== null ? 1 : 0);
-    const batterRunner: RunnerOnBase = { id: request.batterPlayerId, name: '', number: 0, originBase: 'third', earned: true };
+    const batterRunner: RunnerOnBaseWithPitcher = {
+      id: request.batterPlayerId,
+      name: '',
+      number: 0,
+      originBase: 'third',
+      earned: true,
+      ...(responsiblePitcherId ? { responsiblePitcherId } : {}),
+    };
     newBases = { first: null, second: null, third: batterRunner };
   }
 
@@ -1098,11 +1403,9 @@ function applyAtBatToGameState(request: AtBatRequest): void {
   if (!inningHalfChangedAfterOuts) {
     if (newBases !== null) {
       // Enviar identidad real del corredor (o limpiar base) — Spec 29 S2 RunnerOnBase
-      const toSetBaseCmd = (base: string, runner: RunnerOnBase | null): string =>
-        runner ? `${base}:playerId:${runner.id}` : `${base}:false`;
-      stateStore.sendCommand('SetBase', toSetBaseCmd('first', newBases.first));
-      stateStore.sendCommand('SetBase', toSetBaseCmd('second', newBases.second));
-      stateStore.sendCommand('SetBase', toSetBaseCmd('third', newBases.third));
+      stateStore.sendCommand('SetBase', toSetBaseCommand('first', newBases.first));
+      stateStore.sendCommand('SetBase', toSetBaseCommand('second', newBases.second));
+      stateStore.sendCommand('SetBase', toSetBaseCommand('third', newBases.third));
     }
     stateStore.sendCommand('ResetCount');
   }
@@ -1466,6 +1769,198 @@ scorerRouter.post('/pitch', async (request: Request, response: Response) => {
       stateStore.sendCommand('AddStrike');
       sendSuccess(response, { gameState: stateStore.getState(), action: 'strike_added' });
     }
+  } catch (error) {
+    sendError(response, 400, error);
+  }
+});
+
+scorerRouter.post('/substitutions/:gameId', async (request: Request, response: Response) => {
+  const databasePool = requirePool(response);
+  if (!databasePool) {
+    return;
+  }
+
+  try {
+    const routeGameId = parseRequiredString(request.params.gameId, 'gameId');
+    const payload = parseSubstitutionRequest(request.body, routeGameId);
+    const stateBefore = stateStore.getState();
+    const outgoingLineup = await findActiveGameLineupRow(payload.gameId, payload.outgoingPlayerId);
+
+    if (!outgoingLineup) {
+      throw new Error(`No active lineup entry found for outgoing player ${payload.outgoingPlayerId}`);
+    }
+
+    const players = await loadPlayersById([payload.incomingPlayerId, payload.outgoingPlayerId]);
+    const incomingPlayer = players[payload.incomingPlayerId];
+    const outgoingPlayer = players[payload.outgoingPlayerId];
+
+    if (!incomingPlayer) {
+      throw new Error(`Incoming player ${payload.incomingPlayerId} was not found`);
+    }
+
+    const lineupRole = getLineupRoleForTeam(stateBefore, outgoingLineup.team_id);
+    const currentEntries = stateBefore.lineup[lineupRole];
+    const outgoingEntry = currentEntries.find((entry) => entry.playerId === payload.outgoingPlayerId);
+
+    if (!outgoingEntry) {
+      throw new Error(`Outgoing player ${payload.outgoingPlayerId} is not present in the in-memory lineup`);
+    }
+
+    const battingOrder = payload.battingOrder ?? outgoingLineup.batting_order ?? outgoingEntry.order;
+    const lineupPosition = resolveSubstitutionPosition(payload, outgoingLineup);
+    const defensivePosition = resolveDefensivePosition(payload, outgoingLineup, lineupPosition);
+    const incomingEntry: LineupEntry = {
+      order: battingOrder,
+      playerId: payload.incomingPlayerId,
+      name: incomingPlayer.name,
+      number: incomingPlayer.number,
+      position: lineupPosition,
+      status: 'active',
+      ...(incomingPlayer.photo_asset_id ? { photoAssetId: incomingPlayer.photo_asset_id } : {}),
+    };
+
+    const nextLineup = lineupRole === 'home'
+      ? {
+          home: replaceLineupEntry(stateBefore.lineup.home, payload.outgoingPlayerId, incomingEntry),
+          away: stateBefore.lineup.away,
+        }
+      : {
+          home: stateBefore.lineup.home,
+          away: replaceLineupEntry(stateBefore.lineup.away, payload.outgoingPlayerId, incomingEntry),
+        };
+
+    const basesBefore = stateBefore.bases as GameBasesWithPitcherResponsibility;
+    const replacedRunner = payload.base ? basesBefore[payload.base] : null;
+    if (payload.substitutionType === 'pinch_runner' && !replacedRunner) {
+      throw new Error(`No runner found on ${payload.base} for pinch_runner substitution`);
+    }
+
+    const eventId = crypto.randomUUID();
+    const eventPayload = {
+      substitutionType: payload.substitutionType,
+      incoming: { playerId: payload.incomingPlayerId, name: incomingPlayer.name },
+      outgoing: {
+        playerId: payload.outgoingPlayerId,
+        name: outgoingPlayer?.name ?? outgoingEntry.name,
+      },
+      position: payload.position,
+      base: payload.base,
+      battingOrder,
+    };
+
+    const shouldSetPitcher = payload.substitutionType === 'pitching_change'
+      || payload.substitutionType === 'double_switch'
+      || lineupPosition.toUpperCase() === 'P';
+
+    const connection = await databasePool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      await connection.query<ResultSetHeader>(
+        `UPDATE game_lineups
+         SET substituted_at = CURRENT_TIMESTAMP(3), substituted_by = ?
+         WHERE game_id = ? AND player_id = ? AND substituted_at IS NULL`,
+        [payload.incomingPlayerId, payload.gameId, payload.outgoingPlayerId],
+      );
+
+      await connection.query<ResultSetHeader>(
+        `INSERT INTO game_lineups (
+          game_id,
+          team_id,
+          player_id,
+          roster_id,
+          batting_order,
+          position,
+          defensive_position,
+          is_starter,
+          is_dp,
+          is_flex,
+          re_entry_used,
+          courtesy_running_for_roster_id
+        ) VALUES (?, ?, ?, NULL, ?, ?, ?, 0, ?, ?, ?, ?)`,
+        [
+          payload.gameId,
+          outgoingLineup.team_id,
+          payload.incomingPlayerId,
+          battingOrder,
+          lineupPosition,
+          defensivePosition,
+          outgoingLineup.is_dp,
+          outgoingLineup.is_flex,
+          outgoingLineup.re_entry_used,
+          outgoingLineup.courtesy_running_for_roster_id,
+        ],
+      );
+
+      await connection.query<ResultSetHeader>(
+        `INSERT INTO game_events (
+          id,
+          game_id,
+          event_type,
+          inning,
+          inning_half,
+          batter_player_id,
+          pitcher_player_id,
+          payload,
+          operator_id,
+          outs_before,
+          score_home,
+          score_away
+        ) VALUES (?, ?, 'substitution', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          eventId,
+          payload.gameId,
+          stateBefore.inning,
+          stateBefore.inningHalf,
+          payload.substitutionType === 'pinch_hitter' ? payload.incomingPlayerId : stateBefore.currentBatterId ?? null,
+          shouldSetPitcher ? payload.incomingPlayerId : stateBefore.currentPitcherId ?? null,
+          JSON.stringify(eventPayload),
+          'live-game-scoring',
+          stateBefore.outs,
+          stateBefore.score.home,
+          stateBefore.score.away,
+        ],
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    stateStore.sendCommand(
+      lineupRole === 'home' ? 'SetLineupHome' : 'SetLineupAway',
+      JSON.stringify(lineupRole === 'home' ? nextLineup.home : nextLineup.away),
+    );
+
+    if (payload.substitutionType === 'pinch_hitter') {
+      pendingPinchHitters.set(payload.gameId, {
+        batterPlayerId: payload.incomingPlayerId,
+        substitutionType: 'pinch_hitter',
+      });
+      stateStore.sendCommand('SetBatter', `playerId:${payload.incomingPlayerId}`);
+    }
+
+    if (payload.substitutionType === 'pinch_runner' && payload.base) {
+      const responsiblePitcherId = replacedRunner?.responsiblePitcherId ?? stateBefore.currentPitcherId;
+      const pinchRunner: RunnerOnBaseWithPitcher = {
+        id: payload.incomingPlayerId,
+        name: incomingPlayer.name,
+        number: Number.parseInt(incomingPlayer.number, 10) || 0,
+        originBase: replacedRunner?.originBase ?? payload.base,
+        earned: replacedRunner?.earned ?? true,
+        ...(responsiblePitcherId ? { responsiblePitcherId } : {}),
+      };
+      stateStore.sendCommand('SetBase', toSetBaseCommand(payload.base, pinchRunner));
+    }
+
+    if (shouldSetPitcher) {
+      stateStore.sendCommand('SetPitcher', `playerId:${payload.incomingPlayerId}`);
+    }
+
+    response.status(201).json({ ok: true, eventId });
   } catch (error) {
     sendError(response, 400, error);
   }
