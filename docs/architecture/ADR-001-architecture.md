@@ -1061,87 +1061,31 @@ registrar acciones en Execution Log
 
 ---
 
-## 14. SCOREBUG CONTROLLER
+## 14–16. CAPA VISUAL — Ver ADR-003
 
-### 14.1 Propósito
+El Scorebug Controller, Overlay Manager y Layout Manager se documentan en detalle en **ADR-003 — Canvas Único de Broadcast**.
 
-Renderizar el estado oficial del juego de forma persistente.
-
-### 14.2 Reglas
+Reglas fundamentales (inmutables):
 
 ```text
-El scorebug consume GameStateUpdate.
-El scorebug no calcula el estado.
-El scorebug es persistente.
-El scorebug tiene prioridad visual máxima.
-El scorebug no se oculta por overlays temporales.
+Scorebug Controller:
+  - Consume GameStateUpdate. No calcula el estado.
+  - Es persistente. Prioridad visual máxima (100).
+  - No se oculta por overlays temporales.
+
+Overlay Manager:
+  - Los overlays no calculan estadísticas ni marcador.
+  - Los overlays no leen directo de base de datos.
+  - Los overlays reciben payloads ya preparados.
+
+Layout Manager:
+  - Canvas 1920×1080, Grid 24×12, Safe Area 60px.
+  - Flujo de visibilidad: hidden → preview → take → live.
+  - Nunca saltar de hidden directo a live en producción.
+  - Scorebug priority 100, nunca tapado por overlays temporales.
 ```
 
-### 14.3 Fuente de datos
-
-```text
-Game State Engine
-→ Scorebug State
-→ Scorebug Controller
-→ Overlay scorebug
-```
-
----
-
-## 15. OVERLAY MANAGER
-
-### 15.1 Propósito
-
-Ejecuta acciones visuales ya decididas.
-
-Acciones:
-
-```text
-overlay.show
-overlay.hide
-overlay.replace
-overlay.update
-overlay.cancel
-overlay.setPersistent
-```
-
-### 15.2 Reglas
-
-```text
-Los overlays no calculan estadísticas.
-Los overlays no calculan marcador.
-Los overlays no leen directo de base de datos.
-Los overlays reciben payloads ya preparados.
-Los overlays se aíslan por componente.
-```
-
----
-
-## 16. LAYOUT MANAGER
-
-### 16.1 Propósito
-
-Resolver conflictos visuales y zonas de pantalla.
-
-### 16.2 Reglas
-
-```text
-Canvas 1920×1080
-Grid 24×12
-Safe Area 60px
-Preview antes de Program
-Scorebug priority 100
-Overlays temporales respetan zonas
-No tapar información crítica
-```
-
-### 16.3 Flujo visual
-
-```text
-hidden → preview → take → live → hide
-```
-
-Nunca se debe saltar de `hidden` directo a `live` para overlays de producción que requieran validación visual.
+→ Ver `docs/architecture/ADR-003-canvas-overlay.md` para especificación completa.
 
 ---
 
@@ -1787,225 +1731,35 @@ layouts
 game_layouts
 ```
 
-### 26.3 Nuevas tablas funcionales recomendadas v3.0
+### 26.3 Nuevas tablas funcionales — v3.0 (pendiente)
 
-Para soportar v3.0 se agregan:
+Para soportar v3.0 se requieren las siguientes tablas adicionales. El DDL definitivo se implementará en `infra/mysql/migrations/002_v3_tables.sql`.
 
-```sql
-flow_definitions (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  flow_id VARCHAR(160) NOT NULL,
-  version VARCHAR(32) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  automation_level VARCHAR(64) NOT NULL,
-  definition_json JSON NOT NULL,
-  created_by CHAR(36),
-  created_at DATETIME(3),
-  published_by CHAR(36),
-  published_at DATETIME(3),
-  UNIQUE KEY uq_flow_version (flow_id, version)
-);
+| Tabla | Propósito | Módulo |
+|-------|-----------|--------|
+| `flow_definitions` | Almacena FlowDefinitions versionadas (EventEngine v3.0) | EventEngine |
+| `flow_execution_logs` | Registro de ejecución de cada flujo por evento | EventEngine |
+| `broadcast_timelines` | Timelines de acciones broadcast generadas por flujos | OverlayManager |
+| `insights` | Insights estadísticos y analíticos por partido | Analytics |
+| `push_subscriptions` | Suscripciones Web Push de los clientes | Notificaciones |
+| `external_channels` | Canales externos conectados (YouTube, etc.) | Media Publisher |
+| `media_publications` | Publicaciones de broadcast en plataformas externas | Media Publisher |
+| `media_markers` | Marcadores de tiempo en publicaciones externas | Media Publisher |
 
-flow_execution_logs (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  game_id CHAR(36) NOT NULL,
-  source_event_id CHAR(36),
-  correlation_id VARCHAR(120),
-  flow_id VARCHAR(160),
-  flow_version VARCHAR(32),
-  automation_level VARCHAR(64),
-  status VARCHAR(64),
-  started_at DATETIME(3),
-  completed_at DATETIME(3),
-  duration_ms INT,
-  steps_json JSON,
-  warnings_json JSON,
-  errors_json JSON,
-  INDEX idx_flow_logs_game (game_id),
-  INDEX idx_flow_logs_event (source_event_id)
-);
+Las tablas del módulo de seguridad (usuarios, roles, sesiones, capacidades, auditoría) se definen en el documento específico de seguridad y se implementan en migración separada.
 
-broadcast_timelines (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  game_id CHAR(36) NOT NULL,
-  source_event_id CHAR(36),
-  correlation_id VARCHAR(120),
-  timeline_json JSON NOT NULL,
-  status VARCHAR(64),
-  created_at DATETIME(3),
-  executed_at DATETIME(3),
-  INDEX idx_broadcast_timeline_game (game_id)
-);
-
-insights (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  game_id CHAR(36) NOT NULL,
-  source_event_id CHAR(36),
-  insight_type VARCHAR(120),
-  level VARCHAR(64),
-  confidence VARCHAR(64),
-  sample_size INT,
-  model_version VARCHAR(80),
-  payload JSON NOT NULL,
-  created_at DATETIME(3),
-  INDEX idx_insights_game (game_id)
-);
-
-push_subscriptions (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  user_id CHAR(36),
-  endpoint_hash VARCHAR(128) NOT NULL,
-  subscription_json JSON NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  created_at DATETIME(3),
-  last_used_at DATETIME(3)
-);
-
-external_channels (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  provider VARCHAR(64) NOT NULL,
-  display_name VARCHAR(255),
-  external_channel_id VARCHAR(160),
-  status VARCHAR(32) NOT NULL,
-  connected_by CHAR(36),
-  connected_at DATETIME(3),
-  metadata_json JSON
-);
-
-media_publications (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  game_id CHAR(36) NOT NULL,
-  provider VARCHAR(64) NOT NULL,
-  external_broadcast_id VARCHAR(160),
-  external_stream_id VARCHAR(160),
-  external_video_id VARCHAR(160),
-  watch_url TEXT,
-  title VARCHAR(255),
-  visibility VARCHAR(32),
-  status VARCHAR(64),
-  scheduled_start_at DATETIME(3),
-  started_at DATETIME(3),
-  ended_at DATETIME(3),
-  metadata_json JSON,
-  INDEX idx_media_publications_game (game_id)
-);
-
-media_markers (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  game_id CHAR(36) NOT NULL,
-  publication_id CHAR(36),
-  source_event_id CHAR(36),
-  provider VARCHAR(64),
-  timecode VARCHAR(32),
-  label VARCHAR(255),
-  tags_json JSON,
-  created_at DATETIME(3),
-  INDEX idx_media_markers_game (game_id),
-  INDEX idx_media_markers_event (source_event_id)
-);
-```
-
-Las tablas completas del módulo de seguridad, incluyendo usuarios, roles, sesiones, capacidades y auditoría fuerte, se definen en el documento específico de seguridad.
+> ⏳ Pendiente: crear `infra/mysql/migrations/002_v3_tables.sql` — el DDL completo de estas tablas no debe vivir en el ADR.
 
 ---
 
-## 27. PLATAFORMA DE DESARROLLO — COSTO CERO
+## 27–28. SETUP LOCAL Y VARIABLES DE ENTORNO
 
-### 27.1 Herramientas requeridas
-
-| Herramienta | Versión | Propósito | Costo |
-|------------|---------|-----------|-------|
-| Node.js | 20 LTS | Runtime | $0 |
-| pnpm | 9.x | Package manager | $0 |
-| Docker Desktop | Latest | MySQL local + builds | $0 |
-| Git | Any | Control de versiones | $0 |
-| VS Code | Latest | IDE recomendado | $0 |
-| OBS Studio | 30+ | Testing de Browser Sources | $0 |
-
-### 27.2 Stack local con Docker Compose
-
-```yaml
-services:
-  db:
-    image: mysql:8.0
-    ports: ["3306:3306"]
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: playflow_db
-      MYSQL_USER: playflow_app
-      MYSQL_PASSWORD: dev_password
-    volumes:
-      - db_dev_data:/var/lib/mysql
-      - ./infra/mysql/migrations:/docker-entrypoint-initdb.d
-
-  server:
-    image: playflow-server:latest
-    build: apps/studio
-    ports: ["8080:8080"]
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: mysql://playflow_app:dev_password@db:3306/playflow_db
-    depends_on: [db]
-
-volumes:
-  db_dev_data:
-```
-
-### 27.3 Puertos fijos
-
-| Servicio | Puerto | Notas |
-|---------|--------|-------|
-| Express API + WS | `:3001` | Dev local |
-| Vite SPA | `:5173` | `strictPort: true` |
-| MySQL | `:3306` | Docker Compose y local |
-| Docker full | `:8080` | Producción simulada |
-
----
-
-## 28. VARIABLES DE ENTORNO
-
-### 28.1 Producción
-
-```bash
-NODE_ENV=production
-PORT=8080
-DATABASE_URL=mysql://playflow_app:***@playflow-db.mysql.database.azure.com:3306/playflow_db
-ALLOWED_ORIGIN=https://playflow-overlays.azurestaticapps.net
-
-# Seguridad — valores detallados en documento de seguridad
-AUTH_ENABLED=true
-JWT_ISSUER=playflow
-JWT_AUDIENCE=playflow-app
-OTP_TTL_MINUTES=10
-
-# Web Push
-VAPID_PUBLIC_KEY=***
-VAPID_PRIVATE_KEY=***
-VAPID_SUBJECT=mailto:admin@playflow.local
-
-# Media Publishing / YouTube
-YOUTUBE_INTEGRATION_ENABLED=false
-YOUTUBE_CLIENT_ID=***
-YOUTUBE_CLIENT_SECRET=***
-YOUTUBE_REDIRECT_URI=https://playflow-server.azurewebsites.net/api/media/youtube/oauth/callback
-```
-
-### 28.2 Desarrollo
-
-```bash
-NODE_ENV=development
-PORT=3001
-DATABASE_URL=mysql://playflow_app:dev_password@localhost:3306/playflow_db
-AUTH_ENABLED=false
-```
-
-### 28.3 Vite build
-
-```bash
-VITE_API_URL=https://playflow-server.azurewebsites.net/api
-VITE_WS_URL=wss://playflow-server.azurewebsites.net
-```
+→ Ver `docs/development/SETUP.md` para:
+- Herramientas requeridas y versiones
+- Configuración con Docker Compose
+- Puertos fijos (API `:3001`, Vite `:5173`, MySQL `:3306`)
+- Variables de entorno de desarrollo y producción
+- Variables Vite para build
 
 ---
 
@@ -2275,65 +2029,14 @@ si el usuario abre la PWA, consulta estado actual
 
 ---
 
-## 33. FLUJO DE DESARROLLO
+## 33–34. FLUJO DE DESARROLLO Y PIPELINE CI/CD
 
-Se mantiene el flujo de ADR v2.0.
+→ Ver `docs/development/SETUP.md` para:
+- Pipeline CI/CD (comandos de validación y deploy)
+- Branching strategy (main/dev/insiders/squad/*)
+- Deploy manual a producción (hasta que el pipeline esté automatizado)
 
-### 33.1 Branching strategy
-
-```text
-main         → Código estable aprobado (merges desde dev únicamente)
-dev          → Integración continua — toda feature land aquí
-insiders     → Early access, sincronizado desde dev
-squad/*      → Ramas feature/fix (naming: squad/{issue}-{slug})
-```
-
-> El deploy a producción se ejecuta manualmente hasta que el pipeline CI/CD esté implementado (ver tarea #27/#28 en sección 36.2).
-
-### 33.2 Reglas
-
-```text
-Nunca push directo a main ni dev
-Todo trabajo parte de dev
-PR siempre targeta dev
-main solo recibe merges de dev
-```
-
----
-
-## 34. PIPELINE CI/CD
-
-### 34.1 CI
-
-```text
-pnpm install
-pnpm turbo typecheck
-pnpm turbo lint
-pnpm turbo test
-```
-
-### 34.2 Deploy
-
-```text
-docker build -t playflowacr.azurecr.io/playflow-server:{sha}
-docker push playflowacr.azurecr.io/playflow-server:{sha}
-deploy App Service playflow-server
-pnpm turbo build --filter studio
-deploy dist/ → playflow-overlays
-```
-
-### 34.3 Nuevas validaciones recomendadas
-
-Agregar a CI:
-
-```text
-validar JSON schema de FlowDefinition
-validar contratos IC-003
-validar migrations MySQL
-validar tests de autorización mínima
-validar lint de packages/*
-validar build de overlays nuevos
-```
+→ Ver `docs/development/DEVELOPMENT-CYCLE.md` para estándares de desarrollo, convenciones de commit y reglas de PRs.
 
 ---
 
