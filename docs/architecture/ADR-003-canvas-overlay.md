@@ -37,7 +37,7 @@ OBS — modelo anterior (12+ Browser Sources):
 
 ```
 OBS/Meld Studio — modelo nuevo (1 Browser Source):
-└── http://broadcast-server/broadcast   [1920×1080, Allow transparency: ON]
+└── http://localhost:3001/broadcast   [1920×1080, Allow transparency: ON]
     │
     └── BroadcastCanvas (React)
         ├── background: transparent
@@ -89,7 +89,7 @@ OBS/Meld Studio — modelo nuevo (1 Browser Source):
 
 ```
 Browser Source:
-  URL:    http://broadcast-server.azurewebsites.net/broadcast
+  URL:    http://playflow-server.azurewebsites.net/broadcast
   Width:  1920
   Height: 1080
   ☑ Allow transparency (OBLIGATORIO)

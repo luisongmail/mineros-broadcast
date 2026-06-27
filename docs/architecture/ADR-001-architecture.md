@@ -12,7 +12,7 @@
 ## 1. VISIÓN GENERAL DEL SISTEMA
 
 **Nombre del producto:** PlayFlow  
-**Nombre técnico interno:** `broadcast-server`  
+**Nombre técnico interno:** `playflow-server`  
 **Propósito:** Sistema de overlays en tiempo real para transmisiones de béisbol. Controla la presentación visual desde un panel de operador y distribuye overlays a múltiples fuentes en OBS/Meld Studio vía WebSocket. Incluye un módulo de scoring en vivo (LiveGameScoring) con captura de pitches y at-bats compatible con estándares MLBAM/WBSC.
 
 ### Audiencia
@@ -35,7 +35,7 @@
                        │                  │
               ┌────────▼────────┐  ┌──────▼──────────────────────────┐
               │  Static Web App │  │     App Service B1 Linux        │
-              │  broadcast-     │  │     broadcast-server            │
+              │  playflow-      │  │     playflow-server            │
               │  overlays       │  │     $12.41/mes                  │
               │  (Free Tier)    │  │                                  │
               │                 │  │  Node.js + Express + WS         │
@@ -47,17 +47,17 @@
               └─────────────────┘                 │
                                    ┌──────────────▼─────────────────┐
                                    │  MySQL Flexible Server B1MS    │
-                                   │  broadcast-db                  │
+                                   │  playflow-db                  │
                                    │  $12.41/mes + storage $3.20    │
                                    │                                │
-                                   │  DB: broadcast_db              │
-                                   │  User: broadcast_app           │
+                                   │  DB: playflow_db              │
+                                   │  User: playflow_app           │
                                    │                                │
                                    │  • teams / players / games     │
                                    │  • game_lineups / at_bats      │
                                    │  • sponsors / campaigns        │
                                    │  • operator_actions (auditoría)│
-                                   │  • broadcast_sessions (estado) │
+                                   │  • playflow_sessions (estado) │
                                    └────────────────────────────────┘
 
 Costo total producción: ~$33/mes
@@ -75,26 +75,26 @@ Los identificadores de infraestructura son **funcionales y desacoplados del clie
 
 | Identificador | Valor | Contexto |
 |--------------|-------|---------|
-| Nombre de base de datos | `broadcast_db` | MySQL, local y producción |
-| Usuario de base de datos | `broadcast_app` | MySQL, mínimos privilegios |
-| Imagen Docker | `broadcast-server` | Docker Hub / ACR |
-| Contenedor Docker | `broadcast-server` | docker-compose, local |
-| Azure App Service | `broadcast-server` | Portal Azure |
-| Azure MySQL Server | `broadcast-db` | Portal Azure |
-| Azure Container Registry | `broadcastacr` | Portal Azure (sin guiones) |
-| Azure Static Web App | `broadcast-overlays` | Portal Azure |
-| Azure Resource Group | `rg-broadcast-prod-eastus` | Portal Azure (CAF compliant) |
-| Tag de imagen producción | `broadcast-server:{git-sha}` | Pipeline CI/CD |
-| Tag de imagen latest | `broadcast-server:latest` | docker-compose local |
+| Nombre de base de datos | `playflow_db` | MySQL, local y producción |
+| Usuario de base de datos | `playflow_app` | MySQL, mínimos privilegios |
+| Imagen Docker | `playflow-server` | Docker Hub / ACR |
+| Contenedor Docker | `playflow-server` | docker-compose, local |
+| Azure App Service | `playflow-server` | Portal Azure |
+| Azure MySQL Server | `playflow-db` | Portal Azure |
+| Azure Container Registry | `playflowacr` | Portal Azure (sin guiones) |
+| Azure Static Web App | `playflow-overlays` | Portal Azure |
+| Azure Resource Group | `rg-playflow-prod-eastus` | Portal Azure (CAF compliant) |
+| Tag de imagen producción | `playflow-server:{git-sha}` | Pipeline CI/CD |
+| Tag de imagen latest | `playflow-server:latest` | docker-compose local |
 
 ### 3.3 DATABASE_URL por entorno
 
 ```bash
 # Desarrollo local (Docker Compose)
-DATABASE_URL=mysql://broadcast_app:***@localhost:3306/broadcast_db
+DATABASE_URL=mysql://playflow_app:***@localhost:3306/playflow_db
 
 # Producción Azure
-DATABASE_URL=mysql://broadcast_app:***@broadcast-db.mysql.database.azure.com:3306/broadcast_db
+DATABASE_URL=mysql://playflow_app:***@playflow-db.mysql.database.azure.com:3306/playflow_db
 ```
 
 ---
@@ -105,7 +105,7 @@ DATABASE_URL=mysql://broadcast_app:***@broadcast-db.mysql.database.azure.com:330
 
 | Propiedad | Valor |
 |----------|-------|
-| Nombre | `rg-broadcast-prod-eastus` |
+| Nombre | `rg-playflow-prod-eastus` |
 | Región | East US (Virginia) |
 | Convención | Azure CAF: `rg-{workload}-{environment}-{region}` |
 | Propósito | Agrupar y gestionar todos los recursos del sistema como una unidad |
@@ -113,15 +113,15 @@ DATABASE_URL=mysql://broadcast_app:***@broadcast-db.mysql.database.azure.com:330
 **Todos los recursos Azure residen en este grupo:**
 
 ```
-rg-broadcast-prod-eastus/
-├── broadcast-server          ← App Service Plan B1 + Web App (Node.js)
-├── broadcast-db              ← MySQL Flexible Server B1ms
-├── broadcastacr              ← Azure Container Registry (Basic)
-└── broadcast-overlays        ← Static Web App (Free)
+rg-playflow-prod-eastus/
+├── playflow-server          ← App Service Plan B1 + Web App (Node.js)
+├── playflow-db              ← MySQL Flexible Server B1ms
+├── playflowacr              ← Azure Container Registry (Basic)
+└── playflow-overlays        ← Static Web App (Free)
 ```
 
 **Beneficios de agrupar:**
-- Un solo comando para eliminar toda la infraestructura: `az group delete --name rg-broadcast-prod-eastus`
+- Un solo comando para eliminar toda la infraestructura: `az group delete --name rg-playflow-prod-eastus`
 - Control de acceso (IAM) aplicado al grupo aplica a todos los recursos
 - Monitoreo y costos agrupados en Azure Portal
 - Todos los recursos en la misma región East US — sin latencia inter-región
@@ -132,11 +132,11 @@ rg-broadcast-prod-eastus/
 
 | Propiedad | Valor |
 |----------|-------|
-| Nombre Azure | `broadcast-overlays` |
+| Nombre Azure | `playflow-overlays` |
 | Costo | $0/mes |
 | Propósito | Servir páginas de overlay para OBS (Browser Source) |
 | Rutas | `/overlay/:id` |
-| Build | `pnpm turbo build --filter overlay-server` → `dist/` |
+| Build | `pnpm turbo build --filter studio` → `dist/` |
 | CDN | Global automático (Microsoft CDN) |
 | CI/CD | GitHub Actions integrado automáticamente |
 | Actualización | En cada push a `main` en paths de overlays |
@@ -147,10 +147,10 @@ rg-broadcast-prod-eastus/
 
 | Propiedad | Valor |
 |----------|-------|
-| Nombre Azure | `broadcast-server` |
+| Nombre Azure | `playflow-server` |
 | Costo | $12.41/mes |
 | SKU | B1ms — 1 vCPU, 1.75 GB RAM |
-| Runtime | Docker container (imagen `broadcast-server:{sha}`) |
+| Runtime | Docker container (imagen `playflow-server:{sha}`) |
 | Puerto interno | 8080 |
 | Rutas servidas | `/api/*`, `wss://`, `/control`, `/scorer` |
 | Persistencia | `/home` persistente entre reinicios |
@@ -160,18 +160,18 @@ rg-broadcast-prod-eastus/
 - WebSocket hub: broadcast de estado a todos los clientes conectados
 - REST API: recibir comandos del operador y scorer
 - Game State: fuente única de verdad deportiva en memoria + write-through a MySQL
-- Restore on startup: leer último estado de `broadcast_sessions` al arrancar
+- Restore on startup: leer último estado de `playflow_sessions` al arrancar
 
 ### 4.3 MySQL Flexible Server B1MS
 
 | Propiedad | Valor |
 |----------|-------|
-| Nombre Azure | `broadcast-db` |
+| Nombre Azure | `playflow-db` |
 | Costo | $12.41/mes compute + $3.20/mes storage 32GB |
 | Versión | MySQL 8.0 |
 | SKU | B1ms — 1 vCPU, 2 GB RAM |
-| Base de datos | `broadcast_db` |
-| Usuario app | `broadcast_app` |
+| Base de datos | `playflow_db` |
+| Usuario app | `playflow_app` |
 | Conexiones máx. | 85 conexiones concurrentes |
 | Backup | 7 días automático incluido |
 | Acceso | Solo desde App Service (Private Access / VNet) |
@@ -180,9 +180,9 @@ rg-broadcast-prod-eastus/
 
 | Propiedad | Valor |
 |----------|-------|
-| Nombre Azure | `broadcastacr` |
+| Nombre Azure | `playflowacr` |
 | Costo | $5.00/mes (Basic tier) |
-| Propósito | Almacenar imagen Docker `broadcast-server` |
+| Propósito | Almacenar imagen Docker `playflow-server` |
 | Retención | Últimas 5 imágenes por tag |
 
 ---
@@ -194,7 +194,7 @@ rg-broadcast-prod-eastus/
 ```
 playflow/                             ← raíz del monorepo
 ├── apps/
-│   └── studio/                       ← app principal (antes overlay-server)
+│   └── studio/                       ← app principal (antes studio)
 │       ├── server/                   ← Node.js Express + WebSocket
 │       │   ├── index.ts              ← entry point, CORS, static files
 │       │   ├── stateStore.ts         ← game state + broadcast hub + RunnerOnBaseWithPitcher
@@ -291,7 +291,7 @@ playflow/                             ← raíz del monorepo
 
 ```sql
 -- ─── ESTADO DE TRANSMISIÓN ────────────────────────────────────────────
-broadcast_sessions  (id, game_id, state_json JSON, started_at, updated_at)
+playflow_sessions  (id, game_id, state_json JSON, started_at, updated_at)
 
 -- ─── IDENTIDAD / ESTRUCTURA ───────────────────────────────────────────
 associations        (id, name, country_code, ...)
@@ -429,20 +429,20 @@ services:
     ports: ["3306:3306"]
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: broadcast_db
-      MYSQL_USER: broadcast_app
+      MYSQL_DATABASE: playflow_db
+      MYSQL_USER: playflow_app
       MYSQL_PASSWORD: dev_password
     volumes:
       - db_dev_data:/var/lib/mysql
       - ./infra/mysql/migrations:/docker-entrypoint-initdb.d
 
   server:
-    image: broadcast-server:latest
+    image: playflow-server:latest
     build: apps/studio              # ← directorio correcto
     ports: ["8080:8080"]
     environment:
       NODE_ENV: production
-      DATABASE_URL: mysql://broadcast_app:dev_password@db:3306/broadcast_db
+      DATABASE_URL: mysql://playflow_app:dev_password@db:3306/playflow_db
     depends_on: [db]
 
 volumes:
@@ -487,8 +487,8 @@ docker compose up --build        # app completa en Docker :8080
 ```bash
 NODE_ENV=production
 PORT=8080
-DATABASE_URL=mysql://broadcast_app:***@broadcast-db.mysql.database.azure.com:3306/broadcast_db
-ALLOWED_ORIGIN=https://broadcast-overlays.azurestaticapps.net
+DATABASE_URL=mysql://playflow_app:***@playflow-db.mysql.database.azure.com:3306/playflow_db
+ALLOWED_ORIGIN=https://playflow-overlays.azurestaticapps.net
 ```
 
 ### 8.2 Desarrollo local (`.env`)
@@ -496,7 +496,7 @@ ALLOWED_ORIGIN=https://broadcast-overlays.azurestaticapps.net
 ```bash
 NODE_ENV=development
 PORT=3001
-DATABASE_URL=mysql://broadcast_app:dev_password@localhost:3306/broadcast_db
+DATABASE_URL=mysql://playflow_app:dev_password@localhost:3306/playflow_db
 # ALLOWED_ORIGIN no requerido en dev (CORS abierto)
 ```
 
@@ -504,8 +504,8 @@ DATABASE_URL=mysql://broadcast_app:dev_password@localhost:3306/broadcast_db
 
 ```bash
 # Solo en CI/CD para el build de Static Web App
-VITE_API_URL=https://broadcast-server.azurewebsites.net/api
-VITE_WS_URL=wss://broadcast-server.azurewebsites.net
+VITE_API_URL=https://playflow-server.azurewebsites.net/api
+VITE_WS_URL=wss://playflow-server.azurewebsites.net
 ```
 
 ---
@@ -556,9 +556,9 @@ squad/*      ── Ramas de feature/fix por agentes e issues
 6. Cuando dev está estable → PR dev → main (release)
 
 7. GitHub Actions Deploy (automático en push a main)
-   ├── Build Docker → push a broadcastacr
-   ├── Deploy imagen → broadcast-server (App Service)
-   └── Build SPA → deploy → broadcast-overlays (Static Web App)
+   ├── Build Docker → push a playflowacr
+   ├── Deploy imagen → playflow-server (App Service)
+   └── Build SPA → deploy → playflow-overlays (Static Web App)
 ```
 
 ### 9.3 Naming de ramas
@@ -594,16 +594,16 @@ jobs:
 ```
 jobs:
   build-and-push-docker:
-    - docker build -t broadcastacr.azurecr.io/broadcast-server:{sha}
-    - docker push broadcastacr.azurecr.io/broadcast-server:{sha}
+    - docker build -t playflowacr.azurecr.io/playflow-server:{sha}
+    - docker push playflowacr.azurecr.io/playflow-server:{sha}
     - az webapp config container set \
-        --name broadcast-server \
-        --resource-group broadcast-prod-rg \
-        --docker-custom-image-name broadcastacr.azurecr.io/broadcast-server:{sha}
+        --name playflow-server \
+        --resource-group playflow-prod-rg \
+        --docker-custom-image-name playflowacr.azurecr.io/playflow-server:{sha}
 
   deploy-static-web-app:
-    - pnpm turbo build --filter overlay-server
-    - Deploy dist/ → broadcast-overlays (SWA token)
+    - pnpm turbo build --filter studio
+    - Deploy dist/ → playflow-overlays (SWA token)
 ```
 
 ### 10.3 GitHub Secrets requeridos
@@ -611,9 +611,9 @@ jobs:
 | Secret | Descripción |
 |--------|-------------|
 | `AZURE_CREDENTIALS` | Service Principal JSON para `az` CLI |
-| `ACR_USERNAME` | Usuario de `broadcastacr` |
-| `ACR_PASSWORD` | Password de `broadcastacr` |
-| `AZURE_WEBAPP_NAME` | `broadcast-server` |
+| `ACR_USERNAME` | Usuario de `playflowacr` |
+| `ACR_PASSWORD` | Password de `playflowacr` |
+| `AZURE_WEBAPP_NAME` | `playflow-server` |
 | `DATABASE_URL` | Conexión MySQL producción |
 | `ALLOWED_ORIGIN` | URL del Static Web App |
 | `AZURE_STATIC_WEB_APPS_API_TOKEN` | Token de deploy SWA |
@@ -709,12 +709,12 @@ POST /api/games/:gameId/game-events      — registrar evento arbitrario
 
 | Recurso | Nombre Azure | SKU | Costo/mes |
 |---------|-------------|-----|----------|
-| **Resource Group** | `rg-broadcast-prod-eastus` | — | $0.00 |
-| App Service Plan | `broadcast-server` | B1 Linux | $12.41 |
-| MySQL Flexible | `broadcast-db` | B1ms | $12.41 |
+| **Resource Group** | `rg-playflow-prod-eastus` | — | $0.00 |
+| App Service Plan | `playflow-server` | B1 Linux | $12.41 |
+| MySQL Flexible | `playflow-db` | B1ms | $12.41 |
 | MySQL Storage | — | 32 GB | $3.20 |
-| Static Web App | `broadcast-overlays` | Free | $0.00 |
-| Container Registry | `broadcastacr` | Basic | $5.00 |
+| Static Web App | `playflow-overlays` | Free | $0.00 |
+| Container Registry | `playflowacr` | Basic | $5.00 |
 | **Total** | | | **~$33/mes** |
 
 ### 13.2 Desarrollo
@@ -736,8 +736,8 @@ POST /api/games/:gameId/game-events      — registrar evento arbitrario
 |--------|---------|
 | Schema MySQL | 31 tablas — `000_playflow_seed.sql` + `001_gap_fields.sql` |
 | mysql2 integration | `db.ts` con pool de conexiones |
-| write-through game state | `broadcast_sessions` actualizado en cada comando WS |
-| restore-on-startup | Lee último estado de `broadcast_sessions` al arrancar |
+| write-through game state | `playflow_sessions` actualizado en cada comando WS |
+| restore-on-startup | Lee último estado de `playflow_sessions` al arrancar |
 | Docker Compose | MySQL + App Service en local, puertos fijos documentados |
 | `.env.example` | Tabla de puertos y variables documentadas |
 | Scorer en vivo (`/live-game-scoring`) | Pitches, at-bats, log unificado, bloqueo in_play |
