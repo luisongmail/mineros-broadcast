@@ -35,6 +35,8 @@ interface BaserunningRequest {
   gameId: string;
   eventType: BaserunningEventType;
   runners: RunnerMove[];
+  /** Timecode del stream de transmisión, ej. "1:23:45.500" */
+  videoTimestamp?: string;
 }
 
 // Earned run types (pitcher is responsible)
@@ -78,7 +80,7 @@ baserunningRouter.post('/', async (req: Request, res: Response) => {
   }
 
   const state = stateStore.getState();
-  const { inning, inningHalf } = state;
+  const { inning, inningHalf, outs } = state;
   const isEarnedEvent = EARNED_EVENTS.has(body.eventType);
 
   try {
@@ -87,13 +89,14 @@ baserunningRouter.post('/', async (req: Request, res: Response) => {
       const earnedRun = move.runScored ? (isEarnedEvent ? 1 : 0) : 0;
       await pool.query(
         `INSERT INTO baserunning_events
-         (game_id, inning, inning_half, event_type, runner_label, player_id, player_num,
-          from_base, to_base, run_scored, earned_run, fielder_pos, operator_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (game_id, inning, inning_half, outs_before, event_type, runner_label, player_id, player_num,
+          from_base, to_base, run_scored, earned_run, fielder_pos, operator_id, video_timestamp)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           body.gameId,
           inning,
           inningHalf,
+          outs,                          // momento de la transmisión: outs antes del evento
           body.eventType,
           move.runnerLabel,
           move.playerId ?? null,
@@ -104,6 +107,7 @@ baserunningRouter.post('/', async (req: Request, res: Response) => {
           earnedRun,
           move.fielderPos ?? null,
           'live-game-scoring',
+          body.videoTimestamp ?? null,   // timecode del stream
         ],
       );
     }
