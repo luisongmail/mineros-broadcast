@@ -20,10 +20,16 @@ type MysqlGameRow = {
   id: string;
   status: string;
   scheduled_at: string;
-  venue?: string | null;
+  venue_id?: string | null;
+  venue_name?: string | null;
   season?: string | null;
   game_number?: number | null;
   game_name?: string | null;
+  game_type?: string | null;
+  series_description?: string | null;
+  games_in_series?: number | null;
+  double_header?: string | null;
+  weather?: Record<string, unknown> | null;
   game_state?: Record<string, unknown> | null;
   home_team: MysqlTeamRow | null;
   away_team: MysqlTeamRow | null;
@@ -63,10 +69,16 @@ type MysqlGameQueryRow = RowDataPacket & {
   id: string;
   status: string;
   scheduled_at: string | Date;
-  venue: string | null;
+  venue_id?: string | null;
+  venue_name?: string | null;
   season: string | null;
   game_number: number | null;
   game_name: string | null;
+  game_type?: string | null;
+  series_description?: string | null;
+  games_in_series?: number | null;
+  double_header?: string | null;
+  weather?: Record<string, unknown> | null;
   game_state: Record<string, unknown> | null;
   ht_id: string | null;
   ht_name: string | null;
@@ -222,10 +234,16 @@ function mapGameRow(row: MysqlGameQueryRow): MysqlGameRow {
     id: row.id,
     status: row.status,
     scheduled_at: normalizeScheduledAt(row.scheduled_at),
-    venue: row.venue,
+    venue_id: row.venue_id,
+    venue_name: row.venue_name,
     season: row.season,
     game_number: row.game_number,
     game_name: row.game_name,
+    game_type: row.game_type,
+    series_description: row.series_description,
+    games_in_series: row.games_in_series,
+    double_header: row.double_header,
+    weather: row.weather ?? null,
     game_state: row.game_state,
     home_team: mapTeamRow(row, 'ht'),
     away_team: mapTeamRow(row, 'at'),
@@ -287,7 +305,7 @@ function normalizeGameDetail(gameRow: MysqlGameRow, lineupRows: MysqlLineupRow[]
     id: gameRow.id,
     status: parseString(gameRow.status, ['scheduled', 'pre_game', 'live', 'paused', 'between_innings', 'final', 'cancelled', 'suspended'] as const, 'scheduled'),
     scheduledAt: gameRow.scheduled_at,
-    venue: gameRow.venue ?? undefined,
+    venue: gameRow.venue_name ?? undefined,
     season: gameRow.season ?? undefined,
     gameNumber: gameRow.game_number ?? undefined,
     homeTeam,
@@ -331,10 +349,16 @@ async function getGamesFromMySQL(allStatuses = false): Promise<GameConfigDetail[
       g.id,
       g.status,
       g.scheduled_at,
-      g.venue,
+      g.venue_id,
+      v.name AS venue_name,
       g.season,
       g.game_number,
       g.game_name,
+      g.game_type,
+      g.series_description,
+      g.games_in_series,
+      g.double_header,
+      g.weather,
       g.game_state,
       ht.id AS ht_id,
       ht.name AS ht_name,
@@ -353,6 +377,7 @@ async function getGamesFromMySQL(allStatuses = false): Promise<GameConfigDetail[
       at.primary_color AS at_primary_color,
       at.secondary_color AS at_secondary_color
     FROM games g
+    LEFT JOIN venues v ON g.venue_id = v.id
     LEFT JOIN teams ht ON g.home_team_id = ht.id
     LEFT JOIN teams at ON g.away_team_id = at.id
     ${statusFilter}
@@ -564,27 +589,43 @@ gameConfigRouter.post('/games/:id/reset', async (request: Request, response: Res
 // PUT /games/:id — actualizar campos editables del partido
 gameConfigRouter.put('/games/:id', async (request: Request, response: Response) => {
   const { id } = request.params;
-  const { gameName, venue, scheduledAt, homeTeamId, awayTeamId } = request.body as {
+  const {
+    gameName,
+    venue_id,
+    scheduledAt,
+    homeTeamId,
+    awayTeamId,
+    game_type,
+    series_description,
+    games_in_series,
+    double_header,
+    weather,
+  } = request.body as {
     gameName?: string | null;
-    venue?: string | null;
+    venue_id?: string | null;
     scheduledAt?: string | null;
     homeTeamId?: string | null;
     awayTeamId?: string | null;
+    game_type?: string | null;
+    series_description?: string | null;
+    games_in_series?: number | null;
+    double_header?: string | null;
+    weather?: Record<string, unknown> | null;
   };
 
   try {
     const pool = getDatabasePool();
 
     const updates: string[] = [];
-    const values: (string | null)[] = [];
+    const values: Array<string | number | null> = [];
 
     if (gameName !== undefined) {
       updates.push('game_name = ?');
       values.push(gameName?.trim() || null);
     }
-    if (venue !== undefined) {
-      updates.push('venue = ?');
-      values.push(venue?.trim() || null);
+    if (venue_id !== undefined) {
+      updates.push('venue_id = ?');
+      values.push(venue_id?.trim() || null);
     }
     if (scheduledAt !== undefined) {
       updates.push('scheduled_at = ?');
@@ -597,6 +638,26 @@ gameConfigRouter.put('/games/:id', async (request: Request, response: Response) 
     if (awayTeamId !== undefined) {
       updates.push('away_team_id = ?');
       values.push(awayTeamId?.trim() || null);
+    }
+    if (game_type !== undefined) {
+      updates.push('game_type = ?');
+      values.push(game_type?.trim() || null);
+    }
+    if (series_description !== undefined) {
+      updates.push('series_description = ?');
+      values.push(series_description?.trim() || null);
+    }
+    if (games_in_series !== undefined) {
+      updates.push('games_in_series = ?');
+      values.push(games_in_series ?? null);
+    }
+    if (double_header !== undefined) {
+      updates.push('double_header = ?');
+      values.push(double_header?.trim() || null);
+    }
+    if (weather !== undefined) {
+      updates.push('weather = ?');
+      values.push(weather === null ? null : JSON.stringify(weather));
     }
 
     if (updates.length === 0) {
@@ -615,13 +676,30 @@ gameConfigRouter.put('/games/:id', async (request: Request, response: Response) 
 
 // POST /games — crear un nuevo partido
 gameConfigRouter.post('/games', async (request: Request, response: Response) => {
-  const { gameName, venue, scheduledAt, homeTeamId, awayTeamId, status } = request.body as {
+  const {
+    gameName,
+    venue_id,
+    scheduledAt,
+    homeTeamId,
+    awayTeamId,
+    status,
+    game_type,
+    series_description,
+    games_in_series,
+    double_header,
+    weather,
+  } = request.body as {
     gameName?: string | null;
-    venue?: string | null;
+    venue_id?: string | null;
     scheduledAt?: string | null;
     homeTeamId?: string | null;
     awayTeamId?: string | null;
     status?: string;
+    game_type?: string | null;
+    series_description?: string | null;
+    games_in_series?: number | null;
+    double_header?: string | null;
+    weather?: Record<string, unknown> | null;
   };
 
   try {
@@ -630,16 +708,24 @@ gameConfigRouter.post('/games', async (request: Request, response: Response) => 
     const at = scheduledAt ?? new Date().toISOString();
 
     await pool.query(
-      `INSERT INTO games (id, game_name, venue, scheduled_at, home_team_id, away_team_id, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO games (
+         id, game_name, venue_id, scheduled_at, home_team_id, away_team_id, status,
+         game_type, series_description, games_in_series, double_header, weather
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         gameName?.trim() || null,
-        venue?.trim() || null,
+        venue_id?.trim() || null,
         at,
         homeTeamId?.trim() || null,
         awayTeamId?.trim() || null,
         status ?? 'scheduled',
+        game_type?.trim() || null,
+        series_description?.trim() || null,
+        games_in_series ?? null,
+        double_header?.trim() || null,
+        weather === null || weather === undefined ? null : JSON.stringify(weather),
       ],
     );
 

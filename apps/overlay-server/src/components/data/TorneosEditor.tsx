@@ -28,7 +28,7 @@ import { normalizeCategory, normalizeLeague, normalizeTeam, normalizeTournament,
 const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
 const emptyTournament = (): Tournament => ({
-  id: '', name: '', shortName: '', type: 'league', season: '',
+  id: '', name: '', shortName: '', mlbamId: '', wbscId: '', extRef: '', type: 'league', season: '',
   leagueId: '', categoryId: '',
   structureType: 'round_robin', roundRobinRounds: 1, hasPlayoffs: false,
   playoffFormat: '', startDate: '', endDate: '', status: 'upcoming',
@@ -124,10 +124,21 @@ export function TorneosEditor() {
     setError(null);
     try {
       const isNew = !editingId.current;
+      let extRefPayload: Record<string, unknown> | null = null;
+      if (form.extRef.trim()) {
+        const parsed = JSON.parse(form.extRef) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('ext_ref debe ser un objeto JSON válido.');
+        }
+        extRefPayload = parsed as Record<string, unknown>;
+      }
       const payload = {
         id: isNew ? generateId(form.name) : form.id,
         name: form.name,
         short_name: form.shortName,
+        mlbam_id: form.mlbamId || null,
+        wbsc_id: form.wbscId || null,
+        ext_ref: extRefPayload,
         type: form.type,
         season: form.season,
         league_id: form.leagueId || null,
@@ -314,6 +325,17 @@ export function TorneosEditor() {
           </div>
 
           <div className="grid grid-cols-2 gap-2">
+            <Field label="MLBAM ID">
+              <input className={fieldClass} value={form.mlbamId}
+                onChange={(e) => setForm((f) => ({ ...f, mlbamId: e.target.value }))} />
+            </Field>
+            <Field label="WBSC ID">
+              <input className={fieldClass} value={form.wbscId}
+                onChange={(e) => setForm((f) => ({ ...f, wbscId: e.target.value }))} />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
             <Field label="Formato">
               <SearchSelect
                 options={[
@@ -349,6 +371,15 @@ export function TorneosEditor() {
                 onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} />
             </Field>
           </div>
+
+          <Field label="Ext Ref (JSON)">
+            <textarea
+              className={`${fieldClass} min-h-24 font-mono text-[11px]`}
+              value={form.extRef}
+              onChange={(e) => setForm((f) => ({ ...f, extRef: e.target.value }))}
+              placeholder='{"provider":"mlbam"}'
+            />
+          </Field>
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => { void handleSave(); }} disabled={saving} className={primaryButtonClass}>

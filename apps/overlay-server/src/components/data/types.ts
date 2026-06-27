@@ -13,6 +13,9 @@ export type Team = {
   fullName: string;
   shortName: string;
   abbreviation: string;
+  mlbamId: string;
+  wbscId: string;
+  teamCode: string;
   city: string;
   country: string;
   clubId: string;
@@ -54,6 +57,8 @@ export type League = {
   id: string;
   name: string;
   shortName: string;
+  mlbamId: string;
+  wbscId: string;
   country: string;
   logoAssetId: string;
   active: boolean;
@@ -80,6 +85,9 @@ export type Tournament = {
   id: string;
   name: string;
   shortName: string;
+  mlbamId: string;
+  wbscId: string;
+  extRef: string;
   type: string;
   season: string;
   leagueId: string;
@@ -155,6 +163,9 @@ export function normalizeTeam(value: unknown): Team {
     fullName: asString(raw.fullName, asString(raw.full_name, asString(raw.name, ''))),
     shortName: asString(raw.shortName, asString(raw.short_name, '')),
     abbreviation: asString(raw.abbreviation, asString(raw.abbr, '')),
+    mlbamId: asString(raw.mlbamId, asString(raw.mlbam_id, '')),
+    wbscId: asString(raw.wbscId, asString(raw.wbsc_id, '')),
+    teamCode: asString(raw.teamCode, asString(raw.team_code, '')),
     city: asString(raw.city),
     country: asString(raw.country),
     clubId: asString(raw.clubId, asString(raw.club_id, '')),
@@ -203,6 +214,8 @@ export function normalizeLeague(value: unknown): League {
     id: asString(raw.id, asString(raw.league_id, '')),
     name: asString(raw.name),
     shortName: asString(raw.shortName, asString(raw.short_name, '')),
+    mlbamId: asString(raw.mlbamId, asString(raw.mlbam_id, '')),
+    wbscId: asString(raw.wbscId, asString(raw.wbsc_id, '')),
     country: asString(raw.country),
     logoAssetId: asString(raw.logoAssetId, asString(raw.logo_asset_id, '')),
     active: asBoolean(raw.active, true),
@@ -253,6 +266,13 @@ export function normalizeTournament(value: unknown): Tournament {
     id: asString(raw.id, asString(raw.tournament_id, '')),
     name: asString(raw.name),
     shortName: asString(raw.shortName, asString(raw.short_name, '')),
+    mlbamId: asString(raw.mlbamId, asString(raw.mlbam_id, '')),
+    wbscId: asString(raw.wbscId, asString(raw.wbsc_id, '')),
+    extRef: typeof (raw.extRef ?? raw.ext_ref) === 'string'
+      ? asString(raw.extRef, asString(raw.ext_ref, ''))
+      : raw.extRef ?? raw.ext_ref
+        ? JSON.stringify(raw.extRef ?? raw.ext_ref, null, 2)
+        : '',
     type: asString(raw.type, 'league'),
     season: asString(raw.season, ''),
     leagueId: asString(raw.leagueId, asString(raw.league_id, '')),

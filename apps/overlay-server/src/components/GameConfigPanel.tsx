@@ -305,7 +305,7 @@ export function GameConfigPanel({ onGameLoaded, activeGameId }: GameConfigPanelP
                 )}
               </p>
               <p className="mt-0.5 text-[10px] text-white/50">{formatSchedule(selectedGame.scheduledAt)}</p>
-              <p className="mt-0.5 text-[10px] text-white/50">{selectedGame.venue ?? 'Sede por confirmar'} · {formatStatus(selectedGame.status)}</p>
+              <p className="mt-0.5 text-[10px] text-white/50">{selectedGame.venue ?? (selectedGame as { venueId?: string }).venueId ?? 'Sede por confirmar'} · {formatStatus(selectedGame.status)}</p>
             </>
           ) : null}
         </div>

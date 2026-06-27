@@ -34,6 +34,9 @@ interface TeamRow extends RowDataPacket {
   name: string;
   short_name: string;
   abbreviation: string | null;
+  mlbam_id: string | null;
+  wbsc_id: string | null;
+  team_code: string | null;
   logo_asset_id: string | null;
   logo_wordmark_asset_id: string | null;
   logo_alternate_asset_id: string | null;
@@ -47,6 +50,7 @@ interface TeamRow extends RowDataPacket {
   primary_color: string | null;
   secondary_color: string | null;
   founded_year: number | null;
+  ext_ref: unknown;
   active: 0 | 1;
   created_at: string | Date;
   updated_at: string | Date;
@@ -120,6 +124,9 @@ interface TeamPayload {
   name: string;
   short_name: string;
   abbreviation: string | null;
+  mlbam_id: string | null;
+  wbsc_id: string | null;
+  team_code: string | null;
   logo_asset_id: string | null;
   logo_wordmark_asset_id: string | null;
   logo_alternate_asset_id: string | null;
@@ -133,6 +140,7 @@ interface TeamPayload {
   primary_color: string | null;
   secondary_color: string | null;
   founded_year: number | null;
+  ext_ref: Record<string, unknown> | null;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -239,6 +247,9 @@ function mapTeam(row: TeamRow | DemoTeam): TeamPayload {
     name: row.name,
     short_name: row.short_name,
     abbreviation: r.abbreviation ?? null,
+    mlbam_id: ('mlbam_id' in r ? r.mlbam_id : null) ?? null,
+    wbsc_id: ('wbsc_id' in r ? r.wbsc_id : null) ?? null,
+    team_code: ('team_code' in r ? r.team_code : null) ?? null,
     logo_asset_id: row.logo_asset_id,
     logo_wordmark_asset_id: row.logo_wordmark_asset_id,
     logo_alternate_asset_id: row.logo_alternate_asset_id,
@@ -252,6 +263,7 @@ function mapTeam(row: TeamRow | DemoTeam): TeamPayload {
     primary_color: row.primary_color,
     secondary_color: row.secondary_color,
     founded_year: row.founded_year,
+    ext_ref: ('ext_ref' in r ? parseJsonColumn<Record<string, unknown>>(r.ext_ref, {}) : null),
     active: Boolean(row.active),
     created_at: toIsoString(row.created_at),
     updated_at: toIsoString(row.updated_at),
@@ -541,10 +553,11 @@ async function loadTeamDetail(teamId: string): Promise<TeamDetailPayload | null>
   }
 
     const [rows] = await pool.query<TeamRow[]>(
-      `SELECT t.id, t.name, t.short_name, t.abbreviation, t.logo_asset_id, t.logo_wordmark_asset_id, t.logo_alternate_asset_id,
+      `SELECT t.id, t.name, t.short_name, t.abbreviation, t.mlbam_id, t.wbsc_id, t.team_code,
+              t.logo_asset_id, t.logo_wordmark_asset_id, t.logo_alternate_asset_id,
               t.city, t.country, t.club_id, c.name AS club_name, c.federated AS club_federated,
               c.association_id AS club_association_id, a.name AS club_association_name,
-              t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at,
+              t.primary_color, t.secondary_color, t.founded_year, t.ext_ref, t.active, t.created_at, t.updated_at,
               (SELECT GROUP_CONCAT(tc2.category_id SEPARATOR ',') FROM team_categories tc2 WHERE tc2.team_id = t.id) AS category_ids_csv
        FROM teams t
        LEFT JOIN clubs c ON c.id = t.club_id
@@ -599,11 +612,11 @@ router.get('/teams', async (request: Request, response: Response) => {
     }
 
     const [rows] = await pool.query<TeamRow[]>(
-      `SELECT DISTINCT t.id, t.name, t.short_name, t.abbreviation, t.logo_asset_id, t.logo_wordmark_asset_id,
+      `SELECT DISTINCT t.id, t.name, t.short_name, t.abbreviation, t.mlbam_id, t.wbsc_id, t.team_code, t.logo_asset_id, t.logo_wordmark_asset_id,
               t.logo_alternate_asset_id, t.city, t.country, t.club_id,
               c.name AS club_name, c.federated AS club_federated,
               c.association_id AS club_association_id, a.name AS club_association_name,
-              t.primary_color, t.secondary_color, t.founded_year, t.active, t.created_at, t.updated_at,
+              t.primary_color, t.secondary_color, t.founded_year, t.ext_ref, t.active, t.created_at, t.updated_at,
               (SELECT GROUP_CONCAT(tc2.category_id SEPARATOR ',') FROM team_categories tc2 WHERE tc2.team_id = t.id) AS category_ids_csv
        FROM teams t
        LEFT JOIN clubs c ON c.id = t.club_id
@@ -663,14 +676,19 @@ router.post('/teams', async (request: Request, response: Response) => {
       await connection.beginTransaction();
       await connection.query<ResultSetHeader>(
         `INSERT INTO teams (
-          id, name, short_name, abbreviation, logo_asset_id, logo_wordmark_asset_id, logo_alternate_asset_id,
+          id, name, short_name, abbreviation, mlbam_id, wbsc_id, team_code, ext_ref,
+          logo_asset_id, logo_wordmark_asset_id, logo_alternate_asset_id,
           city, country, club_id, primary_color, secondary_color, founded_year, active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           name,
           shortName,
           optionalString(body.abbreviation)?.slice(0, 4).toUpperCase() ?? null,
+          optionalString(body.mlbam_id),
+          optionalString(body.wbsc_id),
+          optionalString(body.team_code)?.slice(0, 10) ?? null,
+          body.ext_ref === null ? null : body.ext_ref && typeof body.ext_ref === 'object' ? JSON.stringify(body.ext_ref) : null,
           optionalString(body.logo_asset_id),
           optionalString(body.logo_wordmark_asset_id),
           optionalString(body.logo_alternate_asset_id),
@@ -722,6 +740,9 @@ router.put('/teams/:id', async (request: Request, response: Response) => {
       ['name', 'name'],
       ['short_name', 'short_name'],
       ['abbreviation', 'abbreviation'],
+      ['mlbam_id', 'mlbam_id'],
+      ['wbsc_id', 'wbsc_id'],
+      ['team_code', 'team_code'],
       ['logo_asset_id', 'logo_asset_id'],
       ['logo_wordmark_asset_id', 'logo_wordmark_asset_id'],
       ['logo_alternate_asset_id', 'logo_alternate_asset_id'],
@@ -742,6 +763,17 @@ router.put('/teams/:id', async (request: Request, response: Response) => {
     if (Object.prototype.hasOwnProperty.call(body, 'founded_year')) {
       updates.push('founded_year = ?');
       params.push(optionalInteger(body.founded_year));
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'ext_ref')) {
+      updates.push('ext_ref = ?');
+      params.push(
+        body.ext_ref === null
+          ? null
+          : body.ext_ref && typeof body.ext_ref === 'object'
+            ? JSON.stringify(body.ext_ref)
+            : null,
+      );
     }
 
     const active = optionalBoolean(body.active);

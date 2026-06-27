@@ -30,7 +30,7 @@ import { normalizeLeague, type League } from './types';
 const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
 const emptyLeague = (): League => ({
-  id: '', name: '', shortName: '', country: '', logoAssetId: '', active: true,
+  id: '', name: '', shortName: '', mlbamId: '', wbscId: '', country: '', logoAssetId: '', active: true,
 });
 
 export function LigasEditor() {
@@ -92,6 +92,8 @@ export function LigasEditor() {
         sport_id: 'baseball',
         name: form.name,
         short_name: form.shortName,
+        mlbam_id: form.mlbamId || null,
+        wbsc_id: form.wbscId || null,
         country: form.country,
         logo_asset_id: form.logoAssetId || null,
         active: form.active,
@@ -224,6 +226,16 @@ export function LigasEditor() {
             <input className={fieldClass} value={form.country}
               onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} />
           </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="MLBAM ID">
+              <input className={fieldClass} value={form.mlbamId}
+                onChange={(e) => setForm((f) => ({ ...f, mlbamId: e.target.value }))} />
+            </Field>
+            <Field label="WBSC ID">
+              <input className={fieldClass} value={form.wbscId}
+                onChange={(e) => setForm((f) => ({ ...f, wbscId: e.target.value }))} />
+            </Field>
+          </div>
           <Field label="Logo (asset ID)">
             <div className="flex items-center gap-3">
               <input className={`${fieldClass} flex-1`} value={form.logoAssetId}

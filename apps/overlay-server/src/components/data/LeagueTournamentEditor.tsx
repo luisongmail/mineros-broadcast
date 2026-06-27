@@ -6,11 +6,14 @@ import { SearchSelect } from './SearchSelect';
 import { EmptyState, Feedback, Field, LoadingState, SectionCard, dangerButtonClass, fieldClass, primaryButtonClass, secondaryButtonClass, tableCellClass, tableHeaderClass, tableClass, tableBodyClass, tableHeadRowClass, tableRowClass } from './shared';
 import { normalizeCategory, normalizeLeague, normalizeTeam, normalizeTournament, type Category, type League, type Team, type Tournament, type TournamentGroup } from './types';
 
-const emptyLeague = (): League => ({ id: '', name: '', shortName: '', country: '', logoAssetId: '', active: true });
+const emptyLeague = (): League => ({ id: '', name: '', shortName: '', mlbamId: '', wbscId: '', country: '', logoAssetId: '', active: true });
 const emptyTournament = (): Tournament => ({
   id: '',
   name: '',
   shortName: '',
+  mlbamId: '',
+  wbscId: '',
+  extRef: '',
   type: 'league',
   season: '',
   leagueId: '',

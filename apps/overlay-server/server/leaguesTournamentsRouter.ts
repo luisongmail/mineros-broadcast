@@ -35,6 +35,8 @@ interface LeagueRow extends RowDataPacket {
   sport_id: string;
   name: string;
   short_name: string | null;
+  mlbam_id: string | null;
+  wbsc_id: string | null;
   country: string;
   level: string | null;
   logo_asset_id: string | null;
@@ -52,10 +54,13 @@ interface TournamentRow extends RowDataPacket {
   category_name?: string | null;
   name: string;
   short_name: string | null;
+  mlbam_id: string | null;
+  wbsc_id: string | null;
   type: string | null;
   season: string | null;
   start_date: string | Date | null;
   end_date: string | Date | null;
+  ext_ref: unknown;
   rules: unknown;
   logo_asset_id: string | null;
   banner_asset_id: string | null;
@@ -118,6 +123,8 @@ interface LeaguePayload {
   sport_id: string;
   name: string;
   short_name: string | null;
+  mlbam_id: string | null;
+  wbsc_id: string | null;
   country: string;
   level: string | null;
   logo_asset_id: string | null;
@@ -133,10 +140,13 @@ interface TournamentPayload {
   category_id: string | null;
   name: string;
   short_name: string | null;
+  mlbam_id: string | null;
+  wbsc_id: string | null;
   type: string | null;
   season: string | null;
   start_date: string | null;
   end_date: string | null;
+  ext_ref: Record<string, unknown> | null;
   rules: Record<string, unknown> | null;
   logo_asset_id: string | null;
   banner_asset_id: string | null;
@@ -207,6 +217,8 @@ function mapLeague(row: LeagueRow | DemoLeague): LeaguePayload {
     sport_id: row.sport_id,
     name: row.name,
     short_name: row.short_name,
+    mlbam_id: ('mlbam_id' in row ? row.mlbam_id : null) ?? null,
+    wbsc_id: ('wbsc_id' in row ? row.wbsc_id : null) ?? null,
     country: row.country,
     level: row.level,
     logo_asset_id: row.logo_asset_id,
@@ -224,10 +236,13 @@ function mapTournament(row: TournamentRow | DemoTournament): TournamentPayload {
     category_id: row.category_id,
     name: row.name,
     short_name: row.short_name,
+    mlbam_id: ('mlbam_id' in row ? row.mlbam_id : null) ?? null,
+    wbsc_id: ('wbsc_id' in row ? row.wbsc_id : null) ?? null,
     type: row.type,
     season: row.season,
     start_date: row.start_date ? toIsoString(row.start_date) : null,
     end_date: row.end_date ? toIsoString(row.end_date) : null,
+    ext_ref: ('ext_ref' in row ? parseJsonColumn<Record<string, unknown>>(row.ext_ref, {}) : null),
     rules: row.rules ? parseJsonColumn<Record<string, unknown>>(row.rules, {}) : null,
     logo_asset_id: row.logo_asset_id,
     banner_asset_id: row.banner_asset_id,
@@ -406,8 +421,8 @@ async function loadTournamentDetail(tournamentId: string): Promise<TournamentDet
   }
 
   const [rows] = await pool.query<TournamentRow[]>(
-    `SELECT t.id, t.league_id, t.category_id, t.name, t.short_name, t.type, t.season, t.start_date,
-            t.end_date, t.rules, t.logo_asset_id, t.banner_asset_id, t.trophy_asset_id, t.status,
+    `SELECT t.id, t.league_id, t.category_id, t.name, t.short_name, t.mlbam_id, t.wbsc_id, t.type, t.season, t.start_date,
+            t.end_date, t.ext_ref, t.rules, t.logo_asset_id, t.banner_asset_id, t.trophy_asset_id, t.status,
             t.structure_type, t.num_rounds, t.has_playoffs, t.playoff_format, t.created_at, t.updated_at,
             l.name AS league_name, c.name AS category_name
      FROM tournaments t
@@ -512,7 +527,7 @@ router.get('/leagues', async (_request: Request, response: Response) => {
     }
 
     const [rows] = await pool.query<LeagueRow[]>(
-      `SELECT id, sport_id, name, short_name, country, level, logo_asset_id, banner_asset_id,
+      `SELECT id, sport_id, name, short_name, mlbam_id, wbsc_id, country, level, logo_asset_id, banner_asset_id,
               active, created_at, updated_at
        FROM leagues
        WHERE active = 1
@@ -548,13 +563,15 @@ router.post('/leagues', async (request: Request, response: Response) => {
     }
 
     await pool.query<ResultSetHeader>(
-      `INSERT INTO leagues (id, sport_id, name, short_name, country, level, logo_asset_id, banner_asset_id, active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO leagues (id, sport_id, name, short_name, mlbam_id, wbsc_id, country, level, logo_asset_id, banner_asset_id, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         sportId,
         name,
         optionalString(body.short_name),
+        optionalString(body.mlbam_id),
+        optionalString(body.wbsc_id),
         optionalString(body.country) ?? 'DO',
         optionalString(body.level),
         optionalString(body.logo_asset_id),
@@ -564,7 +581,7 @@ router.post('/leagues', async (request: Request, response: Response) => {
     );
 
     const [rows] = await pool.query<LeagueRow[]>(
-      `SELECT id, sport_id, name, short_name, country, level, logo_asset_id, banner_asset_id,
+      `SELECT id, sport_id, name, short_name, mlbam_id, wbsc_id, country, level, logo_asset_id, banner_asset_id,
               active, created_at, updated_at
        FROM leagues WHERE id = ? LIMIT 1`,
       [id],
@@ -590,6 +607,8 @@ router.put('/leagues/:id', async (request: Request, response: Response) => {
       ['sport_id', 'sport_id'],
       ['name', 'name'],
       ['short_name', 'short_name'],
+      ['mlbam_id', 'mlbam_id'],
+      ['wbsc_id', 'wbsc_id'],
       ['country', 'country'],
       ['level', 'level'],
       ['logo_asset_id', 'logo_asset_id'],
@@ -626,7 +645,7 @@ router.put('/leagues/:id', async (request: Request, response: Response) => {
     }
 
     const [rows] = await pool.query<LeagueRow[]>(
-      `SELECT id, sport_id, name, short_name, country, level, logo_asset_id, banner_asset_id,
+      `SELECT id, sport_id, name, short_name, mlbam_id, wbsc_id, country, level, logo_asset_id, banner_asset_id,
               active, created_at, updated_at
        FROM leagues WHERE id = ? LIMIT 1`,
       [request.params.id],
@@ -697,7 +716,7 @@ router.get('/tournaments', async (request: Request, response: Response) => {
 
     const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
     const [rows] = await pool.query<TournamentRow[]>(
-      `SELECT id, league_id, category_id, name, short_name, type, season, start_date, end_date, rules,
+      `SELECT id, league_id, category_id, name, short_name, mlbam_id, wbsc_id, type, season, start_date, end_date, ext_ref, rules,
               logo_asset_id, banner_asset_id, trophy_asset_id, status, structure_type, num_rounds,
               has_playoffs, playoff_format, created_at, updated_at
        FROM tournaments
@@ -754,16 +773,19 @@ router.post('/tournaments', async (request: Request, response: Response) => {
       await connection.beginTransaction();
       await connection.query<ResultSetHeader>(
         `INSERT INTO tournaments (
-          id, league_id, category_id, name, short_name, type, season, start_date, end_date, rules,
+          id, league_id, category_id, name, short_name, mlbam_id, wbsc_id, ext_ref, type, season, start_date, end_date, rules,
           logo_asset_id, banner_asset_id, trophy_asset_id, status, structure_type, num_rounds,
           has_playoffs, playoff_format
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           leagueId,
           optionalString(body.category_id),
           name,
           optionalString(body.short_name),
+          optionalString(body.mlbam_id),
+          optionalString(body.wbsc_id),
+          body.ext_ref === null ? null : body.ext_ref && typeof body.ext_ref === 'object' ? JSON.stringify(body.ext_ref) : null,
           optionalString(body.type),
           optionalString(body.season),
           optionalString(body.start_date),
@@ -810,6 +832,8 @@ router.put('/tournaments/:id', async (request: Request, response: Response) => {
       ['category_id', 'category_id'],
       ['name', 'name'],
       ['short_name', 'short_name'],
+      ['mlbam_id', 'mlbam_id'],
+      ['wbsc_id', 'wbsc_id'],
       ['type', 'type'],
       ['season', 'season'],
       ['start_date', 'start_date'],
@@ -837,6 +861,17 @@ router.put('/tournaments/:id', async (request: Request, response: Response) => {
     if (Object.prototype.hasOwnProperty.call(body, 'rules')) {
       updates.push('rules = ?');
       params.push(JSON.stringify(body.rules && typeof body.rules === 'object' ? body.rules : {}));
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'ext_ref')) {
+      updates.push('ext_ref = ?');
+      params.push(
+        body.ext_ref === null
+          ? null
+          : body.ext_ref && typeof body.ext_ref === 'object'
+            ? JSON.stringify(body.ext_ref)
+            : null,
+      );
     }
 
     const hasPlayoffs = optionalBoolean(body.has_playoffs);

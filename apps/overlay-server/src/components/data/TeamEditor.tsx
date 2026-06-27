@@ -55,6 +55,7 @@ function normalizeClub(raw: unknown): Club {
 function emptyTeam(): Team {
   return {
     id: '', fullName: '', shortName: '', abbreviation: '',
+    mlbamId: '', wbscId: '', teamCode: '',
     city: '', country: 'DO',
     clubId: '', clubName: '', clubFederated: false,
     clubAssociationId: '', clubAssociationName: '',
@@ -165,6 +166,9 @@ export function TeamEditor() {
         name:            form.fullName,
         short_name:      form.shortName,
         abbreviation:    form.abbreviation ? form.abbreviation.slice(0, 4).toUpperCase() : null,
+        mlbam_id:        form.mlbamId || null,
+        wbsc_id:         form.wbscId || null,
+        team_code:       form.teamCode ? form.teamCode.slice(0, 10).toUpperCase() : null,
         logo_asset_id:   form.logoAssetId  || null,
         city:            form.city         || null,
         country:         form.country      || null,
@@ -346,6 +350,22 @@ export function TeamEditor() {
                 <input className={fieldClass} value={form.secondaryColor} onChange={(e) => setForm((f) => ({ ...f, secondaryColor: e.target.value }))} />
               </div>
             </Field>
+          </div>
+          <div className="border-t border-white/8 pt-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/40">Identificadores externos</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="MLBAM ID">
+                <input className={fieldClass} value={form.mlbamId} onChange={(e) => setForm((f) => ({ ...f, mlbamId: e.target.value }))} placeholder="123456" />
+              </Field>
+              <Field label="WBSC ID">
+                <input className={fieldClass} value={form.wbscId} onChange={(e) => setForm((f) => ({ ...f, wbscId: e.target.value }))} placeholder="WBSC-001" />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Código (ext.)">
+                <input className={fieldClass} maxLength={10} value={form.teamCode} onChange={(e) => setForm((f) => ({ ...f, teamCode: e.target.value.toUpperCase() }))} placeholder="MIN" />
+              </Field>
+            </div>
           </div>
 
           {/* Categorías */}

@@ -21,6 +21,7 @@ interface GameSummary {
   awayTeamName?: string;
   scheduledAt?: string;
   venue?: string;
+  venueId?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -143,7 +144,7 @@ function SponsorPicker({ allSponsors, assigned, onChange }: SponsorPickerProps) 
 function emptyForm(game?: GameSummary) {
   return {
     gameName:    game?.gameName    ?? '',
-    venue:       game?.venue       ?? '',
+    venueId:     game?.venueId     ?? '',
     scheduledAt: game?.scheduledAt ? game.scheduledAt.slice(0, 10) : '',
     status:      game?.status      ?? 'scheduled',
     homeTeamId:  game?.homeTeamId  ?? '',
@@ -255,6 +256,9 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
 
     // Inicializar form sincrónicamente con los datos del juego
     const baseForm = emptyForm(game);
+    if (!baseForm.venueId && game.venue) {
+      baseForm.venueId = allVenues.find((venue) => venue.name === game.venue)?.id ?? '';
+    }
     setForm(baseForm);
     setDrawerOpen(true);
 
@@ -278,6 +282,7 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
     setError(null);
     const homeTeam = allTeams.find((t) => t.id === form.homeTeamId);
     const awayTeam = allTeams.find((t) => t.id === form.awayTeamId);
+    const selectedVenue = allVenues.find((venue) => venue.id === form.venueId);
     try {
       if (!editingId) {
         // ── CREAR ──────────────────────────────────────────────────────────
@@ -286,7 +291,7 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             gameName:    form.gameName    || null,
-            venue:       form.venue       || null,
+            venue_id:    form.venueId     || null,
             scheduledAt: form.scheduledAt || null,
             homeTeamId:  form.homeTeamId  || null,
             awayTeamId:  form.awayTeamId  || null,
@@ -304,7 +309,8 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
             label:        form.gameName || `${homeTeam?.shortName ?? '?'} vs ${awayTeam?.shortName ?? '?'}`,
             gameName:     form.gameName || undefined,
             status:       form.status  || 'scheduled',
-            venue:        form.venue   || undefined,
+            venue:        selectedVenue?.name,
+            venueId:      form.venueId || undefined,
             scheduledAt:  form.scheduledAt || undefined,
             homeTeamId:   form.homeTeamId  || undefined,
             homeTeamName: homeTeam?.name,
@@ -323,7 +329,7 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gameName:    form.gameName    || null,
-          venue:       form.venue       || null,
+          venue_id:    form.venueId     || null,
           scheduledAt: form.scheduledAt || null,
           homeTeamId:  form.homeTeamId  || null,
           awayTeamId:  form.awayTeamId  || null,
@@ -347,7 +353,8 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
         ? {
             ...g,
             gameName:     form.gameName    || undefined,
-            venue:        form.venue       || undefined,
+            venue:        selectedVenue?.name,
+            venueId:      form.venueId     || undefined,
             scheduledAt:  form.scheduledAt || g.scheduledAt,
             homeTeamId:   form.homeTeamId  || g.homeTeamId,
             homeTeamName: homeTeam?.name   ?? g.homeTeamName,
@@ -468,17 +475,17 @@ export function GamePanel({ currentGameId, embedded = false }: { currentGameId: 
           <Field label="Sede">
             {allVenues.length > 0 ? (
               <SearchSelect
-                options={[{ value: '', label: 'Sin sede' }, ...allVenues.map((v) => ({ value: v.name, label: v.name }))]}
-                value={form.venue}
-                onChange={(v) => setForm((f) => ({ ...f, venue: v }))}
+                options={[{ value: '', label: 'Sin sede' }, ...allVenues.map((v) => ({ value: v.id, label: v.name }))]}
+                value={form.venueId}
+                onChange={(v) => setForm((f) => ({ ...f, venueId: v }))}
                 placeholder="Seleccionar estadio…"
               />
             ) : (
               <input
                 className={fieldClass}
-                value={form.venue}
-                onChange={(e) => setForm((f) => ({ ...f, venue: e.target.value }))}
-                placeholder="Estadio Mineros"
+                value={form.venueId}
+                onChange={(e) => setForm((f) => ({ ...f, venueId: e.target.value }))}
+                placeholder="venue-id"
               />
             )}
           </Field>
