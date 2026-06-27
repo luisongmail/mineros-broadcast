@@ -37,3 +37,7 @@ apps/overlay-server/storage/assets/**/*.svg
 apps/overlay-server/storage/assets/**/*.webp
 # Excepto los .keep (estructura de carpetas)
 !apps/overlay-server/storage/assets/**/.keep
+
+# Backups de BD
+infra/*.sql
+*.sql

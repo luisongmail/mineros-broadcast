@@ -41,7 +41,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 
 # Copiar código fuente completo y compilar
 COPY . .
-RUN pnpm turbo build --filter=@mineros/studio...
+RUN pnpm turbo build --filter=@playflow/studio...
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
