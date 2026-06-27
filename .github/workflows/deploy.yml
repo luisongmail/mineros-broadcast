@@ -9,11 +9,11 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RESOURCE_GROUP: rg-broadcast-prod-eastus
-  APP_SERVICE_NAME: broadcast-server
-  ACR_NAME: broadcastacr
-  IMAGE_NAME: broadcast-server
-  SWA_NAME: broadcast-overlays
+  RESOURCE_GROUP: rg-playflow-prod-eastus
+  APP_SERVICE_NAME: playflow-studio
+  ACR_NAME: playflowacr
+  IMAGE_NAME: playflow-studio
+  SWA_NAME: playflow-overlays
   NODE_VERSION: '20'
 
 jobs:
@@ -131,7 +131,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build SPA
-        run: pnpm turbo build --filter @mineros/studio
+        run: pnpm turbo build --filter @playflow/studio
         env:
           VITE_API_URL: https://${{ env.APP_SERVICE_NAME }}.azurewebsites.net/api
           VITE_WS_URL: wss://${{ env.APP_SERVICE_NAME }}.azurewebsites.net
