@@ -927,6 +927,7 @@ export function LiveGameScoringPage() {
           hitQuality: selectedHitQuality ?? undefined,
           outSequence: outSequence || undefined,
           runnersJson: runnerDetails.length > 0 ? JSON.stringify(runnerDetails) : undefined,
+          videoTimestamp: pitchMetrics.videoTimestamp || undefined,
         }),
       });
 
