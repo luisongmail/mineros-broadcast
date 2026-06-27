@@ -200,7 +200,7 @@ PlayFlow usa autenticación passwordless para reducir fricción operativa.
 ```text
 email OTP (todos los usuarios)
 magic link opcional (alternativa al OTP)
-TOTP o passkey para SysAdmin (pendiente — ver §32)
+TOTP (RFC 6238) para SysAdmin. Passkey (WebAuthn) como opción adicional en v3.0.
 step-up OTP para acciones críticas
 ```
 
@@ -310,12 +310,12 @@ Step-up token (opaco):  Memoria React (Context) — se descarta tras usar
 
 SysAdmin no puede operar solo con email OTP.
 
-Requisito (decisión pendiente — ver §32):
+Requisito (ver §33):
 
 ```text
-OTP + passkey
-o
-OTP + TOTP
+OTP + TOTP (RFC 6238) — librería otpauth
+QR code en el primer setup desde la UI admin
+Passkey (WebAuthn) disponible en v3.0 como opción adicional
 ```
 
 ---
@@ -1526,10 +1526,14 @@ push_subscriptions
 
 ## 29. Variables de entorno
 
-### 29.1 JWT y tokens
+### 29.1 JWT, tokens y secrets
 
 ```bash
-# JWT — access token
+# SecretProvider — ver §34.5
+SECRET_PROVIDER=env                              # "env" en dev, "keyvault" en staging/prod
+AZURE_KEY_VAULT_URL=https://playflow-kv.vault.azure.net/   # solo en staging/prod
+
+# JWT — access token (en producción, estos valores viven en Key Vault)
 JWT_SECRET=<64 bytes aleatorios en hex>          # renombrado desde TOKEN_HASH_SECRET
 JWT_ALGORITHM=HS256
 JWT_ISSUER=playflow
@@ -1543,17 +1547,22 @@ COOKIE_SAME_SITE=Strict
 COOKIE_DOMAIN=                                   # vacío = mismo dominio
 ```
 
-### 29.2 Bootstrap y seguridad interna
+### 29.2 Bootstrap, seguridad interna y retención de auditoría
 
 ```bash
-# Bootstrap del primer SysAdmin — ver §Bootstrap SysAdmin
+# Bootstrap del primer SysAdmin — ver §30
 BOOTSTRAP_SYSADMIN_EMAIL=admin@playflow.app      # si está vacío, no se ejecuta el bootstrap
 
-# Integridad de auditoría
+# Integridad de auditoría (en producción, vive en Key Vault)
 AUDIT_HASH_SECRET=<secreto para hash encadenado>
+
+# Retención de audit logs — ver §34.2
+AUDIT_RETENTION_ACTIVE_DAYS=90                   # días en MySQL (consultables)
+AUDIT_RETENTION_ARCHIVE_DAYS=365                 # días totales antes de purga definitiva
+AUDIT_ARCHIVE_PATH=./backups/audit               # ruta base para JSONL gzip
 ```
 
-### 29.3 OTP
+### 29.3 OTP y MFA
 
 ```bash
 OTP_TTL_MINUTES=10                               # expiración del OTP (mínimo 5)
@@ -1561,6 +1570,10 @@ OTP_MAX_ATTEMPTS=5                               # intentos máximos por OTP
 OTP_RESEND_SECONDS=60                            # tiempo mínimo entre reenvíos
 OTP_RATE_LIMIT_PER_IP=10                         # máximo solicitudes por IP por ventana
 OTP_RATE_WINDOW_MINUTES=15                       # ventana del rate limit
+
+# TOTP para SysAdmin MFA
+MFA_TOTP_ISSUER=PlayFlow                         # nombre en el autenticador
+MFA_TOTP_WINDOW=1                                # ventanas de tolerancia (±30 segundos)
 ```
 
 ### 29.4 Email
@@ -1699,7 +1712,7 @@ CapabilityService
 /api/security/resources/:type/:id/capabilities
 ProtectedAction
 ProtectedRoute
-SysAdmin MFA: TOTP o passkey (tabla user_mfa_credentials — pendiente §32)
+SysAdmin MFA: TOTP (RFC 6238) con librería `otpauth` — tabla `user_mfa_credentials` (ver §33)
 ```
 
 ### Fase 3 — Gestión de usuarios
@@ -1839,32 +1852,197 @@ metadata update audit
 
 ---
 
-## 33. Decisiones resueltas y pendientes
+## 33. Decisiones resueltas (v2.0 — completo)
 
-### 33.1 Decisiones resueltas (v2.0)
+Todas las decisiones están resueltas. El documento está listo para implementación.
 
 | Decisión | Resolución |
 |---|---|
 | JWT vs token opaco | **RESUELTA** — JWT HS256 para access (15 min, en memoria), opaco SHA-256 para refresh (30 días, httpOnly cookie), opaco para step-up (5 min) |
-| Proveedor de email para OTP | **RESUELTA** — nodemailer + Ethereal (dev automático) + Resend SMTP relay (prod). Free tier 3,000/mes es suficiente para una instalación típica |
+| Proveedor de email para OTP | **RESUELTA** — nodemailer + Ethereal (dev automático) + Resend SMTP relay (prod). Free tier 3,000/mes suficiente para una instalación típica |
 | Contratos HTTP de auth | **RESUELTA** — 8 endpoints con contratos completos en §25. Principio de no-enumeración en OTP y magic link |
-| Bootstrap del primer SysAdmin | **RESUELTA** — variable `BOOTSTRAP_SYSADMIN_EMAIL` al startup, idempotente, genera security_event crítico |
+| Bootstrap del primer SysAdmin | **RESUELTA** — variable `BOOTSTRAP_SYSADMIN_EMAIL` al startup, idempotente, genera security_event crítico (ver §30) |
 | Contratos TypeScript | **RESUELTA** — ver `security-contracts-v2.ts`: ResourceType (27 tipos), ResourceScope, 8 request types, 6 response types, AuthErrorCode, STEP_UP_HEADER |
-
-### 33.2 Decisiones pendientes
-
-| Decisión | Estado | Impacto |
-|---|---|---|
-| Passkey vs TOTP para SysAdmin | **PENDIENTE** — bloquea Fase 2 | Requiere tabla `user_mfa_credentials` en SQL |
-| Retención de audit logs | Pendiente | Define archivado y purga |
-| Política de acceso a stream key | Pendiente | Fase 7 |
-| Alcance inicial de YouTube OAuth scopes | Pendiente | Fase 7 |
-| Uso de Azure Key Vault desde el primer MVP | Recomendado | JWT_SECRET y AUDIT_HASH_SECRET |
-| Auditoría append-only en MySQL vs almacenamiento externo | Pendiente | Escalabilidad a largo plazo |
+| MFA para SysAdmin | **RESUELTA** — TOTP (RFC 6238) con librería `otpauth`. QR en primer setup. Passkey (WebAuthn) se agrega en v3.0 como opción adicional (no bloquea v1.0) |
+| Retención de audit logs | **RESUELTA** — activos 90 días en MySQL (`AUDIT_RETENTION_ACTIVE_DAYS=90`), archivados 365 días como JSONL comprimido (`./backups/audit/YYYY-MM/`), purga definitiva a los 365 días |
+| Política de acceso a stream key | **RESUELTA** — solo Owner/Admin del canal. UI muestra parcial (`sk-live-xxxx...****`). Ver completo o rotar requiere step-up obligatorio. Nunca en logs ni audit payloads. Rotación genera security_event severity=`high` |
+| Scopes YouTube OAuth | **RESUELTA** — 3 scopes mínimos: `youtube.readonly` (info canal) + `youtube.upload` (crear broadcast) + `youtube.force-ssl` (live streaming). Sin `youtube` scope completo |
+| Azure Key Vault | **RESUELTA** — obligatorio en staging/prod. Abstracción `SecretProvider` con dos implementaciones (`EnvSecretProvider` para dev, `KeyVaultSecretProvider` para Azure con Managed Identity). Variable `SECRET_PROVIDER=env|keyvault`. `JWT_SECRET` y `AUDIT_HASH_SECRET` nunca en variables de entorno del App Service en producción |
+| Auditoría append-only MySQL vs externo | **RESUELTA** — MySQL append-only con partición mensual hasta 500K eventos/mes. La exportación JSONL del archivado cubre backup. Trigger de revisión: superar 500K eventos/mes en una instalación → evaluar Azure Monitor o tabla externa |
 
 ---
 
-## 34. Regla final
+## 34. Especificaciones de decisiones resueltas v2.0
+
+### 34.1 MFA para SysAdmin — TOTP
+
+**Librería:** `otpauth` (RFC 6238 / RFC 4226)
+
+**Flujo de setup:**
+
+```text
+1. SysAdmin abre /admin/settings/security
+2. Sistema genera TOTP secret (32 bytes aleatorios, Base32 encoded)
+3. Sistema muestra QR code y el secret en texto para backup manual
+4. SysAdmin confirma ingresando el primer código de 6 dígitos
+5. Secret se cifra con AES-256 derivado de JWT_SECRET y se guarda en user_mfa_credentials
+6. status: 'pending_verification' → 'active'
+```
+
+**Login con MFA activo:**
+
+```text
+POST /api/auth/otp/verify   → 200 con mfaRequired: true (sin JWT aún)
+POST /api/auth/mfa/verify   → { totpCode: "123456" } → JWT + refresh cookie
+```
+
+**Variables de entorno nuevas:**
+
+```bash
+MFA_TOTP_ISSUER=PlayFlow      # aparece en el nombre de la app en el autenticador
+MFA_TOTP_WINDOW=1             # ventanas de tolerancia (±30s)
+```
+
+**Tabla SQL:** `user_mfa_credentials` (ya en `001_security_module.sql`)
+
+---
+
+### 34.2 Retención de audit logs
+
+**Variables de entorno:**
+
+```bash
+AUDIT_RETENTION_ACTIVE_DAYS=90       # días en MySQL (consultables)
+AUDIT_RETENTION_ARCHIVE_DAYS=365     # días totales antes de purga definitiva
+AUDIT_ARCHIVE_PATH=./backups/audit   # ruta base para JSONL comprimidos
+```
+
+**Job nocturno** (2:00 AM hora del servidor):
+
+```text
+1. Exportar audit_events con timestamp < NOW() - ACTIVE_DAYS a JSONL gzip
+   Ruta: {AUDIT_ARCHIVE_PATH}/YYYY-MM/audit-YYYY-MM-DD.jsonl.gz
+2. Verificar integridad del archivo exportado (SHA-256 del JSONL)
+3. DELETE audit_events WHERE timestamp < NOW() - ACTIVE_DAYS
+4. DELETE audit_events (archivados ya expirados) WHERE timestamp < NOW() - ARCHIVE_DAYS
+5. Registrar security_event: event_type='audit.archive_completed', details: { rows_archived, rows_purged, file_path }
+```
+
+---
+
+### 34.3 Stream key — política de acceso
+
+**Reglas:**
+
+```text
+- Solo usuarios con role Owner o Admin en el recurso Media Channel pueden operar stream keys
+- La UI siempre muestra: sk-live-xxxx...****  (primeros 4 chars + enmascarado)
+- Ver completo:  requiere step-up OTP, action='media.viewStreamKey'
+- Rotar:         requiere step-up OTP, action='media.rotateStreamKey'
+- La clave se cifra en reposo (AES-256 derivado de JWT_SECRET)
+- NUNCA aparece en logs, audit payloads, ni mensajes de error
+- La rotación genera security_event severity='high', event_type='media.stream_key_rotated'
+```
+
+**Endpoint de acceso (protegido):**
+
+```http
+POST /api/media/channels/{channelId}/stream-key/reveal
+X-Step-Up-Token: <token>
+
+→ 200: { "streamKey": "sk-live-xxxxxxxxxxxx" }
+→ 200 se registra en audit_events
+```
+
+---
+
+### 34.4 YouTube OAuth — scopes mínimos
+
+```text
+https://www.googleapis.com/auth/youtube.readonly
+  → Leer info del canal (nombre, thumbnail, estado)
+
+https://www.googleapis.com/auth/youtube.upload
+  → Crear y gestionar broadcasts en YouTube Live
+
+https://www.googleapis.com/auth/youtube.force-ssl
+  → Requerido para operaciones de live streaming (RTMP)
+```
+
+**Reglas:**
+
+```text
+- NO solicitar el scope youtube completo
+- Los tokens OAuth se almacenan cifrados (AES-256) en la DB
+- access_token nunca aparece en logs
+- refresh_token (YouTube) nunca en logs
+- La conexión del canal requiere step-up, action='media.connectChannel'
+```
+
+---
+
+### 34.5 Azure Key Vault — abstracción SecretProvider
+
+**Variable de entorno:**
+
+```bash
+SECRET_PROVIDER=env        # desarrollo local — carga desde process.env
+SECRET_PROVIDER=keyvault   # staging y producción — carga desde Azure Key Vault
+AZURE_KEY_VAULT_URL=https://playflow-kv.vault.azure.net/
+# No se necesitan credenciales: el App Service usa Managed Identity
+```
+
+**Contratos:**
+
+```typescript
+interface SecretProvider {
+  getSecret(name: string): Promise<string>;
+}
+
+// Implementación dev: lee process.env[name]
+class EnvSecretProvider implements SecretProvider { ... }
+
+// Implementación prod: lee Azure Key Vault via @azure/keyvault-secrets + DefaultAzureCredential
+class KeyVaultSecretProvider implements SecretProvider { ... }
+```
+
+**Secretos que viven en Key Vault en producción:**
+
+```text
+JWT_SECRET
+AUDIT_HASH_SECRET
+SMTP_PASSWORD (Resend API key)
+```
+
+**Secretos que permanecen en variables de entorno del App Service (no sensibles):**
+
+```text
+JWT_ALGORITHM, JWT_ISSUER, JWT_AUDIENCE, SMTP_HOST, EMAIL_FROM, etc.
+```
+
+---
+
+### 34.6 Auditoría — criterio de escalado
+
+```text
+Motor:     MySQL append-only con partición mensual por timestamp
+Límite:    500,000 audit_events/mes por instalación
+Trigger:   Job semanal cuenta rows del mes. Si supera 500K → alerta en security_events
+Acción:    Evaluar migración a Azure Monitor Logs o tabla externa
+Fallback:  Sin migración urgente — el archivado JSONL del §34.2 mitiga el crecimiento activo
+```
+
+**Partición sugerida (crear en migración posterior):**
+
+```sql
+-- Partición por año-mes para evitar table scan en queries de audit
+-- ALTER TABLE audit_events PARTITION BY RANGE (YEAR(timestamp)*100 + MONTH(timestamp)) (...)
+-- Documentar cuando el volumen lo justifique
+```
+
+---
+
+## 35. Regla final
 
 ```text
 La seguridad de PlayFlow no se basa en ocultar botones.
