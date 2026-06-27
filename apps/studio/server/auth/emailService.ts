@@ -3,23 +3,14 @@ import type { Transporter } from 'nodemailer';
 
 let _transporter: Transporter | null = null;
 
-async function getTransporter(): Promise<Transporter> {
+async function getTransporter(): Promise<Transporter | null> {
   if (_transporter) return _transporter;
 
   const smtpHost = process.env.SMTP_HOST;
 
   if (!smtpHost) {
-    // Desarrollo sin SMTP configurado → Ethereal automático
-    const testAccount = await nodemailer.createTestAccount();
-    _transporter = nodemailer.createTransport({
-      host: testAccount.smtp.host,
-      port: testAccount.smtp.port,
-      secure: testAccount.smtp.secure,
-      auth: { user: testAccount.user, pass: testAccount.pass },
-    });
-    console.log(`[EmailService] Usando Ethereal — preview en: https://ethereal.email`);
-    console.log(`[EmailService] Usuario: ${testAccount.user} / Pass: ${testAccount.pass}`);
-    return _transporter;
+    // Modo dev sin SMTP — el OTP se imprime en consola, no se envía email
+    return null;
   }
 
   // Producción / staging — Resend SMTP relay u otro proveedor SMTP
@@ -38,6 +29,20 @@ async function getTransporter(): Promise<Transporter> {
 
 export async function sendOtpEmail(to: string, otp: string): Promise<void> {
   const transporter = await getTransporter();
+
+  // Modo dev: sin SMTP configurado → OTP al log del servidor
+  if (!transporter) {
+    console.log('');
+    console.log('┌─────────────────────────────────────────┐');
+    console.log('│         🔑  OTP DEV MODE                │');
+    console.log(`│  Email : ${to.padEnd(31)}│`);
+    console.log(`│  Código: ${otp.padEnd(31)}│`);
+    console.log('│  (Configura SMTP_HOST para producción)  │');
+    console.log('└─────────────────────────────────────────┘');
+    console.log('');
+    return;
+  }
+
   const from = process.env.EMAIL_FROM ?? 'no-reply@playflow.app';
   const fromName = process.env.EMAIL_FROM_NAME ?? 'PlayFlow';
   const ttlMinutes = Number(process.env.OTP_TTL_MINUTES ?? 10);
