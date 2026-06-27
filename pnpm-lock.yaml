@@ -77,6 +77,9 @@ importers:
       '@mineros/overlay-lineup':
         specifier: workspace:^
         version: link:../../packages/overlays/lineup
+      '@mineros/overlay-manager':
+        specifier: workspace:*
+        version: link:../../packages/overlay-manager
       '@mineros/overlay-next-batters':
         specifier: workspace:*
         version: link:../../packages/overlays/next-batters

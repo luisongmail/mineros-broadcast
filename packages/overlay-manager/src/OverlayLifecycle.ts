@@ -4,6 +4,26 @@ import type {
   OverlayLifecycleState,
 } from './types';
 
+/** Vocabulario de eventos — Spec 23, sección 6 */
+export type LifecycleEventType =
+  | 'overlay_requested'
+  | 'overlay_validated'
+  | 'overlay_previewed'
+  | 'overlay_programmed'
+  | 'overlay_hold_elapsed'
+  | 'overlay_hidden'
+  | 'overlay_rejected'
+  | 'overlay_conflict_detected';
+
+export interface LifecycleEvent {
+  type: LifecycleEventType;
+  overlayId: string;
+  entry: OverlayLifecycleEntry;
+  reason?: string;
+}
+
+export type LifecycleEventListener = (event: LifecycleEvent) => void;
+
 function cloneEntry(entry: OverlayLifecycleEntry): OverlayLifecycleEntry {
   return {
     ...entry,
@@ -20,6 +40,11 @@ export class OverlayLifecycle {
   private readonly entries = new Map<string, OverlayLifecycleEntry>();
 
   private readonly listeners = new Set<LifecycleListener>();
+
+  private readonly eventListeners = new Set<LifecycleEventListener>();
+
+  /** timers activos para auto-hide por holdSeconds */
+  private readonly holdTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   private sequenceCounter = 0;
 
@@ -42,6 +67,8 @@ export class OverlayLifecycle {
     payload: Record<string, unknown>,
   ): OverlayLifecycleEntry {
     if (!hasPayload(payload)) {
+      const rejected = this.entries.get(overlayId);
+      if (rejected) this.emitEvent('overlay_rejected', cloneEntry(rejected), 'Payload vacío.');
       throw new Error(`El overlay '${overlayId}' requiere payload válido.`);
     }
 
@@ -52,41 +79,68 @@ export class OverlayLifecycle {
     entry.hiddenAt = undefined;
     entry.archivedAt = undefined;
 
-    return this.transition(
-      this.transition(entry, 'requested'),
-      'validated',
-      'Payload validado.',
-    );
+    const requested = this.transition(entry, 'requested');
+    this.emitEvent('overlay_requested', requested);
+
+    const validated = this.transition(requested, 'validated', 'Payload validado.');
+    this.emitEvent('overlay_validated', validated);
+
+    return validated;
   }
 
   toPreview(overlayId: string): OverlayLifecycleEntry {
     const entry = this.validate(overlayId, ['validated']);
-    return this.transition(entry, 'preview');
+    const result = this.transition(entry, 'preview');
+    this.emitEvent('overlay_previewed', result);
+    return result;
   }
 
-  toProgram(overlayId: string): OverlayLifecycleEntry {
+  toProgram(overlayId: string, holdSeconds?: number): OverlayLifecycleEntry {
     const entry = this.validate(overlayId, ['preview', 'validated']);
     const conflictingEntryId = this.resolveZoneConflict(overlayId);
 
     if (conflictingEntryId) {
+      this.emitEvent('overlay_conflict_detected', cloneEntry(this.entries.get(conflictingEntryId)!),
+        `Desplazado por '${overlayId}'.`);
       this.hide(conflictingEntryId, `Desplazado por '${overlayId}'.`);
     } else if (this.hasBlockingZoneConflict(entry)) {
+      this.emitEvent('overlay_conflict_detected', cloneEntry(entry),
+        `Zona '${entry.zone}' bloqueada por overlay de mayor prioridad.`);
       throw new Error(
         `La zona '${entry.zone}' no está disponible para '${overlayId}'.`,
       );
     }
 
-    return this.transition(entry, 'program');
+    const result = this.transition(entry, 'program');
+    this.emitEvent('overlay_programmed', result);
+
+    if (holdSeconds && holdSeconds > 0) {
+      this.clearHoldTimer(overlayId);
+      this.holdTimers.set(overlayId, setTimeout(() => {
+        this.holdTimers.delete(overlayId);
+        const current = this.entries.get(overlayId);
+        if (current && (current.state === 'program' || current.state === 'holding')) {
+          this.emitEvent('overlay_hold_elapsed', cloneEntry(current));
+          this.hide(overlayId, `holdSeconds=${holdSeconds} elapsed.`);
+        }
+      }, holdSeconds * 1000));
+    }
+
+    return result;
   }
 
   hide(overlayId: string, reason?: string): OverlayLifecycleEntry {
+    this.clearHoldTimer(overlayId);
     const entry = this.validate(overlayId, ['program', 'preview', 'holding']);
 
+    let result: OverlayLifecycleEntry;
     if (entry.state === 'preview') {
-      return this.transition(entry, 'hidden', reason);
+      result = this.transition(entry, 'hidden', reason);
+    } else {
+      result = this.transition(this.transition(entry, 'hiding', reason), 'hidden', reason);
     }
-
-    return this.transition(this.transition(entry, 'hiding', reason), 'hidden', reason);
+    this.emitEvent('overlay_hidden', result, reason);
+    return result;
   }
 
   archive(overlayId: string): OverlayLifecycleEntry {
@@ -136,6 +190,31 @@ export class OverlayLifecycle {
 
   off(listener: LifecycleListener): void {
     this.listeners.delete(listener);
+  }
+
+  /** Suscribirse a eventos nominados del spec 23 sección 6 */
+  onEvent(listener: LifecycleEventListener): void {
+    this.eventListeners.add(listener);
+  }
+
+  offEvent(listener: LifecycleEventListener): void {
+    this.eventListeners.delete(listener);
+  }
+
+  /** Cancela el timer de auto-hide de un overlay */
+  private clearHoldTimer(overlayId: string): void {
+    const timer = this.holdTimers.get(overlayId);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      this.holdTimers.delete(overlayId);
+    }
+  }
+
+  private emitEvent(type: LifecycleEventType, entry: OverlayLifecycleEntry, reason?: string): void {
+    const event: LifecycleEvent = { type, overlayId: entry.overlayId, entry, reason };
+    for (const listener of this.eventListeners) {
+      listener(event);
+    }
   }
 
   private transition(

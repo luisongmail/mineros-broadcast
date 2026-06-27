@@ -754,11 +754,9 @@ class StateStore {
         return { command, value: overlayName, data: this.getUiState() };
       }
       case 'HideAll': {
-        // HideAll oculta los overlays de operador pero preserva el scorebug (estado base)
         this.visibleOverlays.clear();
-        this.visibleOverlays.add('scorebug');
         this.emit({ type: 'hide', overlay: 'all' });
-        this.emit({ type: 'state', payload: this.getState(), visibleOverlays: ['scorebug'] });
+        this.emit({ type: 'state', payload: this.getState(), visibleOverlays: [] });
         return { command: 'HideAll', data: this.getUiState() };
       }
       case 'IncrementScore': {
