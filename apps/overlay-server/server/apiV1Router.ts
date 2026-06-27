@@ -307,7 +307,7 @@ router.get('/games/:id/at-bats', async (req: Request, res: Response) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT
          id, game_id, COALESCE(batter_player_id, player_id) AS batter_id,
-         pitcher_player_id, inning, inning_half,
+         pitcher_player_id, inning, inning_half, batting_team_id,
          result, event_type, rbi, runs, on_base,
          pitch_count, contact_type, hit_direction, hit_quality,
          runners, runners_json,
@@ -326,6 +326,7 @@ router.get('/games/:id/at-bats', async (req: Request, res: Response) => {
       pitcherId:        r['pitcher_player_id']  ?? null,
       inning:           r['inning'],
       inningHalf:       r['inning_half'],
+      battingTeamId:    r['batting_team_id']    ?? null,   // MLBAM: battingTeam
       result:           r['result'],
       eventType:        r['event_type']         ?? null,   // MLBAM vocab
       rbi:              Number(r['rbi'] ?? 0),
@@ -390,6 +391,7 @@ router.get('/games/:id/box-score', async (req: Request, res: Response) => {
       `SELECT
          COALESCE(batter_player_id, player_id) AS player_id,
          inning_half,
+         batting_team_id,
          COUNT(CASE WHEN result NOT IN ('walk','hbp','sacrifice_fly','sacrifice_bunt') THEN 1 END) AS ab,
          SUM(runs)                                                                                  AS runs,
          SUM(CASE WHEN result IN ('single','double','triple','home_run') THEN 1 ELSE 0 END)        AS hits,
@@ -404,7 +406,7 @@ router.get('/games/:id/box-score', async (req: Request, res: Response) => {
          MIN(timestamp) AS first_ab
        FROM at_bats
        WHERE game_id = ?
-       GROUP BY COALESCE(batter_player_id, player_id), inning_half
+       GROUP BY COALESCE(batter_player_id, player_id), inning_half, batting_team_id
        ORDER BY first_ab ASC`,
       [id],
     );
@@ -435,7 +437,8 @@ router.get('/games/:id/box-score', async (req: Request, res: Response) => {
 
       return {
         playerId:   r['player_id'] as string,
-        // 'top' = visitante bateando, 'bottom' = local bateando
+        // battingTeamId: campo MLBAM explícito. inning_half como fallback si aún no está poblado.
+        battingTeamId: (r['batting_team_id'] as string | null) ?? null,
         team:       (r['inning_half'] === 'bottom') ? 'home' : 'away',
         ab,
         runs:       Number(r['runs']       ?? 0),
