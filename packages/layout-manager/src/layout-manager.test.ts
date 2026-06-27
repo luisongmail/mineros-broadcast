@@ -37,7 +37,7 @@ function createSnapshot(overrides: Partial<LayoutSnapshot> = {}): LayoutSnapshot
   };
 }
 
-describe('@mineros/layout-manager', () => {
+describe('@playflow/layout-manager', () => {
   it('ZoneManager inicializa con zonas A-F', () => {
     const zoneManager = new ZoneManager();
 

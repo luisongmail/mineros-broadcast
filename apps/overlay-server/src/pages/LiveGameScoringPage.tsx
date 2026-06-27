@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { GameState, LineupEntry } from '@mineros/game-engine';
+import type { GameState, LineupEntry } from '@playflow/game-engine';
 
 import { PitchGrid, type PitchGridCell } from '../components/scorer/PitchGrid';
 

@@ -1,5 +1,5 @@
 {
-  "name": "@mineros/overlay-next-batters",
+  "name": "@playflow/overlay-next-batters",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -14,8 +14,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mineros/core": "workspace:*",
-    "@mineros/design-system": "workspace:*",
+    "@playflow/core": "workspace:*",
+    "@playflow/design-system": "workspace:*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },

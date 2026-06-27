@@ -1,5 +1,5 @@
 {
-  "name": "@mineros/overlay-manager",
+  "name": "@playflow/overlay-manager",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,14 +7,14 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "pretest": "pnpm --filter @mineros/event-bus build",
+    "pretest": "pnpm --filter @playflow/event-bus build",
     "test": "vitest run",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mineros/core": "workspace:*",
-    "@mineros/event-bus": "workspace:*"
+    "@playflow/core": "workspace:*",
+    "@playflow/event-bus": "workspace:*"
   },
   "devDependencies": {
     "typescript": "*",

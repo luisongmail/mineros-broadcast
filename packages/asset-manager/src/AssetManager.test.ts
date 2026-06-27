@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { AssetMetadata } from '@mineros/core';
+import type { AssetMetadata } from '@playflow/core';
 
 import { AssetManager } from './AssetManager';
 

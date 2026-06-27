@@ -8,8 +8,8 @@
 // ---------------------------------------------------------------------------
 
 import { Router, type Request, type Response } from 'express';
-import { CsvFileImportAdapter, RapsodoAdapter, type CsvFormat, type RapsodoConfig } from '@mineros/device-adapters';
-import type { NormalizedPitchData } from '@mineros/device-adapters';
+import { CsvFileImportAdapter, RapsodoAdapter, type CsvFormat, type RapsodoConfig } from '@playflow/device-adapters';
+import type { NormalizedPitchData } from '@playflow/device-adapters';
 
 import { pool } from './db';
 import { stateStore } from './stateStore';

@@ -1,5 +1,5 @@
 {
-  "name": "@mineros/event-engine",
+  "name": "@playflow/event-engine",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mineros/core": "workspace:*",
-    "@mineros/game-engine": "workspace:*"
+    "@playflow/core": "workspace:*",
+    "@playflow/game-engine": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

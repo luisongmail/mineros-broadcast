@@ -1,5 +1,5 @@
 {
-  "name": "@mineros/overlay-scorebug",
+  "name": "@playflow/overlay-scorebug",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -16,13 +16,13 @@
     "dev": "vite"
   },
   "dependencies": {
-    "@mineros/core": "workspace:*",
-    "@mineros/design-system": "workspace:*",
+    "@playflow/core": "workspace:*",
+    "@playflow/design-system": "workspace:*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },
   "devDependencies": {
-    "@mineros/game-engine": "workspace:*",
+    "@playflow/game-engine": "workspace:*",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^18.3.0",

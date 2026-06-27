@@ -1,4 +1,4 @@
-import { BroadcastShell } from '@mineros/design-system';
+import { BroadcastShell } from '@playflow/design-system';
 import type { SocialLowerThirdData, SocialLowerThirdOverlayProps, SocialLowerThirdVariant } from './types';
 
 const VALID_VARIANTS: SocialLowerThirdVariant[] = ['lower_third_compact', 'minimal_handle', 'dual_channel'];

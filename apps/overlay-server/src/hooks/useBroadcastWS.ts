@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GameState } from '@mineros/game-engine';
+import type { GameState } from '@playflow/game-engine';
 
 interface UseBroadcastWSResult {
   gameState: GameState | null;

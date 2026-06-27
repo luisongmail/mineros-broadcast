@@ -1,5 +1,5 @@
 {
-  "name": "@mineros/event-bus",
+  "name": "@playflow/event-bus",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,14 +9,14 @@
     ".": "./dist/index.js"
   },
   "scripts": {
-    "prebuild": "pnpm --filter @mineros/core build",
+    "prebuild": "pnpm --filter @playflow/core build",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mineros/core": "workspace:*"
+    "@playflow/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.19.0",

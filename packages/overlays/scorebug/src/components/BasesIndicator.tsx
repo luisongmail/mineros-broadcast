@@ -1,4 +1,4 @@
-import { colors } from '@mineros/design-system';
+import { colors } from '@playflow/design-system';
 
 import type { ScorebugGame } from '../types';
 

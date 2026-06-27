@@ -318,9 +318,9 @@ function normalizeGameDetail(gameRow: MysqlGameRow, lineupRows: MysqlLineupRow[]
     inningHalf: parseString(extractGameStateValue(rawState, 'inningHalf'), ['top', 'bottom'] as const, 'top'),
     outs: parseNumber(extractGameStateValue(rawState, 'outs'), 0),
     bases: {
-      first: rawBases?.first != null && rawBases.first !== false ? rawBases.first as import('@mineros/game-engine').RunnerOnBase : null,
-      second: rawBases?.second != null && rawBases.second !== false ? rawBases.second as import('@mineros/game-engine').RunnerOnBase : null,
-      third: rawBases?.third != null && rawBases.third !== false ? rawBases.third as import('@mineros/game-engine').RunnerOnBase : null,
+      first: rawBases?.first != null && rawBases.first !== false ? rawBases.first as import('@playflow/game-engine').RunnerOnBase : null,
+      second: rawBases?.second != null && rawBases.second !== false ? rawBases.second as import('@playflow/game-engine').RunnerOnBase : null,
+      third: rawBases?.third != null && rawBases.third !== false ? rawBases.third as import('@playflow/game-engine').RunnerOnBase : null,
     },
     count: {
       balls: parseNumber(rawCount?.balls, 0),

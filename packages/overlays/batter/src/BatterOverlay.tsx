@@ -1,4 +1,4 @@
-import { BroadcastShell } from '@mineros/design-system';
+import { BroadcastShell } from '@playflow/design-system';
 
 import { PlayerName } from './components/PlayerName';
 import { PlayerNumber } from './components/PlayerNumber';

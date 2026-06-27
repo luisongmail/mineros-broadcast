@@ -1,4 +1,4 @@
-import { BroadcastShell } from '@mineros/design-system';
+import { BroadcastShell } from '@playflow/design-system';
 
 import { Zone1Header } from './components/Zone1Header';
 import { Zone2LineScore } from './components/Zone2LineScore';

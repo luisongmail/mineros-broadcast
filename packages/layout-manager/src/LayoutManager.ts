@@ -1,5 +1,5 @@
-import { globalBus, type EventBus } from '@mineros/event-bus';
-import { createEnvelope } from '@mineros/core';
+import { globalBus, type EventBus } from '@playflow/event-bus';
+import { createEnvelope } from '@playflow/core';
 
 import { PreviewProgram } from './PreviewProgram';
 import { ProfileManager } from './ProfileManager';

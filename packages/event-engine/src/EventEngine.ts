@@ -1,4 +1,4 @@
-import type { GameEvent } from '@mineros/game-engine';
+import type { GameEvent } from '@playflow/game-engine';
 
 import { buildRequestsForEvent, isSupportedEventType } from './rules';
 import type { EventAction, EventAudit, EventEngineListener, EventEngineOutput, EventEngineRequest } from './types';

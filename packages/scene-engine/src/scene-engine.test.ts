@@ -14,7 +14,7 @@ function createRequest(overrides: Partial<SceneRequest> = {}): SceneRequest {
   };
 }
 
-describe('@mineros/scene-engine', () => {
+describe('@playflow/scene-engine', () => {
   it('getCatalog retorna las 7 escenas V1', () => {
     const engine = new SceneEngine();
 

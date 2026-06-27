@@ -4,7 +4,7 @@
  * Estado compartido: singleton OverlayLifecycle por proceso del servidor.
  */
 import { Router } from 'express';
-import { OverlayLifecycle } from '@mineros/overlay-manager';
+import { OverlayLifecycle } from '@playflow/overlay-manager';
 
 export const lifecycle = new OverlayLifecycle();
 

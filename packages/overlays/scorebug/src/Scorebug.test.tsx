@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 import { Scorebug } from './Scorebug';
-import type { RunnerOnBase } from '@mineros/core';
+import type { RunnerOnBase } from '@playflow/core';
 
 const mockRunner = (base: 'first' | 'second' | 'third'): RunnerOnBase => ({
   id: `runner-${base}`,

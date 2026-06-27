@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createErrorEnvelope } from './index';
 
-describe('@mineros/core', () => {
+describe('@playflow/core', () => {
   it('crea envelopes de error vlidos', () => {
     const envelope = createErrorEnvelope('core', 'overlay', 'NOT_FOUND', 'Missing asset');
 

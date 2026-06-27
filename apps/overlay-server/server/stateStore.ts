@@ -1,5 +1,5 @@
-import type { Envelope, MessageType } from '@mineros/core';
-import { EventEngine, type EventEngineOutput, type EventEngineRequest } from '@mineros/event-engine';
+import type { Envelope, MessageType } from '@playflow/core';
+import { EventEngine, type EventEngineOutput, type EventEngineRequest } from '@playflow/event-engine';
 import {
   GameEngine,
   type GameBases,
@@ -12,7 +12,7 @@ import {
   type RunnerOnBase,
   type TeamRole,
   validateLineup,
-} from '@mineros/game-engine';
+} from '@playflow/game-engine';
 
 import type { RowDataPacket } from 'mysql2';
 

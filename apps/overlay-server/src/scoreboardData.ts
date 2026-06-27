@@ -1,5 +1,5 @@
-import type { GameState, InningHalf, TeamRole } from '@mineros/game-engine';
-import type { ScoreboardLineScore, ScoreboardOverlayData, ScoreboardPitcherLine } from '@mineros/overlay-scoreboard';
+import type { GameState, InningHalf, TeamRole } from '@playflow/game-engine';
+import type { ScoreboardLineScore, ScoreboardOverlayData, ScoreboardPitcherLine } from '@playflow/overlay-scoreboard';
 
 import { DEMO_SCOREBOARD_DATA, type GameConfigDetail, type GameConfigPlayer } from './gameConfig';
 import type { MatchMetadata } from './matchMetadata';

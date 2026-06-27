@@ -1,4 +1,4 @@
-import type { GameState } from '@mineros/core';
+import type { GameState } from '@playflow/core';
 
 export interface ScorebugGame
   extends Pick<GameState, 'homeTeam' | 'awayTeam' | 'score' | 'inning' | 'inningHalf' | 'outs' | 'bases'> {

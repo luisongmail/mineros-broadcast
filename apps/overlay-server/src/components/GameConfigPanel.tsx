@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { GameState } from '@mineros/game-engine';
+import type { GameState } from '@playflow/game-engine';
 
 import type { GameConfigDetail, GameConfigSource, GameConfigSummary } from '../gameConfig';
 import { ConfirmDialog, type DialogState } from './data/shared';

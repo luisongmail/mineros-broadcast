@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { GameState, LineupEntry } from '@mineros/game-engine';
+import type { GameState, LineupEntry } from '@playflow/game-engine';
 
 type AtBatResult =
   | 'single'

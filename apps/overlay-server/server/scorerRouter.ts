@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import type { GameBases, LineupEntry, RunnerOnBase, TeamRole } from '@mineros/game-engine';
+import type { GameBases, LineupEntry, RunnerOnBase, TeamRole } from '@playflow/game-engine';
 import type { RowDataPacket } from 'mysql2';
 
 import { pool } from './db';

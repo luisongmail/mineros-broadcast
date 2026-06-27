@@ -10,9 +10,9 @@ import type {
   InningHalf,
   LineupEntry,
   TeamRole,
-} from '@mineros/game-engine';
-import { SOFTBALL_FAST_RULES } from '@mineros/game-engine';
-import type { ScoreboardOverlayData } from '@mineros/overlay-scoreboard';
+} from '@playflow/game-engine';
+import { SOFTBALL_FAST_RULES } from '@playflow/game-engine';
+import type { ScoreboardOverlayData } from '@playflow/overlay-scoreboard';
 
 export type GameConfigSource = 'demo' | 'mysql';
 

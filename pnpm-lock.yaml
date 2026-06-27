@@ -44,61 +44,61 @@ importers:
 
   apps/overlay-server:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@mineros/device-adapters':
+      '@playflow/device-adapters':
         specifier: workspace:*
         version: link:../../packages/device-adapters
-      '@mineros/event-engine':
+      '@playflow/event-engine':
         specifier: workspace:^
         version: link:../../packages/event-engine
-      '@mineros/game-engine':
+      '@playflow/game-engine':
         specifier: workspace:*
         version: link:../../packages/game-engine
-      '@mineros/overlay-announcement':
+      '@playflow/overlay-announcement':
         specifier: workspace:*
         version: link:../../packages/overlays/announcement
-      '@mineros/overlay-batter':
+      '@playflow/overlay-batter':
         specifier: workspace:*
         version: link:../../packages/overlays/batter
-      '@mineros/overlay-countdown':
+      '@playflow/overlay-countdown':
         specifier: workspace:*
         version: link:../../packages/overlays/countdown
-      '@mineros/overlay-final-score':
+      '@playflow/overlay-final-score':
         specifier: workspace:*
         version: link:../../packages/overlays/final-score
-      '@mineros/overlay-game-event':
+      '@playflow/overlay-game-event':
         specifier: workspace:*
         version: link:../../packages/overlays/game-event
-      '@mineros/overlay-inning-transition':
+      '@playflow/overlay-inning-transition':
         specifier: workspace:*
         version: link:../../packages/overlays/inning-transition
-      '@mineros/overlay-lineup':
+      '@playflow/overlay-lineup':
         specifier: workspace:^
         version: link:../../packages/overlays/lineup
-      '@mineros/overlay-manager':
+      '@playflow/overlay-manager':
         specifier: workspace:*
         version: link:../../packages/overlay-manager
-      '@mineros/overlay-next-batters':
+      '@playflow/overlay-next-batters':
         specifier: workspace:*
         version: link:../../packages/overlays/next-batters
-      '@mineros/overlay-pitcher':
+      '@playflow/overlay-pitcher':
         specifier: workspace:^
         version: link:../../packages/overlays/pitcher
-      '@mineros/overlay-scoreboard':
+      '@playflow/overlay-scoreboard':
         specifier: workspace:*
         version: link:../../packages/overlays/scoreboard
-      '@mineros/overlay-scorebug':
+      '@playflow/overlay-scorebug':
         specifier: workspace:*
         version: link:../../packages/overlays/scorebug
-      '@mineros/overlay-social-lower-third':
+      '@playflow/overlay-social-lower-third':
         specifier: workspace:*
         version: link:../../packages/overlays/social-lower-third
-      '@mineros/overlay-sponsor-break':
+      '@playflow/overlay-sponsor-break':
         specifier: workspace:*
         version: link:../../packages/overlays/sponsor-break
-      '@mineros/overlay-substitution':
+      '@playflow/overlay-substitution':
         specifier: workspace:*
         version: link:../../packages/overlays/substitution
       cors:
@@ -174,7 +174,7 @@ importers:
 
   packages/asset-manager:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -203,7 +203,7 @@ importers:
         specifier: ^18.3.0
         version: 18.3.1(react@18.3.1)
     devDependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../core
       '@testing-library/jest-dom':
@@ -251,7 +251,7 @@ importers:
 
   packages/event-bus:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -267,10 +267,10 @@ importers:
 
   packages/event-engine:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../core
-      '@mineros/game-engine':
+      '@playflow/game-engine':
         specifier: workspace:*
         version: link:../game-engine
     devDependencies:
@@ -286,7 +286,7 @@ importers:
 
   packages/game-engine:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -302,10 +302,10 @@ importers:
 
   packages/layout-manager:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../core
-      '@mineros/event-bus':
+      '@playflow/event-bus':
         specifier: workspace:*
         version: link:../event-bus
     devDependencies:
@@ -318,10 +318,10 @@ importers:
 
   packages/overlay-manager:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../core
-      '@mineros/event-bus':
+      '@playflow/event-bus':
         specifier: workspace:*
         version: link:../event-bus
     devDependencies:
@@ -334,10 +334,10 @@ importers:
 
   packages/overlays/announcement:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -386,10 +386,10 @@ importers:
 
   packages/overlays/batter:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -438,10 +438,10 @@ importers:
 
   packages/overlays/countdown:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -490,10 +490,10 @@ importers:
 
   packages/overlays/final-score:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -542,10 +542,10 @@ importers:
 
   packages/overlays/game-event:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -594,10 +594,10 @@ importers:
 
   packages/overlays/inning-transition:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -646,10 +646,10 @@ importers:
 
   packages/overlays/lineup:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -698,10 +698,10 @@ importers:
 
   packages/overlays/next-batters:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -750,10 +750,10 @@ importers:
 
   packages/overlays/pitcher:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -802,10 +802,10 @@ importers:
 
   packages/overlays/scoreboard:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -854,10 +854,10 @@ importers:
 
   packages/overlays/scorebug:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -867,7 +867,7 @@ importers:
         specifier: ^18.3.0
         version: 18.3.1(react@18.3.1)
     devDependencies:
-      '@mineros/game-engine':
+      '@playflow/game-engine':
         specifier: workspace:*
         version: link:../../game-engine
       '@testing-library/jest-dom':
@@ -909,10 +909,10 @@ importers:
 
   packages/overlays/social-lower-third:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -961,10 +961,10 @@ importers:
 
   packages/overlays/sponsor-break:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -1013,10 +1013,10 @@ importers:
 
   packages/overlays/substitution:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../../core
-      '@mineros/design-system':
+      '@playflow/design-system':
         specifier: workspace:*
         version: link:../../design-system
       react:
@@ -1065,7 +1065,7 @@ importers:
 
   packages/scene-engine:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -1081,7 +1081,7 @@ importers:
 
   packages/sponsor-engine:
     dependencies:
-      '@mineros/core':
+      '@playflow/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

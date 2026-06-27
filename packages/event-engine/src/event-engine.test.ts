@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { GameEvent } from '@mineros/game-engine';
+import type { GameEvent } from '@playflow/game-engine';
 
 import { EventEngine } from './EventEngine';
 
