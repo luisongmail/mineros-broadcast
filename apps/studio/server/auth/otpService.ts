@@ -120,7 +120,9 @@ export async function verifyOtp(email: string, code: string): Promise<OtpVerifyR
       `SELECT user_id FROM users WHERE email = ? AND status = 'active'`,
       [email],
     );
-    if (userRows.length === 0) return { ok: false, reason: 'invalid_otp' }; // no-enumeración
+    if (userRows.length === 0) {
+      return { ok: false, reason: 'invalid_otp' }; // no-enumeración: no revelar si email existe
+    }
 
     const userId = userRows[0].user_id as string;
 
@@ -132,7 +134,9 @@ export async function verifyOtp(email: string, code: string): Promise<OtpVerifyR
       [userId],
     );
 
-    if (challenges.length === 0) return { ok: false, reason: 'invalid_otp' };
+    if (challenges.length === 0) {
+      return { ok: false, reason: 'invalid_otp' };
+    }
 
     const ch = challenges[0];
     const challengeId = ch.challenge_id as string;
