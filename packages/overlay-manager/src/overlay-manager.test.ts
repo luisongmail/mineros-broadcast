@@ -210,4 +210,57 @@ describe('OverlayLifecycle', () => {
       'hidden',
     ]);
   });
+
+  it('onEvent() recibe eventos nominados del spec 23', () => {
+    const lifecycle = new OverlayLifecycle();
+    const events: string[] = [];
+
+    lifecycle.onEvent((ev) => { events.push(ev.type); });
+
+    lifecycle.register('game_event', 80, 'D');
+    lifecycle.request('game_event', { result: 'home_run' });
+    lifecycle.toPreview('game_event');
+    lifecycle.toProgram('game_event');
+    lifecycle.hide('game_event');
+
+    expect(events).toEqual([
+      'overlay_requested',
+      'overlay_validated',
+      'overlay_previewed',
+      'overlay_programmed',
+      'overlay_hidden',
+    ]);
+  });
+
+  it('toProgram() con holdSeconds auto-oculta el overlay', async () => {
+    const lifecycle = new OverlayLifecycle();
+    const events: string[] = [];
+
+    lifecycle.onEvent((ev) => { events.push(ev.type); });
+    lifecycle.register('announcement', 50, 'E');
+    lifecycle.request('announcement', { text: 'Bienvenidos' });
+    lifecycle.toProgram('announcement', 0.05); // 50ms
+
+    expect(lifecycle.getEntry('announcement')?.state).toBe('program');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(lifecycle.getEntry('announcement')?.state).toBe('hidden');
+    expect(events).toContain('overlay_hold_elapsed');
+    expect(events).toContain('overlay_hidden');
+  });
+
+  it('hide() cancela el timer holdSeconds si se oculta antes', async () => {
+    const lifecycle = new OverlayLifecycle();
+    const events: string[] = [];
+
+    lifecycle.onEvent((ev) => { events.push(ev.type); });
+    lifecycle.register('countdown', 60, 'D');
+    lifecycle.request('countdown', { seconds: 10 });
+    lifecycle.toProgram('countdown', 1); // 1 segundo
+    lifecycle.hide('countdown', 'Operador ocultó manualmente');
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    // hold_elapsed NO debe aparecer porque se ocultó antes del timer
+    expect(events).not.toContain('overlay_hold_elapsed');
+    expect(lifecycle.getEntry('countdown')?.state).toBe('hidden');
+  });
 });

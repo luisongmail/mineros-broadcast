@@ -4,6 +4,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 import { Scorebug } from './Scorebug';
+import type { RunnerOnBase } from '@mineros/core';
+
+const mockRunner = (base: 'first' | 'second' | 'third'): RunnerOnBase => ({
+  id: `runner-${base}`,
+  name: 'Test Runner',
+  number: 5,
+  originBase: base,
+  earned: true,
+});
 
 describe('Scorebug', () => {
   let game: {
@@ -13,7 +22,7 @@ describe('Scorebug', () => {
     inning: number;
     inningHalf: 'top' | 'bottom';
     outs: number;
-    bases: { first: boolean; second: boolean; third: boolean };
+    bases: { first: RunnerOnBase | null; second: RunnerOnBase | null; third: RunnerOnBase | null };
     count?: { balls: number; strikes: number };
   };
 
@@ -37,7 +46,7 @@ describe('Scorebug', () => {
       inning: 3,
       inningHalf: 'top',
       outs: 1,
-      bases: { first: false, second: false, third: false },
+      bases: { first: null, second: null, third: null },
       count: { balls: 2, strikes: 1 },
     };
   });
@@ -99,24 +108,24 @@ describe('Scorebug', () => {
     });
 
     it('renderiza las 3 bases en estado vacío', () => {
-      render(<Scorebug game={{ ...game, bases: { first: false, second: false, third: false } }} />);
+      render(<Scorebug game={{ ...game, bases: { first: null, second: null, third: null } }} />);
       expect(screen.getByText(/1B:○/)).toBeTruthy();
       expect(screen.getByText(/2B:○/)).toBeTruthy();
       expect(screen.getByText(/3B:○/)).toBeTruthy();
     });
 
     it('renderiza base ocupada cuando first=true', () => {
-      render(<Scorebug game={{ ...game, bases: { first: true, second: false, third: false } }} />);
+      render(<Scorebug game={{ ...game, bases: { first: mockRunner('first'), second: null, third: null } }} />);
       expect(screen.getByText(/1B:●/)).toBeTruthy();
     });
 
     it('renderiza base ocupada cuando second=true', () => {
-      render(<Scorebug game={{ ...game, bases: { first: false, second: true, third: false } }} />);
+      render(<Scorebug game={{ ...game, bases: { first: null, second: mockRunner('second'), third: null } }} />);
       expect(screen.getByText(/2B:●/)).toBeTruthy();
     });
 
     it('renderiza base ocupada cuando third=true', () => {
-      render(<Scorebug game={{ ...game, bases: { first: false, second: false, third: true } }} />);
+      render(<Scorebug game={{ ...game, bases: { first: null, second: null, third: mockRunner('third') } }} />);
       expect(screen.getByText(/3B:●/)).toBeTruthy();
     });
   });
