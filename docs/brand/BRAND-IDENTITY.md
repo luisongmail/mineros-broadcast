@@ -203,12 +203,17 @@ El logotipo de PlayFlow debe capturar **movimiento + datos + béisbol** en su fo
 3. **Color:** el símbolo `▶` en Flow Cyan sobre Flow Blue, o solo en Cyan sobre fondo oscuro.
 
 ### Variantes del sistema de logo
-| Variante | Uso |
-|----------|-----|
-| Logo completo oscuro | Landing page header, documentación |
-| Logo completo claro | Sobre fondos blancos, materiales impresos |
-| Isotipo solo (`▶`) | App icon, favicon, avatar de redes sociales |
-| Wordmark sin isotipo | Espacio horizontal reducido |
+
+**Propuesta seleccionada: A — Play Button** (`logo-a-play-button`)
+
+> Triángulo `▶` en Flow Cyan + 3 líneas de velocidad horizontales + wordmark "PlayFlow" en Space Grotesk.
+
+| Variante | Archivo | Uso |
+|----------|---------|-----|
+| Logo completo oscuro | `logo-a-play-button.svg / .png` | Landing page header, documentación, fondo #0D1F3C |
+| Logo completo claro | `logo-a-light.svg / .png` | Sobre fondos blancos #F4F7FA, materiales impresos |
+| Isotipo solo (64×64) | `isotipo-a.svg / .png` | App icon, favicon, avatar de redes sociales |
+| Wordmark sin isotipo | — | Espacio horizontal reducido |
 
 ### Lo que NO debe ser el logo
 - Una pelota de béisbol (demasiado literal)
@@ -288,6 +293,8 @@ El logotipo de PlayFlow debe capturar **movimiento + datos + béisbol** en su fo
 | B-10 | Elevator pitch: "estudio de producción desde $29/mes" | ✅ 2026-06-27 |
 | B-11 | Valores: Precisión, Accesibilidad, Fluidez, Rigor, Confianza | ✅ 2026-06-27 |
 | B-12 | Audiencia primaria: clubes, ligas, productoras deportivas | ✅ 2026-06-27 |
+
+| B-13 | Logo seleccionado: Propuesta A — Play Button (`logo-a-play-button`) + `isotipo-a` | ✅ 2026-06-27 |
 
 ---
 
