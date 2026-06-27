@@ -1390,7 +1390,9 @@ export function LiveGameScoringPage() {
               </div>
 
               {/* Objetivo receptor + grilla: 2 columnas */}
-              <div className="grid grid-cols-[auto_1fr] gap-2 items-start">
+              <div className={`grid grid-cols-[auto_1fr] gap-2 items-start rounded-xl transition ${
+                selectedPitchResult === 'in_play' && !selectedPitchCell ? 'ring-1 ring-amber-500/40' : ''
+              }`}>
 
                 {/* Grilla de lanzamiento */}
                 <PitchGrid
@@ -1472,7 +1474,8 @@ export function LiveGameScoringPage() {
                             className={`rounded-lg border py-1.5 text-[10px] font-semibold leading-tight transition ${colorClass}`}
                             onClick={() => {
                               setSelectedPitchResult(option.value);
-                              if (option.value === 'in_play') setCurrentStep(2);
+                              // No auto-avanzar: el botón "En juego → Captura ofensiva"
+                              // valida y gestiona la transición al step 2.
                             }}
                             type="button"
                           >
@@ -1492,7 +1495,16 @@ export function LiveGameScoringPage() {
 
                   {/* Tipo de lanzamiento */}
                   <div>
-                    <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/35">Tipo de lanzamiento</p>
+                    <p className={`mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] transition ${
+                      selectedPitchResult === 'in_play' && !selectedPitchType
+                        ? 'text-amber-400 animate-pulse'
+                        : 'text-white/35'
+                    }`}>
+                      Tipo de lanzamiento
+                      {selectedPitchResult === 'in_play' && !selectedPitchType
+                        ? <span className="ml-1 normal-case tracking-normal font-normal">← requerido para En juego</span>
+                        : null}
+                    </p>
                     <div className="grid grid-cols-3 gap-1">
                       {pitchTypes.map((pitchType) => {
                         const active = selectedPitchType === pitchType;
@@ -1532,14 +1544,30 @@ export function LiveGameScoringPage() {
                   {/* Botones de acción */}
                   <div className="flex flex-col gap-1.5 mt-auto">
                     {selectedPitchResult === 'in_play' ? (
-                      <button
-                        className="rounded-xl bg-emerald-600 px-4 py-2.5 font-bebas text-base uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                        disabled={!selectedPitchCell || !selectedPitchType}
-                        onClick={() => setCurrentStep(2)}
-                        type="button"
-                      >
-                        En juego → Captura ofensiva
-                      </button>
+                      <>
+                        {/* Checklist de lo que falta para in_play */}
+                        {(!selectedPitchCell || !selectedPitchType) ? (
+                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/8 px-2.5 py-1.5">
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-400/70 mb-1">Antes de continuar</p>
+                            <div className="space-y-0.5">
+                              <p className={`text-[10px] ${selectedPitchCell ? 'text-emerald-400' : 'text-amber-300'}`}>
+                                {selectedPitchCell ? '✓' : '○'} Ubicación en la grilla
+                              </p>
+                              <p className={`text-[10px] ${selectedPitchType ? 'text-emerald-400' : 'text-amber-300'}`}>
+                                {selectedPitchType ? '✓' : '○'} Tipo de lanzamiento
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
+                        <button
+                          className="rounded-xl bg-emerald-600 px-4 py-2.5 font-bebas text-base uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={!selectedPitchCell || !selectedPitchType}
+                          onClick={() => setCurrentStep(2)}
+                          type="button"
+                        >
+                          {!selectedPitchCell || !selectedPitchType ? 'Completa el lanzamiento primero' : 'En juego → Captura ofensiva'}
+                        </button>
+                      </>
                     ) : (
                       <button
                         className="rounded-xl bg-mineros-red px-4 py-2.5 font-bebas text-base uppercase tracking-[0.16em] text-white transition hover:bg-red-700 disabled:opacity-50"
