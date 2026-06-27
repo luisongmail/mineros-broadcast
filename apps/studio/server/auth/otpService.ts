@@ -78,7 +78,7 @@ export async function requestOtp(email: string, ip: string): Promise<OtpRequestR
 
     const otp = generateOtp();
     const otpHash = hashOtp(otp);
-    const challengeId = `otp_${crypto.randomUUID()}`;
+    const challengeId = `otp_${crypto.randomUUID().replace(/-/g, '')}`;
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60_000);
 
     await conn.execute<ResultSetHeader>(
