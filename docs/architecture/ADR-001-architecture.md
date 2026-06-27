@@ -561,15 +561,25 @@ playflow/
 │       │   ├── db.ts                     ← mysql2 pool
 │       │   ├── stateStore.ts             ← game state en memoria + WS hub + EventEngine
 │       │   ├── commandHandler.ts         ← comandos del juego
+│       │   ├── wsServer.ts               ← WebSocket server
+│       │   ├── apiV1Router.ts            ← router raíz /api/v1
+│       │   ├── routerUtils.ts            ← helpers comunes de router
 │       │   ├── scorerRouter.ts           ← pitches, at-bats, sustituciones
 │       │   ├── pitchesRouter.ts          ← game-events con context_before/after
 │       │   ├── baserunningRouter.ts      ← corrimiento de bases, responsible_pitcher
 │       │   ├── gameConfigRouter.ts       ← configuración de partido
-│       │   ├── leaguesTournamentsRouter.ts
-│       │   ├── teamsRouter.ts
-│       │   ├── sponsorsRouter.ts
-│       │   ├── layoutRouter.ts
-│       │   ├── venuesRouter.ts
+│       │   ├── leaguesTournamentsRouter.ts ← ligas y torneos
+│       │   ├── teamsRouter.ts            ← equipos
+│       │   ├── clubsRouter.ts            ← clubes
+│       │   ├── categoriesRouter.ts       ← categorías por deporte
+│       │   ├── playersRouter.ts (via teamsRouter)
+│       │   ├── sponsorsRouter.ts         ← sponsors y campañas
+│       │   ├── layoutRouter.ts           ← layouts de overlay
+│       │   ├── venuesRouter.ts           ← venues/estadios
+│       │   ├── devicesRouter.ts          ← dispositivos registrados
+│       │   ├── exportRouter.ts           ← exportación de datos
+│       │   ├── lifecycleRouter.ts        ← ciclo de vida del partido
+│       │   ├── matchMetadataRouter.ts    ← metadata del partido
 │       │   ├── securityRouter.ts         [v3] ← pendiente (documento de seguridad)
 │       │   ├── usersRouter.ts            [v3]
 │       │   ├── rolesRouter.ts            [v3]
