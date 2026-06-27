@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Envelope } from '@mineros/core';
+import type { Envelope } from '@playflow/core';
 
 import { EventBus } from './EventBus';
 
@@ -16,7 +16,7 @@ function createEnvelope(overrides: Partial<Envelope<{ value: number }>> = {}): E
   };
 }
 
-describe('@mineros/event-bus', () => {
+describe('@playflow/event-bus', () => {
   it('publica y entrega mensajes al handler suscrito', () => {
     const bus = new EventBus();
     const handler = vi.fn();

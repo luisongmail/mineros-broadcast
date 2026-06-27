@@ -1,5 +1,5 @@
-import { createEnvelope } from '@mineros/core';
-import { globalBus, type EventBus } from '@mineros/event-bus';
+import { createEnvelope } from '@playflow/core';
+import { globalBus, type EventBus } from '@playflow/event-bus';
 
 import type { OverlayRecord, OverlayState, RenderContract } from './types';
 

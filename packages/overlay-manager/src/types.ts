@@ -1,4 +1,4 @@
-import type { OverlayState as CoreOverlayState } from '@mineros/core';
+import type { OverlayState as CoreOverlayState } from '@playflow/core';
 
 export type OverlayState = CoreOverlayState;
 export type OverlayLifecycleState =

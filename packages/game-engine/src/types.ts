@@ -1,4 +1,4 @@
-import type { MessageType as CoreMessageType } from '@mineros/core';
+import type { MessageType as CoreMessageType } from '@playflow/core';
 
 export type GameStatus =
   | 'scheduled'

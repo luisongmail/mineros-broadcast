@@ -1,4 +1,4 @@
-import type { AssetMetadata, AssetStatus, AssetType } from '@mineros/core';
+import type { AssetMetadata, AssetStatus, AssetType } from '@playflow/core';
 
 import { createAssetManagerError } from './errors';
 

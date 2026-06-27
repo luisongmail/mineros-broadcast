@@ -37,3 +37,9 @@ apps/overlay-server/storage/assets/**/*.svg
 apps/overlay-server/storage/assets/**/*.webp
 # Excepto los .keep (estructura de carpetas)
 !apps/overlay-server/storage/assets/**/.keep
+
+# Backups de BD (solo archivos en la raíz de infra/, NO las migraciones)
+infra/*.sql
+infra/playflow_backup*.sql
+# Archivos .sql en raíz del repo (backups manuales)
+/*.sql

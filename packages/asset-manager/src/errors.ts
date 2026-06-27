@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@mineros/core';
+import type { ErrorCode } from '@playflow/core';
 
 export type AssetManagerError = Error & { code: ErrorCode };
 

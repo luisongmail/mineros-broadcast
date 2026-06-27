@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { OverlayLifecycle } from './OverlayLifecycle';
 import { OverlayManager } from './OverlayManager';
 
-describe('@mineros/overlay-manager', () => {
+describe('@playflow/overlay-manager', () => {
   it('el estado inicial de un overlay registrado es hidden', () => {
     const manager = new OverlayManager();
 

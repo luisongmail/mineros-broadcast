@@ -1,5 +1,5 @@
 {
-  "name": "@mineros/asset-manager",
+  "name": "@playflow/asset-manager",
   "version": "0.0.0",
   "private": true,
   "main": "./dist/index.js",
@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mineros/core": "workspace:*"
+    "@playflow/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "*",

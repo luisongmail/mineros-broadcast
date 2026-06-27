@@ -1,4 +1,4 @@
-import { BroadcastShell } from '@mineros/design-system';
+import { BroadcastShell } from '@playflow/design-system';
 import type { AnnouncementData, AnnouncementOverlayProps, AnnouncementVariant } from './types';
 
 const VALID_VARIANTS: AnnouncementVariant[] = ['lower_third_compact', 'minimal', 'alert', 'clinic_card'];

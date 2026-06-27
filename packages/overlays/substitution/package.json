@@ -15,8 +15,8 @@
     "dev": "vite"
   },
   "dependencies": {
-    "@mineros/core": "workspace:*",
-    "@mineros/design-system": "workspace:*",
+    "@playflow/core": "workspace:*",
+    "@playflow/design-system": "workspace:*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },
@@ -37,5 +37,5 @@
   "peerDependencies": {
     "react": "^18.0.0"
   },
-  "name": "@mineros/overlay-substitution"
+  "name": "@playflow/overlay-substitution"
 }

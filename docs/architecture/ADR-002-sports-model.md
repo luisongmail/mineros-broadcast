@@ -1,10 +1,121 @@
 # ADR-002 — Modelo Multideporte
 ## Sports, Leagues, Tournaments, Players & Game Rules
 
-**Versión:** 1.0  
-**Fecha:** 2026-06-24  
+**Versión:** 1.2  
+**Fecha:** 2026-06-27  
 **Estado:** APROBADO  
-**Depende de:** ADR-001
+**Depende de:** ADR-001  
+**Cambios v1.1:** at_bats y pitches actualizados con campos MLBAM (Spec 29); sustituciones MLBAM documentadas.  
+**Cambios v1.2:** Sección de estándares de registro añadida — coordenadas de pitch (sistema métrico SI), zonas MLBAM, ERA y responsable de corredor, distinción AB vs PA con fórmulas estadísticas.
+
+---
+
+## 0. ESTÁNDARES DE REGISTRO
+
+PlayFlow implementa un sistema de registro con cumplimiento explícito de tres estándares que nunca deben contradecirse entre sí.
+
+### 0.1 Vocabulario de eventos — MLBAM
+
+El vocabulario canónico de tipos de evento en `at_bats.event_type` sigue el estándar MLBAM:
+
+```text
+single / double / triple / home_run
+walk / hit_by_pitch
+field_out          ← MLBAM canónico (no groundout ni flyout)
+strikeout
+sac_fly / sac_bunt
+fielders_choice
+grounded_into_double_play
+field_error
+```
+
+`field_out` se diferencia de `groundout`/`flyout` mediante `contact_type`:
+
+```text
+contact_type: ground_ball  → rodado
+contact_type: fly_ball     → elevado
+contact_type: line_drive   → línea
+contact_type: popup        → palomita
+```
+
+### 0.2 Coordenadas de pitch — Sistema métrico (WBSC/SI)
+
+Las coordenadas de ubicación del pitch usan **metros** y **km/h**, no el sistema imperial de MLBAM original (pies/mph). Esta es una decisión explícita de cumplimiento WBSC y es **irrenunciable**.
+
+| Campo | Unidad | Descripción | Rango típico |
+|-------|--------|-------------|--------------|
+| `plate_x` | metros | Horizontal desde centro del home plate. Positivo = lado del bateador derecho (desde catcher) | -0.30 a +0.30 |
+| `plate_z` | metros | Vertical desde el suelo | 0.30 a 1.30 |
+| `velocity` | km/h | Velocidad de salida del pitcher | 70 a 165 |
+| `spin_rate` | RPM | Revoluciones por minuto de la pelota | 1000 a 3500 |
+| `spin_axis` | grados | Eje de giro (0–360°) | 0 a 360 |
+
+**Nota de conversión para integración:** `1 pie = 0.3048 m`. Si se exportan datos a sistemas MLBAM externos que esperan pies y mph, se debe aplicar conversión explícita. El sistema no almacena las dos unidades; almacena solo el sistema métrico.
+
+### 0.3 Zonas de strike — Vocabulario MLBAM
+
+Las zonas se representan con el campo `zone` en la tabla `pitches`. El vocabulario sigue MLBAM:
+
+```text
+Zona de strike (9 zonas internas):
+  ┌───┬───┬───┐
+  │ 1 │ 2 │ 3 │   ← zona alta
+  ├───┼───┼───┤
+  │ 4 │ 5 │ 6 │   ← zona media
+  ├───┼───┼───┤
+  │ 7 │ 8 │ 9 │   ← zona baja
+  └───┴───┴───┘
+
+Zonas fuera del strike zone (bolas):
+  11 = alta-afuera (derecha del bateador)
+  12 = alta-adentro
+  13 = baja-afuera
+  14 = baja-adentro
+```
+
+La zona 5 es el centro. Las zonas 1-9 corresponden a pitches dentro del strike zone. Las zonas 11-14 están fuera. Este vocabulario es el que usan los paneles de análisis de pitcheo para representar la distribución de lanzamientos.
+
+### 0.4 Carrera limpia vs. sucia — `responsible_pitcher_id`
+
+La tabla `baserunning_events` incluye el campo `responsible_pitcher_id`. Este campo es la base del cálculo correcto de ERA (Earned Run Average).
+
+**Regla:**
+
+```text
+Si un corredor anota en un inning dado, la carrera se registra contra el pitcher
+que puso a ese corredor en base, independientemente de qué pitcher esté lanzando
+en el momento de la anotación.
+
+Carrera limpia (earned run)   → se suma al ERA del responsible_pitcher_id
+Carrera sucia (unearned run)  → no se suma al ERA de ningún pitcher
+                                 (ocurrió por error defensivo o interferencia)
+```
+
+En el stateStore, cada corredor en base lleva su `responsiblePitcherId`. Cuando hay cambio de pitcher, los corredores heredados conservan el pitcher original como responsable.
+
+### 0.5 Aparición al plato vs. turno al bate — Fórmulas estadísticas
+
+La distinción entre `is_plate_appearance` e `is_at_bat` es crítica para calcular las estadísticas de bateo correctas:
+
+| Resultado | PA | AB | Explicación |
+|-----------|----|----|-------------|
+| Hit (single, doble, etc.) | ✅ | ✅ | Cuenta en ambos |
+| Out ordinario (field_out, strikeout) | ✅ | ✅ | Cuenta en ambos |
+| Walk / Hit by pitch | ✅ | ❌ | PA pero NO AB (no penaliza el AVG) |
+| Sac fly | ✅ | ❌ | PA pero NO AB (no penaliza el AVG) |
+| Sac bunt | ❌ | ❌ | No cuenta en ninguno (excepción reglamentaria) |
+
+Fórmulas derivadas:
+
+```text
+AVG  = H / AB                             (batting average)
+OBP  = (H + BB + HBP) / PA               (on-base percentage)
+SLG  = (1B + 2×2B + 3×3B + 4×HR) / AB   (slugging percentage)
+OPS  = OBP + SLG
+ERA  = (earned_runs × 9) / innings_pitched
+```
+
+Sin la distinción correcta de `is_at_bat` vs `is_plate_appearance`, el promedio de bateo y el porcentaje de embase son matemáticamente incorrectos.
 
 ---
 
@@ -73,10 +184,25 @@ game_lineups (alineación día de partido)
   is_dp, is_flex, substituted_at, substituted_by_roster_id
   re_entry_used, courtesy_running_for_roster_id
 
-at_bats (log granular de turno al bate)
+at_bats (log granular de turno al bate — MLBAM-compliant)
   id, game_id, batter_roster_id, pitcher_roster_id (nullable)
-  inning, inning_half, result
-  rbi, runs, on_base, pitch_count (nullable)
+  inning, inning_half
+  event_type           -- vocabulario MLBAM: single/double/triple/home_run/walk/
+                       --   hit_by_pitch/field_error/strikeout/field_out/sac_fly/
+                       --   sac_bunt/fielders_choice/grounded_into_double_play
+  rbi, runs
+  earned_runs          -- MLBAM earnedRuns (para ERA del pitcher)
+  unearned_runs        -- MLBAM unearnedRuns
+  is_plate_appearance  -- 0 solo para sac_bunt
+  is_at_bat            -- 0 para walk, HBP, sac_fly, sac_bunt
+  on_base, pitch_count
+  contact_type         -- line_drive | fly_ball | ground_ball | popup | bunt_grounder
+  hit_direction        -- LF/LCF/CF/RCF/RF/3B/SS/2B/1B/P/C
+  hit_data JSON        -- { type, direction, hardness }
+  runners JSON         -- snapshot bases post at-bat con responsiblePitcherId
+  substitution_type    -- pinch_hitter | pinch_runner | null
+  batting_team_id, outs_before, score_home, score_away
+  video_timestamp, ext JSON
   timestamp
 ```
 

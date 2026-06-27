@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BroadcastShell } from '@mineros/design-system';
+import { BroadcastShell } from '@playflow/design-system';
 import type { CountdownData, CountdownOverlayProps, CountdownVariant } from './types';
 
 const VALID_VARIANTS: CountdownVariant[] = ['lower_third_compact', 'minimal_timer'];

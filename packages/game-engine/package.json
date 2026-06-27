@@ -1,5 +1,5 @@
 {
-  "name": "@mineros/game-engine",
+  "name": "@playflow/game-engine",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mineros/core": "workspace:*"
+    "@playflow/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

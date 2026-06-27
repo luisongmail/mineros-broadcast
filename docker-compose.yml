@@ -1,19 +1,19 @@
 services:
   db:
     image: mysql:8.0
-    container_name: broadcast-db
+    container_name: playflow-db
     ports:
       - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: broadcast_db
-      MYSQL_USER: broadcast_app
+      MYSQL_DATABASE: playflow_db
+      MYSQL_USER: playflow_app
       MYSQL_PASSWORD: dev_password
     volumes:
       - db_dev_data:/var/lib/mysql
       - ./infra/mysql/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "broadcast_app", "-pdev_password"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "playflow_app", "-pdev_password"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,15 +22,15 @@ services:
   broadcast:
     build:
       context: .
-      dockerfile: apps/overlay-server/Dockerfile
-    image: broadcast-server:latest
-    container_name: broadcast-server
+      dockerfile: apps/studio/Dockerfile
+    image: playflow-studio:latest
+    container_name: playflow-studio
     ports:
       - "${HOST_PORT:-8080}:8080"
     environment:
       NODE_ENV: production
       PORT: 8080
-      DATABASE_URL: mysql://broadcast_app:dev_password@db:3306/broadcast_db
+      DATABASE_URL: mysql://playflow_app:dev_password@db:3306/playflow_db
       ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-}
     depends_on:
       db:

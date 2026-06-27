@@ -10,7 +10,7 @@ const baseData: ScoreboardOverlayData = {
   overlay: 'baseball_scoreboard_board',
   variant: 'full_board',
   branding: {
-    brandName: 'Mineros Broadcast',
+    brandName: 'PlayFlow',
   },
   competition: {
     name: 'Liga Oriente',

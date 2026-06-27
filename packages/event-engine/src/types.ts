@@ -1,4 +1,4 @@
-import type { GameEvent as ImportedGameEvent } from '@mineros/game-engine';
+import type { GameEvent as ImportedGameEvent } from '@playflow/game-engine';
 
 export type GameEvent = ImportedGameEvent;
 

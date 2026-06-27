@@ -1,4 +1,4 @@
-import type { AssetMetadata } from '@mineros/core';
+import type { AssetMetadata } from '@playflow/core';
 
 export const OFFICIAL_ASSETS: AssetMetadata[] = [
   {

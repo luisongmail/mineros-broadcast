@@ -1,4 +1,4 @@
-import { BroadcastShell } from '@mineros/design-system';
+import { BroadcastShell } from '@playflow/design-system';
 
 import { PitcherHeader } from './components/PitcherHeader';
 import { PitcherProfile } from './components/PitcherProfile';

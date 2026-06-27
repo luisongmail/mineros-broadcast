@@ -1,4 +1,4 @@
-import { BroadcastShell } from '@mineros/design-system';
+import { BroadcastShell } from '@playflow/design-system';
 import type { SponsorBreakData, SponsorBreakOverlayProps, SponsorBreakVariant } from './types';
 
 const VALID_VARIANTS: SponsorBreakVariant[] = [

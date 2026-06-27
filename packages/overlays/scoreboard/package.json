@@ -1,5 +1,5 @@
 {
-  "name": "@mineros/overlay-scoreboard",
+  "name": "@playflow/overlay-scoreboard",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -13,8 +13,8 @@
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
-    "@mineros/core": "workspace:*",
-    "@mineros/design-system": "workspace:*",
+    "@playflow/core": "workspace:*",
+    "@playflow/design-system": "workspace:*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },

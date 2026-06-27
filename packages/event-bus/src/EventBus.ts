@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import type { Envelope, MessageType } from '@mineros/core';
+import type { Envelope, MessageType } from '@playflow/core';
 
 const REQUIRED_STRING_FIELDS = [
   'schemaVersion',

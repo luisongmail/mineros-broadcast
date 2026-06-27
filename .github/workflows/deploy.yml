@@ -9,11 +9,11 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RESOURCE_GROUP: rg-broadcast-prod-eastus
-  APP_SERVICE_NAME: broadcast-server
-  ACR_NAME: broadcastacr
-  IMAGE_NAME: broadcast-server
-  SWA_NAME: broadcast-overlays
+  RESOURCE_GROUP: rg-playflow-prod-eastus
+  APP_SERVICE_NAME: playflow-studio
+  ACR_NAME: playflowacr
+  IMAGE_NAME: playflow-studio
+  SWA_NAME: playflow-overlays
   NODE_VERSION: '20'
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
           docker build \
             -t ${{ steps.meta.outputs.tag }} \
             -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest \
-            -f apps/overlay-server/Dockerfile \
+            -f apps/studio/Dockerfile \
             .
 
       - name: Push to ACR
@@ -131,7 +131,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build SPA
-        run: pnpm turbo build --filter @mineros/overlay-server
+        run: pnpm turbo build --filter @playflow/studio
         env:
           VITE_API_URL: https://${{ env.APP_SERVICE_NAME }}.azurewebsites.net/api
           VITE_WS_URL: wss://${{ env.APP_SERVICE_NAME }}.azurewebsites.net
@@ -142,5 +142,5 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
-          app_location: apps/overlay-server/dist
+          app_location: apps/studio/dist
           skip_app_build: true

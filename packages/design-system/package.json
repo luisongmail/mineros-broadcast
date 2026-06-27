@@ -1,5 +1,5 @@
 {
-  "name": "@mineros/design-system",
+  "name": "@playflow/design-system",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -32,6 +32,6 @@
     "vitest": "^1.0.0",
     "@testing-library/react": "^16.0.0",
     "@testing-library/jest-dom": "^6.0.0",
-    "@mineros/core": "workspace:*"
+    "@playflow/core": "workspace:*"
   }
 }

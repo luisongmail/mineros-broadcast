@@ -3,7 +3,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { GameEngine, type GameTeam } from '@mineros/game-engine';
+import { GameEngine, type GameTeam } from '@playflow/game-engine';
 
 import { Scorebug } from './Scorebug';
 

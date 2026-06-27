@@ -1,5 +1,5 @@
 /**
- * @mineros/core
+ * @playflow/core
  * Contratos de integración, tipos compartidos y utilidades
  * Ref: 09-integration-contracts.md
  */

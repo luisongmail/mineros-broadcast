@@ -1,4 +1,4 @@
-import type { GameEvent } from '@mineros/game-engine';
+import type { GameEvent } from '@playflow/game-engine';
 
 import type { EventEngineRequest, EventMode, OverlayRequest, SceneRequest, SponsorRequest, SupportedEventType } from './types';
 import { SUPPORTED_EVENT_TYPES } from './types';

@@ -37,7 +37,7 @@ OBS — modelo anterior (12+ Browser Sources):
 
 ```
 OBS/Meld Studio — modelo nuevo (1 Browser Source):
-└── http://broadcast-server/broadcast   [1920×1080, Allow transparency: ON]
+└── http://localhost:3001/broadcast   [1920×1080, Allow transparency: ON]
     │
     └── BroadcastCanvas (React)
         ├── background: transparent
@@ -89,7 +89,7 @@ OBS/Meld Studio — modelo nuevo (1 Browser Source):
 
 ```
 Browser Source:
-  URL:    http://broadcast-server.azurewebsites.net/broadcast
+  URL:    http://playflow-server.azurewebsites.net/broadcast
   Width:  1920
   Height: 1080
   ☑ Allow transparency (OBLIGATORIO)
@@ -146,12 +146,12 @@ type OverlayComponentState = 'hidden' | 'preview' | 'live';
 ### 6.2 Flujo de estado
 
 ```
-hidden ──[ShowOverlay]──▶ live
-live   ──[HideOverlay]──▶ hidden
+hidden ──[PreviewOverlay]──▶ preview  (operador valida en monitor)
+preview ──[Take]──▶ live              (sale al aire)
+live ──[HideOverlay]──▶ hidden
 
-hidden ──[PreviewOverlay]──▶ preview  (futuro: modo preview del operador)
-preview ──[Take]──▶ live
-preview ──[Cancel]──▶ hidden
+Regla: nunca saltar de hidden directo a live en producción.
+El paso por preview garantiza que el operador valida el contenido antes de emitirlo.
 ```
 
 ### 6.3 Visibilidad controlada por el servidor
