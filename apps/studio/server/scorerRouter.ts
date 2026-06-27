@@ -329,6 +329,27 @@ function parseOptionalFloat(value: unknown, fieldName: string): number | undefin
   throw new Error(`${fieldName} must be a non-negative number when provided`);
 }
 
+/** Como parseOptionalFloat pero admite valores negativos (coordenadas métricas plate_x/plate_z, pfx_x/pfx_z) */
+function parseOptionalSignedFloat(value: unknown, fieldName: string): number | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new Error(`${fieldName} must be a finite number when provided`);
+    }
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) {
+      throw new Error(`${fieldName} must be a finite number when provided`);
+    }
+    return parsed;
+  }
+  throw new Error(`${fieldName} must be a number when provided`);
+}
+
 function parseOptionalBoolean(value: unknown, fieldName: string): boolean | undefined {
   if (value === undefined || value === null) {
     return undefined;
@@ -427,8 +448,8 @@ function parseAtBatRequest(body: unknown): AtBatRequest {
       row:        parseOptionalGridCoordinate(body.decisivePitch.row, 'decisivePitch.row'),
       zone:       typeof body.decisivePitch.zone === 'number' ? body.decisivePitch.zone : undefined,
       velocityKmh: parseOptionalFloat(body.decisivePitch.velocityKmh, 'decisivePitch.velocityKmh'),
-      plateX:     parseOptionalFloat(body.decisivePitch.plateX, 'decisivePitch.plateX'),
-      plateZ:     parseOptionalFloat(body.decisivePitch.plateZ, 'decisivePitch.plateZ'),
+      plateX:     parseOptionalSignedFloat(body.decisivePitch.plateX, 'decisivePitch.plateX'),
+      plateZ:     parseOptionalSignedFloat(body.decisivePitch.plateZ, 'decisivePitch.plateZ'),
     } : undefined,
   };
 }
@@ -457,12 +478,12 @@ function parsePitchRequest(body: unknown): PitchRequest {
     catcherTargetCol: parseOptionalGridCoordinate(body.catcherTargetCol, 'catcherTargetCol'),
     catcherTargetRow: parseOptionalGridCoordinate(body.catcherTargetRow, 'catcherTargetRow'),
     // Campos estándar métricos (spec 29)
-    plate_x: parseOptionalFloat(body.plate_x, 'plate_x'),
-    plate_z: parseOptionalFloat(body.plate_z, 'plate_z'),
+    plate_x: parseOptionalSignedFloat(body.plate_x, 'plate_x'),
+    plate_z: parseOptionalSignedFloat(body.plate_z, 'plate_z'),
     zone: parseOptionalGridCoordinate(body.zone, 'zone'),
     start_speed: parseOptionalFloat(body.start_speed, 'start_speed'),
-    pfx_x: parseOptionalFloat(body.pfx_x, 'pfx_x'),
-    pfx_z: parseOptionalFloat(body.pfx_z, 'pfx_z'),
+    pfx_x: parseOptionalSignedFloat(body.pfx_x, 'pfx_x'),
+    pfx_z: parseOptionalSignedFloat(body.pfx_z, 'pfx_z'),
     spin_rate: parseOptionalGridCoordinate(body.spin_rate, 'spin_rate'),
     spin_axis: parseOptionalGridCoordinate(body.spin_axis, 'spin_axis'),
     pitch_class: parseOptionalString(body.pitch_class, 'pitch_class'),
