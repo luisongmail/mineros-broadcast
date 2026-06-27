@@ -385,10 +385,11 @@ router.get('/games/:id/box-score', async (req: Request, res: Response) => {
       linescore['home'].push(Number(bottom?.['runs_scored'] ?? 0));
     }
 
-    // ── Batting lines: una fila por bateador ──────────────────────────────
+    // ── Batting lines: una fila por bateador, incluyendo inning_half ─────
     const [battingRows] = await pool.query<RowDataPacket[]>(
       `SELECT
          COALESCE(batter_player_id, player_id) AS player_id,
+         inning_half,
          COUNT(CASE WHEN result NOT IN ('walk','hbp','sacrifice_fly','sacrifice_bunt') THEN 1 END) AS ab,
          SUM(runs)                                                                                  AS runs,
          SUM(CASE WHEN result IN ('single','double','triple','home_run') THEN 1 ELSE 0 END)        AS hits,
@@ -403,7 +404,7 @@ router.get('/games/:id/box-score', async (req: Request, res: Response) => {
          MIN(timestamp) AS first_ab
        FROM at_bats
        WHERE game_id = ?
-       GROUP BY COALESCE(batter_player_id, player_id)
+       GROUP BY COALESCE(batter_player_id, player_id), inning_half
        ORDER BY first_ab ASC`,
       [id],
     );
@@ -433,7 +434,9 @@ router.get('/games/:id/box-score', async (req: Request, res: Response) => {
         : null;
 
       return {
-        playerId:   r['player_id'],
+        playerId:   r['player_id'] as string,
+        // 'top' = visitante bateando, 'bottom' = local bateando
+        team:       (r['inning_half'] === 'bottom') ? 'home' : 'away',
         ab,
         runs:       Number(r['runs']       ?? 0),
         hits,
@@ -500,12 +503,13 @@ router.get('/games/:id/box-score', async (req: Request, res: Response) => {
       };
     });
 
-    // ── Totals ────────────────────────────────────────────────────────────
-    const awayRuns  = linescore['away'].reduce((s, n) => s + n, 0);
-    const homeRuns  = linescore['home'].reduce((s, n) => s + n, 0);
-    const awayHits  = batting.reduce((s, b) => s + b.hits, 0);
-    const homeHits  = 0; // TODO: cuando haya equipo asignado por bateador, separar por equipo
-    void homeHits;
+    // ── Totals: separados por equipo usando inning_half ──────────────────
+    // top = visitante bateando → sus hits son hits del equipo away
+    // bottom = local bateando   → sus hits son hits del equipo home
+    const awayRuns = linescore['away'].reduce((s, n) => s + n, 0);
+    const homeRuns = linescore['home'].reduce((s, n) => s + n, 0);
+    const awayHits = batting.filter((b) => b.team === 'away').reduce((s, b) => s + b.hits, 0);
+    const homeHits = batting.filter((b) => b.team === 'home').reduce((s, b) => s + b.hits, 0);
 
     apiOk(res, {
       gameId: id,
@@ -513,7 +517,7 @@ router.get('/games/:id/box-score', async (req: Request, res: Response) => {
       linescore,
       totals: {
         away: { runs: awayRuns, hits: awayHits, errors: 0 },
-        home: { runs: homeRuns, hits: 0,         errors: 0 },
+        home: { runs: homeRuns, hits: homeHits, errors: 0 },
       },
       batting,
       pitching,
