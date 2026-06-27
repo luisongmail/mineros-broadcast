@@ -34,12 +34,13 @@ type PitchType =
   | 'Dropball'
   | 'Screwball';
 type PitchResult = 'ball' | 'called_strike' | 'swinging_strike' | 'foul' | 'in_play' | 'hit_by_pitch' | 'wild_pitch' | 'passed_ball';
-type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'pop_up';
+type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt_grounder' | 'popup';
 type HitDirection = 'LF' | 'LCF' | 'CF' | 'RCF' | 'RF' | '3B' | 'SS' | '2B' | '1B' | 'P' | 'C';
 type BatterSide = 'R' | 'L' | 'S' | 'unknown';
 type ActiveBatterSide = 'R' | 'L' | null;
 type CatcherTargetMode = 'quick_3x3' | 'advanced_7x7' | 'same_as_location' | 'unknown';
-type HitQuality = 'weak' | 'medium' | 'hard' | 'barrel';
+/** MLBAM hitData.hardness: soft | medium | hard */
+type HitQuality = 'soft' | 'medium' | 'hard';
 type RunnerBase = '1B' | '2B' | '3B' | 'HOME' | 'OUT';
 
 interface CatcherTarget {
@@ -105,11 +106,10 @@ interface ScorerContextPayload {
 interface AtBatHistoryItem {
   id: string;
   game_id: string;
-  player_id: string;
   batter_player_id: string | null;
   inning: number;
   inning_half: 'top' | 'bottom' | null;
-  result: AtBatResult;
+  event_type: string | null;
   rbi: number;
   runs: number;
   batter_name: string | null;
@@ -187,11 +187,11 @@ const PITCH_RESULT_OPTIONS: PitchResultOption[] = [
 ];
 
 const CONTACT_OPTIONS: ContactOption[] = [
-  { value: 'ground_ball', label: 'Rolling' },
-  { value: 'line_drive', label: 'Línea' },
-  { value: 'fly_ball', label: 'Fly' },
-  { value: 'pop_up', label: 'Pop' },
-  { value: 'bunt', label: 'Toque' },
+  { value: 'ground_ball',   label: 'Rolling' },
+  { value: 'line_drive',    label: 'Línea' },
+  { value: 'fly_ball',      label: 'Fly' },
+  { value: 'popup',         label: 'Pop' },
+  { value: 'bunt_grounder', label: 'Toque' },
 ];
 
 
@@ -211,12 +211,12 @@ const CONTACT_REQUIRED_RESULTS = new Set<AtBatResult>([
 
 // Contacto inferido automáticamente del resultado
 const RESULT_AUTO_CONTACT: Partial<Record<AtBatResult, ContactType>> = {
-  groundout: 'ground_ball',
-  double_play: 'ground_ball',
-  flyout: 'fly_ball',
-  sacrifice_fly: 'fly_ball',
-  sacrifice_bunt: 'bunt',
-  home_run: 'fly_ball',
+  groundout:      'ground_ball',
+  double_play:    'ground_ball',
+  flyout:         'fly_ball',
+  sacrifice_fly:  'fly_ball',
+  sacrifice_bunt: 'bunt_grounder',
+  home_run:       'fly_ball',
 };
 
 function applyResultAutoLogic(
@@ -287,7 +287,7 @@ function applyResultAutoLogic(
       if (r1) runners.push(mk('R1', '1B', '2B'));
       runners.push(mk('BR', 'HOME', 'OUT'));
       const scored = r3 ? 1 : 0;
-      return { runners, rbi: scored, runs: scored, contactType: 'bunt' };
+      return { runners, rbi: scored, runs: scored, contactType: 'bunt_grounder' };
     }
     case 'double_play': {
       if (r1) runners.push(mk('R1', '1B', 'OUT'));
@@ -344,10 +344,9 @@ const QUICK_3X3_ZONES = [
 ] as const;
 
 const HIT_QUALITY_OPTIONS = [
-  { value: 'weak' as HitQuality, label: 'Débil' },
+  { value: 'soft' as HitQuality, label: 'Débil' },
   { value: 'medium' as HitQuality, label: 'Normal' },
   { value: 'hard' as HitQuality, label: 'Fuerte' },
-  { value: 'barrel' as HitQuality, label: 'Muy fuerte' },
 ];
 
 function resultToneClass(tone: ResultTone, active: boolean): string {
@@ -508,10 +507,10 @@ export function LiveGameScoringPage() {
 
     for (const ab of atBats) {
       if (assigned.size >= occupied) break;
-      const targetBase = BASE_RESULTS[ab.result];
+      const targetBase = BASE_RESULTS[ab.event_type as AtBatResult];
       if (!targetBase) continue; // out — no está en base
 
-      const pid = ab.batter_player_id ?? ab.player_id;
+      const pid = ab.batter_player_id;
       if (!pid || usedPlayers.has(pid)) continue;
 
       // Mapear base del at-bat a la etiqueta R1/R2/R3
@@ -922,9 +921,17 @@ export function LiveGameScoringPage() {
           result: selectedResult,
           rbi,
           runs,
+          // Campos contact legacy (mantener para backward compat con scorer)
           contactType: selectedContactType ?? undefined,
           hitDirection: selectedHitDirection ?? undefined,
-          hitQuality: selectedHitQuality ?? undefined,
+          // MLBAM hitData estructurado
+          hitData: (selectedContactType || selectedHitDirection || selectedHitQuality)
+            ? {
+                type: selectedContactType ?? undefined,
+                direction: selectedHitDirection ?? undefined,
+                hardness: selectedHitQuality ?? undefined,
+              }
+            : undefined,
           outSequence: outSequence || undefined,
           runnersJson: runnerDetails.length > 0 ? JSON.stringify(runnerDetails) : undefined,
           videoTimestamp: pitchMetrics.videoTimestamp || undefined,
@@ -1536,10 +1543,9 @@ export function LiveGameScoringPage() {
                     {HIT_QUALITY_OPTIONS.map((option) => {
                       const active = selectedHitQuality === option.value;
                       const colorClass =
-                        option.value === 'weak' ? (active ? 'border-slate-200 bg-slate-500 text-white' : 'border-slate-400/30 bg-slate-500/10 text-slate-200')
+                        option.value === 'soft' ? (active ? 'border-slate-200 bg-slate-500 text-white' : 'border-slate-400/30 bg-slate-500/10 text-slate-200')
                         : option.value === 'medium' ? (active ? 'border-blue-300 bg-blue-500 text-white' : 'border-blue-400/30 bg-blue-500/10 text-blue-200')
-                        : option.value === 'hard' ? (active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-mineros-gold/30 bg-mineros-gold/10 text-amber-200')
-                        : (active ? 'border-mineros-red bg-mineros-red text-white' : 'border-mineros-red/30 bg-mineros-red/10 text-red-200');
+                        : (active ? 'border-mineros-gold bg-mineros-gold text-mineros-navy' : 'border-mineros-gold/30 bg-mineros-gold/10 text-amber-200');
                       return (
                         <button
                           key={option.value}
@@ -1726,7 +1732,7 @@ export function LiveGameScoringPage() {
               {recentHistory.map((item) => (
                 <div key={item.id} className="rounded-lg border border-white/8 bg-black/20 px-2.5 py-1.5">
                   <p className="truncate text-[11px] font-semibold text-white">
-                    {item.batter_name ?? item.player_id} · {formatHistoryResult(item.result)}
+                    {item.batter_name ?? item.batter_player_id} · {formatHistoryResult(item.event_type as AtBatResult ?? 'field_out')}
                   </p>
                   <p className="mt-0.5 text-[9px] text-white/40">
                     {item.inning_half === 'top' ? 'A' : 'B'}{item.inning}{item.rbi > 0 ? ` · ${item.rbi}RBI` : ''}{item.runs > 0 ? ` · ${item.runs}R` : ''}
