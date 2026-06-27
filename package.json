@@ -13,7 +13,11 @@
     "version": "changeset version",
     "release": "changeset publish",
     "test:e2e": "playwright test",
-    "download-assets": "tsx scripts/download-assets.ts"
+    "download-assets": "tsx scripts/download-assets.ts",
+    "db:backup": "docker exec playflow-db mysqldump -uroot -proot_password playflow_db > infra/playflow_backup_$(date +%Y%m%d_%H%M).sql && echo '✅ Backup guardado en infra/'",
+    "db:restore": "docker exec -i playflow-db mysql -uroot -proot_password playflow_db < infra/playflow_backup_$(ls -t infra/playflow_backup_*.sql 2>/dev/null | head -1 | xargs basename) && echo '✅ Restore completado'",
+    "docker:restart": "docker compose down && docker compose up -d",
+    "docker:reset": "pnpm db:backup && docker compose down -v && docker compose up -d && echo '⚠️  Volumen destruido. Restaura con: pnpm db:restore'"
   },
   "devDependencies": {
     "tsx": "^4.22.4",
