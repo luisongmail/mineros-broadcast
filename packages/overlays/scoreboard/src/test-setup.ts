@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 globalThis.ResizeObserver = class ResizeObserver {
   private _cb: ResizeObserverCallback;
   constructor(cb: ResizeObserverCallback) { this._cb = cb; }
-  observe(el: Element) {
+  observe(_el: Element) {
     this._cb([{ contentRect: { width: 1200 } } as ResizeObserverEntry], this);
   }
   unobserve() {}
