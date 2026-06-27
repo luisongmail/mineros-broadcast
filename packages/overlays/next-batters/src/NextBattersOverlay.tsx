@@ -25,7 +25,15 @@ function BatterCol({ batter, photoUrl, isLast }: BatterColProps) {
   const isCurrent = batter.state === 'current';
 
   return (
-    <div className={`flex min-w-0 flex-1 flex-col ${isLast ? '' : 'border-r border-white/10'}`}>
+    <div
+      className={[
+        'flex min-w-0 flex-1 flex-col',
+        isLast ? '' : 'border-r border-white/10',
+        isCurrent ? 'border-2 border-mineros-red' : '',
+      ].join(' ')}
+      data-batter-state={batter.state}
+      data-testid={`batter-card-${batter.state}`}
+    >
       {/* State label row */}
       <div
         className={[
@@ -48,7 +56,10 @@ function BatterCol({ batter, photoUrl, isLast }: BatterColProps) {
               onError={() => setImgError(true)}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center font-bebas text-[22px] leading-none text-mineros-gold/60">
+            <div
+              className="flex h-full w-full items-center justify-center font-bebas text-[22px] leading-none text-mineros-gold/60"
+              data-testid="photo-placeholder"
+            >
               {batter.number ?? '?'}
             </div>
           )}
@@ -74,7 +85,7 @@ function BatterCol({ batter, photoUrl, isLast }: BatterColProps) {
             )}
             {batter.avg && (
               <span className="font-inter text-[11px] font-semibold text-white/65">
-                AVG <span className="font-bold text-white">{batter.avg}</span>
+                {`AVG ${batter.avg}`}
               </span>
             )}
             {batter.today && (

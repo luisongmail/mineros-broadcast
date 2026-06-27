@@ -131,15 +131,14 @@ export function Zone5Sponsors({
       </div>
 
       <div ref={containerRef} className="overflow-hidden w-full">
-        {containerWidth > 0 && (
-          <div
-            className={`flex ${isAnimating ? 'scoreboard-sponsor-track--animated' : ''}`}
-            style={{
-              gap: `${cardGapPx}px`,
-              transform: `translateX(-${shift}px)`,
-              transition: isAnimating ? `transform ${transitionMs}ms ease-in-out` : 'none',
-            }}
-          >
+        <div
+          className={`flex ${isAnimating ? 'scoreboard-sponsor-track--animated' : ''}`}
+          style={{
+            gap: `${cardGapPx}px`,
+            transform: `translateX(-${shift}px)`,
+            transition: isAnimating ? `transform ${transitionMs}ms ease-in-out` : 'none',
+          }}
+        >
             {activeSponsors.length > 0 ? (
               cardsToRender.map((sponsor, index) => (
                 <SponsorCard
@@ -153,7 +152,6 @@ export function Zone5Sponsors({
               <PlaceholderCard width={cardWidth} />
             )}
           </div>
-        )}
       </div>
     </section>
   );
