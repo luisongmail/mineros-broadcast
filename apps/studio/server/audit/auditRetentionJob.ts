@@ -78,7 +78,7 @@ export async function runRetentionJob(config: RetentionConfig = DEFAULT_CONFIG):
         const [insertResult] = await conn.execute<import('mysql2').ResultSetHeader>(
           `INSERT IGNORE INTO audit_events_archive
              SELECT * FROM audit_events
-             WHERE created_at < ${cutoff}
+             WHERE timestamp < ${cutoff}
                AND JSON_UNQUOTE(JSON_EXTRACT(authorization_json, '$.auditLevel')) = ?`,
           [rule.level],
         );
@@ -87,7 +87,7 @@ export async function runRetentionJob(config: RetentionConfig = DEFAULT_CONFIG):
         if (archived > 0) {
           await conn.execute(
             `DELETE FROM audit_events
-             WHERE created_at < ${cutoff}
+             WHERE timestamp < ${cutoff}
                AND JSON_UNQUOTE(JSON_EXTRACT(authorization_json, '$.auditLevel')) = ?`,
             [rule.level],
           );
@@ -102,7 +102,7 @@ export async function runRetentionJob(config: RetentionConfig = DEFAULT_CONFIG):
         // Sin tabla de archivo: solo eliminar (mínimo de datos sensibles)
         const [deleteResult] = await conn.execute<import('mysql2').ResultSetHeader>(
           `DELETE FROM audit_events
-           WHERE created_at < ${cutoff}
+           WHERE timestamp < ${cutoff}
              AND JSON_UNQUOTE(JSON_EXTRACT(authorization_json, '$.auditLevel')) = ?`,
           [rule.level],
         );
