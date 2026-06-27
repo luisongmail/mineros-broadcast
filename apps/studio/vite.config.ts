@@ -8,7 +8,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    strictPort: false,
+    strictPort: true, // puerto fijo — si está ocupado falla explícitamente
     hmr: {
       host: 'localhost',
       protocol: 'ws',
