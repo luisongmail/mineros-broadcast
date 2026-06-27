@@ -33,15 +33,21 @@ interface AtBatRequest {
   notes?: string;
   contactType?: ContactType;
   hitDirection?: HitDirection;
-  hitQuality?: HitQuality;
+  /** MLBAM hitData estructurado — persiste en hit_data JSON */
+  hitData?: {
+    type?: ContactType;
+    direction?: HitDirection;
+    hardness?: HitQuality;
+  };
   runnersJson?: string;
   /** Timecode del stream de transmisión, ej. "1:23:45.500" */
   videoTimestamp?: string;
 }
 
-type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt' | 'pop_up';
+type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt_grounder' | 'popup';
 type HitDirection = 'LF' | 'LCF' | 'CF' | 'RCF' | 'RF' | '3B' | 'SS' | '2B' | '1B' | 'P' | 'C';
-type HitQuality = 'weak' | 'medium' | 'hard' | 'barrel';
+/** MLBAM hitData.hardness */
+type HitQuality = 'soft' | 'medium' | 'hard';
 type PitchCall = 'ball' | 'called_strike' | 'swinging_strike' | 'foul' | 'in_play' | 'hit_by_pitch' | 'wild_pitch' | 'passed_ball';
 
 // Map pitch result to umpire_call stored value
@@ -145,9 +151,9 @@ const OUT_RESULTS = new Set<AtBatResult>([
 
 // Resultados que aplican avance forzado de corredores (walk / HBP)
 const WALK_RESULTS = new Set<AtBatResult>(['walk', 'hbp']);
-const CONTACT_TYPES = new Set<ContactType>(['line_drive', 'fly_ball', 'ground_ball', 'bunt', 'pop_up']);
+const CONTACT_TYPES = new Set<ContactType>(['line_drive', 'fly_ball', 'ground_ball', 'bunt_grounder', 'popup']);
 const HIT_DIRECTIONS = new Set<HitDirection>(['LF', 'LCF', 'CF', 'RCF', 'RF', '3B', 'SS', '2B', '1B', 'P', 'C']);
-const HIT_QUALITIES = new Set<HitQuality>(['weak', 'medium', 'hard', 'barrel']);
+const HIT_QUALITIES = new Set<HitQuality>(['soft', 'medium', 'hard']);
 
 interface RunnerAdvancement {
   newBases: GameBases;
@@ -375,7 +381,7 @@ function parseOptionalHitQuality(value: unknown): HitQuality | undefined {
   }
 
   if (typeof value !== 'string' || !HIT_QUALITIES.has(value as HitQuality)) {
-    throw new Error('hitQuality must be one of: weak, medium, hard, barrel');
+    throw new Error('hitQuality must be one of: soft, medium, hard');
   }
 
   return value as HitQuality;
@@ -398,7 +404,11 @@ function parseAtBatRequest(body: unknown): AtBatRequest {
     notes: parseOptionalString(body.notes, 'notes'),
     contactType: parseOptionalContactType(body.contactType),
     hitDirection: parseOptionalHitDirection(body.hitDirection),
-    hitQuality: parseOptionalHitQuality(body.hitQuality),
+    hitData: isRecord(body.hitData) ? {
+      type: body.hitData.type !== undefined ? parseOptionalContactType(body.hitData.type) : undefined,
+      direction: body.hitData.direction !== undefined ? parseOptionalHitDirection(body.hitData.direction) : undefined,
+      hardness: body.hitData.hardness !== undefined ? parseOptionalHitQuality(body.hitData.hardness) : undefined,
+    } : undefined,
     runnersJson: parseOptionalString(body.runnersJson, 'runnersJson'),
   };
 }
@@ -574,16 +584,15 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
   const batterRosterId = await findGameLineupId(request.gameId, request.batterPlayerId);
   const pitcherRosterId = request.pitcherPlayerId ? await findGameLineupId(request.gameId, request.pitcherPlayerId) : null;
   const onBase = request.onBase ?? ON_BASE_RESULTS.has(request.result);
-  const insertColumns = ['game_id', 'player_id', 'inning', 'result', 'rbi', 'runs'];
+  // player_id y result fueron eliminados (migración 018); usar batter_player_id y event_type
+  const insertColumns = ['game_id', 'inning', 'rbi', 'runs'];
   const insertValues: Array<string | number | boolean | null> = [
     request.gameId,
-    request.batterPlayerId,
     state.inning,
-    request.result,
     request.rbi ?? 0,
     request.runs ?? 0,
   ];
-  const placeholders = ['?', '?', '?', '?', '?', '?'];
+  const placeholders = ['?', '?', '?', '?'];
 
   if (columns.has('batter_roster_id')) {
     insertColumns.push('batter_roster_id');
@@ -641,7 +650,20 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
 
   if (columns.has('hit_quality')) {
     insertColumns.push('hit_quality');
-    insertValues.push(request.hitQuality ?? null);
+    insertValues.push(request.hitData?.hardness ?? null);
+    placeholders.push('?');
+  }
+
+  if (columns.has('hit_data')) {
+    const hitDataJson = request.hitData
+      ? JSON.stringify({
+          type: request.hitData.type ?? request.contactType ?? null,
+          direction: request.hitData.direction ?? request.hitDirection ?? null,
+          hardness: request.hitData.hardness ?? null,
+        })
+      : null;
+    insertColumns.push('hit_data');
+    insertValues.push(hitDataJson);
     placeholders.push('?');
   }
 
@@ -874,19 +896,19 @@ async function computePlayerStats(gameId: string): Promise<Record<string, GamePl
 
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT
-      COALESCE(batter_player_id, player_id) AS player_id,
-      COUNT(CASE WHEN result NOT IN ('walk','hbp','sacrifice_fly','sacrifice_bunt') THEN 1 END) AS ab,
-      SUM(CASE WHEN result IN ('single','double','triple','home_run') THEN 1 ELSE 0 END) AS hits,
-      SUM(CASE WHEN result = 'double' THEN 1 ELSE 0 END) AS doubles,
-      SUM(CASE WHEN result = 'triple' THEN 1 ELSE 0 END) AS triples,
-      SUM(CASE WHEN result = 'home_run' THEN 1 ELSE 0 END) AS home_runs,
+      batter_player_id AS player_id,
+      COUNT(CASE WHEN event_type NOT IN ('walk','intent_walk','hit_by_pitch','sac_fly','sac_bunt') THEN 1 END) AS ab,
+      SUM(CASE WHEN event_type IN ('single','double','triple','home_run') THEN 1 ELSE 0 END) AS hits,
+      SUM(CASE WHEN event_type = 'double' THEN 1 ELSE 0 END) AS doubles,
+      SUM(CASE WHEN event_type = 'triple' THEN 1 ELSE 0 END) AS triples,
+      SUM(CASE WHEN event_type = 'home_run' THEN 1 ELSE 0 END) AS home_runs,
       SUM(rbi) AS rbi,
       SUM(runs) AS runs,
-      SUM(CASE WHEN result IN ('walk','hbp') THEN 1 ELSE 0 END) AS walks,
-      SUM(CASE WHEN result = 'strikeout' THEN 1 ELSE 0 END) AS strikeouts
+      SUM(CASE WHEN event_type IN ('walk','intent_walk','hit_by_pitch') THEN 1 ELSE 0 END) AS walks,
+      SUM(CASE WHEN event_type = 'strikeout' THEN 1 ELSE 0 END) AS strikeouts
     FROM at_bats
     WHERE game_id = ?
-    GROUP BY COALESCE(batter_player_id, player_id)`,
+    GROUP BY batter_player_id`,
     [gameId],
   );
 
@@ -918,12 +940,15 @@ async function computePitcherStats(gameId: string): Promise<Record<string, Pitch
     `SELECT
       pitcher_player_id AS pitcher_id,
       SUM(COALESCE(pitch_count, 0)) AS pitches,
-      SUM(CASE WHEN result = 'strikeout' THEN 1 ELSE 0 END) AS strikeouts,
-      SUM(CASE WHEN result IN ('walk','hbp') THEN 1 ELSE 0 END) AS walks,
-      SUM(CASE WHEN result IN ('single','double','triple','home_run') THEN 1 ELSE 0 END) AS hits_allowed,
+      SUM(CASE WHEN event_type = 'strikeout' THEN 1 ELSE 0 END) AS strikeouts,
+      SUM(CASE WHEN event_type IN ('walk','intent_walk','hit_by_pitch') THEN 1 ELSE 0 END) AS walks,
+      SUM(CASE WHEN event_type IN ('single','double','triple','home_run') THEN 1 ELSE 0 END) AS hits_allowed,
       SUM(runs) AS runs_allowed,
-      SUM(CASE WHEN result IN ('strikeout','groundout','flyout','sacrifice_fly','sacrifice_bunt') THEN 1
-               WHEN result = 'double_play' THEN 2 ELSE 0 END) AS outs_recorded
+      SUM(CASE WHEN event_type IN ('strikeout','field_out','force_out','fielders_choice_out',
+                                    'sac_fly','sac_bunt') THEN 1
+               WHEN event_type IN ('double_play','grounded_into_double_play','sac_fly_double_play',
+                                    'sac_bunt_double_play','strikeout_double_play') THEN 2
+               WHEN event_type = 'triple_play' THEN 3 ELSE 0 END) AS outs_recorded
     FROM at_bats
     WHERE game_id = ? AND pitcher_player_id IS NOT NULL
     GROUP BY pitcher_player_id`,
