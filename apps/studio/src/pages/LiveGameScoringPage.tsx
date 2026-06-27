@@ -910,8 +910,22 @@ export function LiveGameScoringPage() {
     setSavingAtBat(true);
     setError(null);
 
-    try {
-      // El pitcheo in_play ya fue registrado en handleRegisterPitch
+      try {
+      // El pitcheo in_play ya fue registrado en handleRegisterPitch.
+      // Incluimos sus datos como decisivePitch para que queden en ext del at-bat.
+      const velocityKmhNum = pitchMetrics.velocityKmh ? Number.parseFloat(pitchMetrics.velocityKmh) : undefined;
+      const decisivePitch = (selectedPitchResult === 'in_play' && selectedPitchCell)
+        ? {
+            pitchType:   selectedPitchType || undefined,
+            col:         selectedPitchCell.col,
+            row:         selectedPitchCell.row,
+            zone:        selectedPitchCell.zone,
+            velocityKmh: Number.isFinite(velocityKmhNum) ? velocityKmhNum : undefined,
+            plateX:      selectedPitchCell.plate_x,
+            plateZ:      selectedPitchCell.plate_z,
+          }
+        : undefined;
+
       await requestJson('/at-bats', {
         method: 'POST',
         body: JSON.stringify({
@@ -921,10 +935,8 @@ export function LiveGameScoringPage() {
           result: selectedResult,
           rbi,
           runs,
-          // Campos contact legacy (mantener para backward compat con scorer)
           contactType: selectedContactType ?? undefined,
           hitDirection: selectedHitDirection ?? undefined,
-          // MLBAM hitData estructurado
           hitData: (selectedContactType || selectedHitDirection || selectedHitQuality)
             ? {
                 type: selectedContactType ?? undefined,
@@ -935,6 +947,7 @@ export function LiveGameScoringPage() {
           outSequence: outSequence || undefined,
           runnersJson: runnerDetails.length > 0 ? JSON.stringify(runnerDetails) : undefined,
           videoTimestamp: pitchMetrics.videoTimestamp || undefined,
+          decisivePitch,
         }),
       });
 

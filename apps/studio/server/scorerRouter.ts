@@ -42,6 +42,16 @@ interface AtBatRequest {
   runnersJson?: string;
   /** Timecode del stream de transmisión, ej. "1:23:45.500" */
   videoTimestamp?: string;
+  /** Pitch decisivo (in_play): datos del lanzamiento que resultó en contacto */
+  decisivePitch?: {
+    pitchType?: string;
+    col?: number;
+    row?: number;
+    zone?: number;
+    velocityKmh?: number;
+    plateX?: number;
+    plateZ?: number;
+  };
 }
 
 type ContactType = 'line_drive' | 'fly_ball' | 'ground_ball' | 'bunt_grounder' | 'popup';
@@ -410,6 +420,16 @@ function parseAtBatRequest(body: unknown): AtBatRequest {
       hardness: body.hitData.hardness !== undefined ? parseOptionalHitQuality(body.hitData.hardness) : undefined,
     } : undefined,
     runnersJson: parseOptionalString(body.runnersJson, 'runnersJson'),
+    videoTimestamp: parseOptionalString(body.videoTimestamp, 'videoTimestamp'),
+    decisivePitch: isRecord(body.decisivePitch) ? {
+      pitchType:  parseOptionalString(body.decisivePitch.pitchType, 'decisivePitch.pitchType'),
+      col:        parseOptionalGridCoordinate(body.decisivePitch.col, 'decisivePitch.col'),
+      row:        parseOptionalGridCoordinate(body.decisivePitch.row, 'decisivePitch.row'),
+      zone:       typeof body.decisivePitch.zone === 'number' ? body.decisivePitch.zone : undefined,
+      velocityKmh: parseOptionalFloat(body.decisivePitch.velocityKmh, 'decisivePitch.velocityKmh'),
+      plateX:     parseOptionalFloat(body.decisivePitch.plateX, 'decisivePitch.plateX'),
+      plateZ:     parseOptionalFloat(body.decisivePitch.plateZ, 'decisivePitch.plateZ'),
+    } : undefined,
   };
 }
 
@@ -731,6 +751,14 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
   if (columns.has('video_timestamp') && request.videoTimestamp) {
     insertColumns.push('video_timestamp');
     insertValues.push(request.videoTimestamp);
+    placeholders.push('?');
+  }
+
+  // ext: PFX namespace — incluye pitch decisivo si viene de un in_play
+  if (columns.has('ext') && request.decisivePitch) {
+    const extVal = { playflow: { decisivePitch: request.decisivePitch } };
+    insertColumns.push('ext');
+    insertValues.push(JSON.stringify(extVal));
     placeholders.push('?');
   }
 
