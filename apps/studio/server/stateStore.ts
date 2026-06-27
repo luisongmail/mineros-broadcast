@@ -127,7 +127,27 @@ export interface HalfInningSequenceMessage {
   };
 }
 
-export type StoreMessage = StateMessage | ShowMessage | HideMessage | EventMessage | PlayerStatsMessage | PitcherStatsMessage | HalfInningSequenceMessage;
+/** Emitido cuando el EventEngine solicita activar una escena (preview o program). */
+export interface SceneMessage {
+  type: 'scene';
+  sceneId: string;
+  mode: 'preview' | 'program' | 'silent';
+  eventId: string;
+  eventType: string;
+  priority: number;
+}
+
+/** Emitido cuando el EventEngine solicita mostrar un patrocinador en un placement. */
+export interface SponsorMessage {
+  type: 'sponsor';
+  placement: string;
+  mode: 'preview' | 'program' | 'silent';
+  eventId: string;
+  eventType: string;
+  context?: Record<string, unknown>;
+}
+
+export type StoreMessage = StateMessage | ShowMessage | HideMessage | EventMessage | PlayerStatsMessage | PitcherStatsMessage | HalfInningSequenceMessage | SceneMessage | SponsorMessage;
 export type Subscriber = (message: StoreMessage) => void;
 
 interface OverlayUiState {
@@ -1074,19 +1094,35 @@ class StateStore {
           this.emit({ type: 'hide', overlay: request.overlay });
           break;
         case 'requestScene':
-          console.info('[StateStore] EventEngine requestScene received', {
+          console.info('[StateStore] EventEngine requestScene → emitiendo a clientes', {
             eventId: output.eventId,
             eventType: output.eventType,
             sceneId: request.sceneId,
             mode: request.mode,
           });
+          this.emit({
+            type: 'scene',
+            sceneId: request.sceneId,
+            mode: request.mode === 'preview' || request.mode === 'program' || request.mode === 'silent' ? request.mode : 'preview',
+            eventId: output.eventId,
+            eventType: output.eventType,
+            priority: request.priority,
+          });
           break;
         case 'requestSponsor':
-          console.info('[StateStore] EventEngine requestSponsor received', {
+          console.info('[StateStore] EventEngine requestSponsor → emitiendo a clientes', {
             eventId: output.eventId,
             eventType: output.eventType,
             placement: request.placement,
             mode: request.mode,
+          });
+          this.emit({
+            type: 'sponsor',
+            placement: request.placement,
+            mode: request.mode === 'preview' || request.mode === 'program' || request.mode === 'silent' ? request.mode : 'preview',
+            eventId: output.eventId,
+            eventType: output.eventType,
+            context: request.context,
           });
           break;
         default:
@@ -1096,17 +1132,18 @@ class StateStore {
   }
 
   private shouldProcessEventEngineRequest(request: EventEngineRequest): boolean {
-    if (!request.mode || request.mode === 'preview') {
-      return true;
+    // 'preview' y 'program' se procesan siempre.
+    // 'silent' genera output al audit sin emitir a clientes.
+    // 'blocked' nunca se emite.
+    if (request.mode === 'blocked') {
+      console.info('[StateStore] EventEngine request bloqueado (mode=blocked)', {
+        requestId: request.requestId,
+        action: request.action,
+      });
+      return false;
     }
 
-    console.info('[StateStore] EventEngine request skipped due to unsupported mode', {
-      requestId: request.requestId,
-      action: request.action,
-      mode: request.mode,
-    });
-
-    return false;
+    return true;
   }
 
   private emitEvent(eventType: string, payload: Record<string, unknown>): void {

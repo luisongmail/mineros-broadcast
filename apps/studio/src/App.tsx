@@ -480,6 +480,23 @@ function OperatorControlPanel() {
         setOnAir(false);
       }
     }
+
+    // EventEngine sugiere una escena → auto-cargar overlay en Preview si mode=preview
+    // El operador decide si hace Take o ignora la sugerencia.
+    if (msg.type === 'scene' && typeof msg.sceneId === 'string' && msg.mode === 'preview') {
+      const SCENE_TO_OVERLAY: Record<string, OverlayId> = {
+        'scene-cambio-bateador':  'batter',
+        'scene-cambio-pitcher':   'pitcher',
+        'scene-inicio-entrada':   'inning-transition',
+        'scene-fin-entrada':      'inning-transition',
+        'scene-home-run':         'game-event',
+      };
+      const suggested = SCENE_TO_OVERLAY[msg.sceneId] as OverlayId | undefined;
+      if (suggested && suggested in OVERLAYS) {
+        setPreviewOverlay(suggested);
+        setPreviewVariant(OVERLAYS[suggested].defaultVariant);
+      }
+    }
   }, [wsLastMessage, programOverlay]);
 
   const [resetDialog, setResetDialog] = useState<DialogState | null>(null);

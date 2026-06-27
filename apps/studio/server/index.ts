@@ -212,6 +212,6 @@ freePort(port);
 // Restaurar estado desde DB antes de abrir el puerto
 stateStore.init().finally(() => {
   server.listen(port, () => {
-    console.log(`Overlay server listening on http://localhost:${port}`);
+    console.log(`PlayFlow server listening on http://localhost:${port}`);
   });
 });
