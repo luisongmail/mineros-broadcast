@@ -1,0 +1,29 @@
+<!-- PlayFlow Favicon & PWA Icons — copiar en <head> -->
+
+<!-- Favicon clásico (.ico — IE y legacy) -->
+<link rel="shortcut icon" href="/favicon.ico" />
+
+<!-- Favicon moderno (PNG) -->
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+
+<!-- Apple Touch Icon (iOS home screen) -->
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+<!-- PWA manifest icons (referenciar desde manifest.json) -->
+<!--
+  En manifest.json:
+  {
+    "name": "PlayFlow",
+    "short_name": "PlayFlow",
+    "icons": [
+      { "src": "/pwa-192.png", "sizes": "192x192", "type": "image/png" },
+      { "src": "/pwa-512.png", "sizes": "512x512", "type": "image/png" }
+    ],
+    "theme_color": "#0D1F3C",
+    "background_color": "#0D1F3C",
+    "display": "standalone"
+  }
+-->
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0D1F3C" />
