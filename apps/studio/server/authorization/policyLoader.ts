@@ -35,7 +35,7 @@ export function loadPolicy(): SecurityPolicy {
 
   const policyPath = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
-    '../../../docs/requirements/30-security-access-control-audit/security-policy-v1.0.0.json',
+    '../../../../docs/requirements/30-security-access-control-audit/security-policy-v1.0.0.json',
   );
 
   const raw = readFileSync(policyPath, 'utf-8');
