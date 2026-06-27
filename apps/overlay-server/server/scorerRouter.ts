@@ -1023,9 +1023,12 @@ function applyAtBatToGameState(request: AtBatRequest): void {
 
   if (!inningHalfChangedAfterOuts) {
     if (newBases !== null) {
-      stateStore.sendCommand('SetBase', `first:${String(newBases.first)}`);
-      stateStore.sendCommand('SetBase', `second:${String(newBases.second)}`);
-      stateStore.sendCommand('SetBase', `third:${String(newBases.third)}`);
+      // Enviar identidad real del corredor (o limpiar base) — Spec 29 S2 RunnerOnBase
+      const toSetBaseCmd = (base: string, runner: RunnerOnBase | null): string =>
+        runner ? `${base}:playerId:${runner.id}` : `${base}:false`;
+      stateStore.sendCommand('SetBase', toSetBaseCmd('first', newBases.first));
+      stateStore.sendCommand('SetBase', toSetBaseCmd('second', newBases.second));
+      stateStore.sendCommand('SetBase', toSetBaseCmd('third', newBases.third));
     }
     stateStore.sendCommand('ResetCount');
   }

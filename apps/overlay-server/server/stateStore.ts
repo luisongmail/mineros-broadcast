@@ -206,6 +206,7 @@ function parseScoreValue(value: string | undefined): Partial<GameScore> {
   return nextScore;
 }
 
+// parseBooleanToken se usa en compatibilidad legada (SetBase true/false)
 function parseBooleanToken(value: string): boolean {
   if (value === 'true') {
     return true;
@@ -220,23 +221,34 @@ function parseBooleanToken(value: string): boolean {
 
 function parseBaseValue(value: string | undefined): Partial<GameBases> {
   const normalized = assertNonEmpty(value, 'value');
-  const [baseRaw, occupiedRaw] = normalized.split(':', 2);
-  const base = baseRaw?.trim();
-  const occupied = occupiedRaw?.trim();
+  const parts = normalized.split(':', 3);
+  const base = parts[0]?.trim() as 'first' | 'second' | 'third' | undefined;
+  const token = parts[1]?.trim();
 
   if (base !== 'first' && base !== 'second' && base !== 'third') {
-    throw new Error('SetBase expects "first:true", "second:false" or "third:true"');
+    throw new Error('SetBase expects "first:true", "second:false", "first:false" or "first:playerId:<id>"');
   }
 
-  if (!occupied) {
-    throw new Error('SetBase requires a boolean value');
-  }
+  let runner: RunnerOnBase | null;
 
-  // Convierte boolean a RunnerOnBase | null
-  const isOccupied = parseBooleanToken(occupied);
-  const runner: RunnerOnBase | null = isOccupied
-    ? { id: `anon-${base}`, name: '', number: 0, originBase: base, earned: true }
-    : null;
+  if (token === 'playerId') {
+    // Formato: first:playerId:<id> — corredor identificado
+    const playerId = parts[2]?.trim();
+    if (!playerId) throw new Error('SetBase playerId format requires an id: "first:playerId:<id>"');
+    const originMap: Record<'first' | 'second' | 'third', RunnerOnBase['originBase']> = {
+      first: 'first', second: 'second', third: 'third',
+    };
+    runner = { id: playerId, name: '', number: 0, originBase: originMap[base], earned: true };
+  } else if (token === 'false' || token === 'null' || token === 'clear') {
+    runner = null;
+  } else if (token === 'true') {
+    // Corredor anónimo — compatibilidad legada y operador manual sin ficha
+    runner = { id: `anon-${base}`, name: '', number: 0, originBase: base, earned: true };
+  } else {
+    // Intentar parsear como boolean para dar mensaje de error claro
+    void parseBooleanToken(token); // lanza si no es "true"/"false"
+    throw new Error('SetBase requires boolean or playerId format: "first:true", "first:false", "first:playerId:<id>"');
+  }
 
   return { [base]: runner } satisfies Partial<GameBases>;
 }

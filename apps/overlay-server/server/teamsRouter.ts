@@ -92,6 +92,10 @@ interface PlayerRow extends RowDataPacket {
   date_of_birth: string | Date | null;
   nationality: string | null;
   gender: string | null;
+  // Spec 29 S2 — identificadores externos
+  mlbam_id: string | null;
+  wbsc_id: string | null;
+  ext_ref: unknown;
   created_at: string | Date;
   updated_at: string | Date;
 }
@@ -189,6 +193,10 @@ interface PlayerPayload {
   date_of_birth: string | null;
   nationality: string | null;
   gender: string | null;
+  // Spec 29 S2
+  mlbam_id: string | null;
+  wbsc_id: string | null;
+  ext_ref: Record<string, string> | null;
   created_at: string;
   updated_at: string;
   rosters: RosterPayload[];
@@ -312,6 +320,10 @@ function mapPlayer(row: PlayerRow | DemoPlayer, rosters: RosterPayload[]): Playe
     date_of_birth: row.date_of_birth ? toIsoString(row.date_of_birth) : null,
     nationality: row.nationality,
     gender: row.gender,
+    // Spec 29 S2 — identificadores externos MLBAM/WBSC
+    mlbam_id: ('mlbam_id' in row ? row.mlbam_id : null) ?? null,
+    wbsc_id:  ('wbsc_id'  in row ? row.wbsc_id  : null) ?? null,
+    ext_ref:  ('ext_ref' in row ? parseJsonColumn<Record<string, string>>(row.ext_ref, {}) : null),
     created_at: toIsoString(row.created_at),
     updated_at: toIsoString(row.updated_at),
     rosters,
@@ -482,7 +494,7 @@ async function loadTeamPlayers(teamId: string, tournamentId?: string | null): Pr
   const [playerRows] = await pool.query<PlayerRow[]>(
     `SELECT id, first_name, last_name, nickname, name, team_id, number, position, bats, throws,
             photo_asset_id, photo_action_asset_id, stats, status, date_of_birth, nationality,
-            gender, created_at, updated_at
+            gender, mlbam_id, wbsc_id, ext_ref, created_at, updated_at
      FROM players
      WHERE team_id = ? AND status <> 'inactive'
      ORDER BY CAST(number AS UNSIGNED) ASC, number ASC`,
