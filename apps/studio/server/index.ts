@@ -58,7 +58,7 @@ function readPackageMetadata(): Pick<ServerMetadata, 'name' | 'version'> {
   const parsed = JSON.parse(packageJson) as { name?: unknown; version?: unknown };
 
   return {
-    name: typeof parsed.name === 'string' ? parsed.name : 'overlay-server',
+    name: typeof parsed.name === 'string' ? parsed.name : 'studio',
     version: typeof parsed.version === 'string' ? parsed.version : '0.0.0',
   };
 }

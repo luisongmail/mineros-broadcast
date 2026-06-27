@@ -3,7 +3,7 @@
  * scripts/download-assets.ts
  *
  * Descarga imágenes desde fuentes externas (singular.live, etc.) y las guarda
- * en apps/overlay-server/storage/assets/ con el assetId correcto como nombre de archivo.
+ * en apps/studio/storage/assets/ con el assetId correcto como nombre de archivo.
  *
  * Uso:
  *   pnpm tsx scripts/download-assets.ts
@@ -17,7 +17,7 @@ import https from 'node:https';
 import http from 'node:http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ASSETS_DIR = join(__dirname, '../apps/overlay-server/storage/assets');
+const ASSETS_DIR = join(__dirname, '../apps/studio/storage/assets');
 const DRY_RUN = process.argv.includes('--dry-run');
 
 interface AssetDownload {
@@ -240,7 +240,7 @@ async function main(): Promise<void> {
     console.log(`\n💡 Siguiente paso:`);
     console.log(`   Para producción: sube la carpeta storage/assets/ a Azure Blob Storage`);
     console.log(`   az storage blob upload-batch \\`);
-    console.log(`     --source apps/overlay-server/storage/assets \\`);
+    console.log(`     --source apps/studio/storage/assets \\`);
     console.log(`     --destination broadcast-assets \\`);
     console.log(`     --account-name broadcaststorage\n`);
   }

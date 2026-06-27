@@ -34,14 +34,14 @@ COPY packages/overlays/scorebug/package.json packages/overlays/scorebug/
 COPY packages/overlays/social-lower-third/package.json packages/overlays/social-lower-third/
 COPY packages/overlays/sponsor-break/package.json packages/overlays/sponsor-break/
 COPY packages/overlays/substitution/package.json packages/overlays/substitution/
-COPY apps/overlay-server/package.json apps/overlay-server/
+COPY apps/studio/package.json apps/studio/
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 # Copiar código fuente completo y compilar
 COPY . .
-RUN pnpm turbo build --filter=@mineros/overlay-server...
+RUN pnpm turbo build --filter=@mineros/studio...
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
@@ -58,10 +58,10 @@ ENV PORT=8080
 COPY --from=builder /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/apps/overlay-server ./apps/overlay-server
+COPY --from=builder /app/apps/studio ./apps/studio
 
 EXPOSE 8080
 
 # El Vite build (dist/) se sirve como estáticos desde el servidor Node
-WORKDIR /app/apps/overlay-server
+WORKDIR /app/apps/studio
 CMD ["/app/node_modules/.bin/tsx", "server/index.ts"]

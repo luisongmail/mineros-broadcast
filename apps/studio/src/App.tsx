@@ -303,9 +303,9 @@ function createLocalDemoEngine(): GameEngine {
   engine.advanceHalfInning();
   engine.advanceHalfInning();
   engine.advanceHalfInning();
-  engine.setScore(DEMO_GAME_DETAIL.score, 'overlay-server', 'demo-seed');
-  engine.setOuts(DEMO_GAME_DETAIL.outs, 'overlay-server', 'demo-seed');
-  engine.setBases(DEMO_GAME_DETAIL.bases, 'overlay-server');
+  engine.setScore(DEMO_GAME_DETAIL.score, 'studio', 'demo-seed');
+  engine.setOuts(DEMO_GAME_DETAIL.outs, 'studio', 'demo-seed');
+  engine.setBases(DEMO_GAME_DETAIL.bases, 'studio');
   engine.setCount(DEMO_GAME_DETAIL.count);
   engine.setLineup(toGameLineup(DEMO_GAME_DETAIL.lineups));
 
@@ -591,7 +591,7 @@ function OperatorControlPanel() {
       switch (command) {
         case 'IncrementScore':
           if (value === 'home' || value === 'away') {
-            engine.incrementScore(value, 'overlay-server');
+            engine.incrementScore(value, 'studio');
           }
           break;
         case 'AddOut':

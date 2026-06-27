@@ -42,7 +42,7 @@ importers:
         specifier: ^8.35.0
         version: 8.62.0(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)
 
-  apps/overlay-server:
+  apps/studio:
     dependencies:
       '@playflow/core':
         specifier: workspace:*

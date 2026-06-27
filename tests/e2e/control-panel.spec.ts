@@ -1,11 +1,11 @@
 /**
- * Tests e2e — Panel de control (overlay-server UI)
+ * Tests e2e — Panel de control (studio UI)
  * Cubre el flujo mínimo de operación:
  *   1. Carga de la aplicación (ruta /)
  *   2. Navegación a /control (panel de overlays)
  *   3. Panel de datos de juego visible
  *   4. Navegación a /live-game-scoring
- *   5. API de salud del overlay-server
+ *   5. API de salud del studio
  */
 
 import { expect, test } from '@playwright/test';

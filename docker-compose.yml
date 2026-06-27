@@ -22,7 +22,7 @@ services:
   broadcast:
     build:
       context: .
-      dockerfile: apps/overlay-server/Dockerfile
+      dockerfile: apps/studio/Dockerfile
     image: broadcast-server:latest
     container_name: broadcast-server
     ports:

@@ -438,7 +438,7 @@ async function getAvailableGames(allStatuses = false): Promise<{ games: GameConf
 
     return { games, source: 'mysql', usingDemo: false };
   } catch (error) {
-    console.warn('[overlay-server] Falling back to demo game config', error);
+    console.warn('[studio] Falling back to demo game config', error);
     return { games: [DEMO_GAME_DETAIL], source: 'demo', usingDemo: true };
   }
 }

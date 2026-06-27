@@ -138,7 +138,7 @@ const AVAILABLE_OVERLAYS = [
   'game-event',
 ] as const;
 
-const DEMO_OPERATOR_ID = 'overlay-server';
+const DEMO_OPERATOR_ID = 'studio';
 const DEMO_REASON = 'remote-command';
 const HALF_INNING_SEQUENCE_DURATION_MS = 8000;
 
