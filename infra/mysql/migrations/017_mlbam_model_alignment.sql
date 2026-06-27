@@ -5,7 +5,7 @@
 --   MLBAM (MLB Stats API) y WBSC sin pérdida de datos.
 --
 -- Política de migración segura:
---   - SOLO ADD COLUMN IF NOT EXISTS con DEFAULT NULL (nunca DROP, nunca MODIFY sin
+--   - SOLO ADD COLUMN con DEFAULT NULL (nunca DROP, nunca MODIFY sin
 --     ALTER preservando tipo original)
 --   - Backfills explícitos para datos derivables de columnas existentes
 --   - Columnas legacy marcadas con comentario DEPRECATED — se eliminan
@@ -25,7 +25,7 @@
 -- Estrategia: ADD venue_id NULL; backfill si existe un venue con ese nombre;
 -- el campo venue VARCHAR(255) queda como DEPRECATED (no eliminar aquí).
 ALTER TABLE games
-  ADD COLUMN IF NOT EXISTS venue_id VARCHAR(100) NULL
+  ADD COLUMN venue_id VARCHAR(100) NULL
     COMMENT 'FK a venues.id — reemplaza el campo venue VARCHAR libre'
     AFTER venue;
 
@@ -38,7 +38,7 @@ WHERE g.venue_id IS NULL AND g.venue IS NOT NULL AND g.venue != '';
 -- game_type: código MLBAM del tipo de partido
 -- R=Regular, P=Playoffs, S=Spring Training, A=All-Star, E=Exhibition, W=World Series
 ALTER TABLE games
-  ADD COLUMN IF NOT EXISTS game_type CHAR(1) NULL
+  ADD COLUMN game_type CHAR(1) NULL
     COMMENT 'MLBAM game type: R=Regular | P=Playoffs | S=Spring | A=All-Star | E=Exhibition'
     AFTER game_name;
 
@@ -50,19 +50,19 @@ UPDATE games SET game_type = 'R' WHERE game_type IS NULL;
 -- series_description: texto legible del tipo de serie
 -- Ej: "Regular Season", "Playoffs", "Championship Series"
 ALTER TABLE games
-  ADD COLUMN IF NOT EXISTS series_description VARCHAR(100) NULL
+  ADD COLUMN series_description VARCHAR(100) NULL
     COMMENT 'Descripción de la serie: Regular Season | Playoffs | etc.'
     AFTER game_type;
 
 -- games_in_series: cuántos partidos tiene la serie (ej. 3, 5, 7)
 ALTER TABLE games
-  ADD COLUMN IF NOT EXISTS games_in_series TINYINT UNSIGNED NULL
+  ADD COLUMN games_in_series TINYINT UNSIGNED NULL
     COMMENT 'Número total de juegos en la serie'
     AFTER series_description;
 
 -- double_header: si es doble juego S=single/none, Y=first game, Z=second game
 ALTER TABLE games
-  ADD COLUMN IF NOT EXISTS double_header CHAR(1) NULL DEFAULT 'S'
+  ADD COLUMN double_header CHAR(1) NULL DEFAULT 'S'
     COMMENT 'MLBAM double header: S=ninguno | Y=primer juego | Z=segundo juego'
     AFTER games_in_series;
 
@@ -72,7 +72,7 @@ UPDATE games SET double_header = 'S' WHERE double_header IS NULL;
 -- weather: snapshot de condiciones climáticas al inicio del partido (JSON MLBAM)
 -- Estructura: {"condition": "Sunny", "temp": 28, "wind": "5 km/h Out to LF"}
 ALTER TABLE games
-  ADD COLUMN IF NOT EXISTS weather JSON NULL
+  ADD COLUMN weather JSON NULL
     COMMENT 'Condiciones climáticas MLBAM: {condition, temp, wind}'
     AFTER double_header;
 
@@ -84,24 +84,24 @@ ALTER TABLE games
 -- Necesario para interoperabilidad con herramientas externas.
 
 ALTER TABLE teams
-  ADD COLUMN IF NOT EXISTS mlbam_id VARCHAR(20) NULL
+  ADD COLUMN mlbam_id VARCHAR(20) NULL
     COMMENT 'ID del equipo en MLB Stats API'
     AFTER active;
 
 ALTER TABLE teams
-  ADD COLUMN IF NOT EXISTS wbsc_id VARCHAR(30) NULL
+  ADD COLUMN wbsc_id VARCHAR(30) NULL
     COMMENT 'ID del equipo en WBSC (torneos internacionales)'
     AFTER mlbam_id;
 
 ALTER TABLE teams
-  ADD COLUMN IF NOT EXISTS ext_ref JSON NULL
+  ADD COLUMN ext_ref JSON NULL
     COMMENT 'Referencias externas adicionales {fuente: id}'
     AFTER wbsc_id;
 
 -- team_code: código corto de transmisión MLBAM (fileCode, ej. "min", "rot")
 -- Distinto de abbreviation (que es uppercase 3-4 chars para marcador)
 ALTER TABLE teams
-  ADD COLUMN IF NOT EXISTS team_code VARCHAR(10) NULL
+  ADD COLUMN team_code VARCHAR(10) NULL
     COMMENT 'Código de transmisión MLBAM fileCode: ej. "min", "rot" (lowercase)'
     AFTER ext_ref;
 
@@ -118,7 +118,7 @@ WHERE team_code IS NULL AND abbreviation IS NOT NULL;
 -- Solo existe pitcher_roster_id (UUID del roster) que obliga a JOIN.
 -- MLBAM requiere el player_id directamente en cada evento.
 ALTER TABLE at_bats
-  ADD COLUMN IF NOT EXISTS pitcher_player_id VARCHAR(100) NULL
+  ADD COLUMN pitcher_player_id VARCHAR(100) NULL
     COMMENT 'player_id del lanzador — FK implícita a players.id'
     AFTER pitcher_roster_id;
 
@@ -192,13 +192,13 @@ WHERE start_speed IS NULL
 -- responsible_pitcher_id: lanzador responsable de la carrera (para ERA)
 -- Necesario para calcular carreras limpias/sucias del lanzador.
 ALTER TABLE baserunning_events
-  ADD COLUMN IF NOT EXISTS responsible_pitcher_id VARCHAR(100) NULL
+  ADD COLUMN responsible_pitcher_id VARCHAR(100) NULL
     COMMENT 'player_id del lanzador responsable de este corredor (para carrera limpia/sucia)'
     AFTER player_id;
 
 -- scoring_team_id: equipo que anotó la carrera (cuando run_scored = 1)
 ALTER TABLE baserunning_events
-  ADD COLUMN IF NOT EXISTS scoring_team_id VARCHAR(100) NULL
+  ADD COLUMN scoring_team_id VARCHAR(100) NULL
     COMMENT 'team_id del equipo que anotó — FK implícita a teams.id'
     AFTER responsible_pitcher_id;
 
@@ -208,43 +208,43 @@ ALTER TABLE baserunning_events
 
 -- GB (Games Behind): diferencia con el líder de la división/grupo
 ALTER TABLE standings
-  ADD COLUMN IF NOT EXISTS GB DECIMAL(4,1) NULL
+  ADD COLUMN GB DECIMAL(4,1) NULL
     COMMENT 'Games Behind: diferencia con el líder (0.0 para el líder)'
     AFTER `Dif`;
 
 -- streak: racha actual (ej. W5 = ganando 5, L2 = perdiendo 2)
 ALTER TABLE standings
-  ADD COLUMN IF NOT EXISTS streak VARCHAR(10) NULL
+  ADD COLUMN streak VARCHAR(10) NULL
     COMMENT 'Racha actual: W{n} = ganando n, L{n} = perdiendo n'
     AFTER GB;
 
 -- L10: record en los últimos 10 partidos "W-L" (ej. "7-3")
 ALTER TABLE standings
-  ADD COLUMN IF NOT EXISTS L10 VARCHAR(10) NULL
+  ADD COLUMN L10 VARCHAR(10) NULL
     COMMENT 'Record en los últimos 10 partidos (ej. 7-3)'
     AFTER streak;
 
 -- home_record: record en partidos en casa "W-L"
 ALTER TABLE standings
-  ADD COLUMN IF NOT EXISTS home_record VARCHAR(10) NULL
+  ADD COLUMN home_record VARCHAR(10) NULL
     COMMENT 'Record de local (ej. 12-5)'
     AFTER L10;
 
 -- away_record: record en partidos de visitante "W-L"
 ALTER TABLE standings
-  ADD COLUMN IF NOT EXISTS away_record VARCHAR(10) NULL
+  ADD COLUMN away_record VARCHAR(10) NULL
     COMMENT 'Record de visitante (ej. 8-9)'
     AFTER home_record;
 
 -- elimination_number: número de la eliminación (EN)
 ALTER TABLE standings
-  ADD COLUMN IF NOT EXISTS elimination_number SMALLINT NULL
+  ADD COLUMN elimination_number SMALLINT NULL
     COMMENT 'Número de eliminación: partidos que necesita perder para quedar eliminado'
     AFTER away_record;
 
 -- magic_number: número mágico del líder para ganar la división
 ALTER TABLE standings
-  ADD COLUMN IF NOT EXISTS magic_number SMALLINT NULL
+  ADD COLUMN magic_number SMALLINT NULL
     COMMENT 'Número mágico del líder para ganar la serie'
     AFTER elimination_number;
 
@@ -255,7 +255,7 @@ ALTER TABLE standings
 -- En béisbol, un jugador puede ser DH (batea) pero la posición defensiva
 -- es diferente (el que entra por él en el campo). MLBAM distingue ambos.
 ALTER TABLE game_lineups
-  ADD COLUMN IF NOT EXISTS defensive_position VARCHAR(20) NULL
+  ADD COLUMN defensive_position VARCHAR(20) NULL
     COMMENT 'Posición defensiva en campo (puede diferir del rol de batting en DH/Flex)'
     AFTER position;
 
@@ -270,17 +270,17 @@ WHERE defensive_position IS NULL
 -- ------------------------------------------------------------
 
 ALTER TABLE tournaments
-  ADD COLUMN IF NOT EXISTS mlbam_id VARCHAR(20) NULL
+  ADD COLUMN mlbam_id VARCHAR(20) NULL
     COMMENT 'ID del torneo en MLB Stats API (para torneos con referencia MLB)'
     AFTER status;
 
 ALTER TABLE tournaments
-  ADD COLUMN IF NOT EXISTS wbsc_id VARCHAR(30) NULL
+  ADD COLUMN wbsc_id VARCHAR(30) NULL
     COMMENT 'ID del torneo en WBSC'
     AFTER mlbam_id;
 
 ALTER TABLE tournaments
-  ADD COLUMN IF NOT EXISTS ext_ref JSON NULL
+  ADD COLUMN ext_ref JSON NULL
     COMMENT 'Referencias externas adicionales {fuente: id}'
     AFTER wbsc_id;
 
@@ -289,12 +289,12 @@ ALTER TABLE tournaments
 -- ------------------------------------------------------------
 
 ALTER TABLE leagues
-  ADD COLUMN IF NOT EXISTS mlbam_id VARCHAR(20) NULL
+  ADD COLUMN mlbam_id VARCHAR(20) NULL
     COMMENT 'ID de la liga en MLB Stats API'
     AFTER active;
 
 ALTER TABLE leagues
-  ADD COLUMN IF NOT EXISTS wbsc_id VARCHAR(30) NULL
+  ADD COLUMN wbsc_id VARCHAR(30) NULL
     COMMENT 'ID de la liga en WBSC'
     AFTER mlbam_id;
 
