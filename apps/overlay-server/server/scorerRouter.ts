@@ -657,6 +657,17 @@ async function insertAtBat(request: AtBatRequest): Promise<void> {
     placeholders.push('?');
   }
 
+  // batting_team_id: equipo al bate — campo explícito MLBAM (no derivado de inning_half)
+  // top = visitante (away), bottom = local (home)
+  if (columns.has('batting_team_id')) {
+    const battingTeamId = state.inningHalf === 'bottom'
+      ? (state.homeTeam?.id ?? null)
+      : (state.awayTeam?.id ?? null);
+    insertColumns.push('batting_team_id');
+    insertValues.push(battingTeamId);
+    placeholders.push('?');
+  }
+
   // runners: estado de bases DESPUÉS del at-bat (snapshot para contexto histórico)
   if (columns.has('runners')) {
     const basesAfter = stateStore.getState().bases;
