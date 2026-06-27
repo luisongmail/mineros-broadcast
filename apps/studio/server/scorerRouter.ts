@@ -1139,17 +1139,16 @@ scorerRouter.get('/at-bats/:gameId', async (request: Request, response: Response
     const gameId = parseRequiredString(request.params.gameId, 'gameId');
     const columns = await getAtBatColumns();
     const recordedAtColumn = columns.has('timestamp') ? 'ab.timestamp' : 'ab.created_at';
-    const batterPlayerIdExpr = columns.has('batter_player_id') ? 'COALESCE(ab.batter_player_id, ab.player_id)' : 'ab.player_id';
+    const batterPlayerIdExpr = 'ab.batter_player_id';
     const selectColumns = [
       'ab.id',
       'ab.game_id',
-      'ab.player_id',
-      columns.has('batter_player_id') ? 'ab.batter_player_id' : 'NULL AS batter_player_id',
-      columns.has('batter_roster_id') ? 'ab.batter_roster_id' : 'NULL AS batter_roster_id',
+      'ab.batter_player_id',
+      'ab.batter_roster_id',
       columns.has('pitcher_roster_id') ? 'ab.pitcher_roster_id' : 'NULL AS pitcher_roster_id',
       'ab.inning',
       columns.has('inning_half') ? 'ab.inning_half' : 'NULL AS inning_half',
-      'ab.result',
+      columns.has('event_type') ? 'ab.event_type AS result' : 'NULL AS result',
       'ab.rbi',
       'ab.runs',
       columns.has('on_base') ? 'ab.on_base' : 'NULL AS on_base',
