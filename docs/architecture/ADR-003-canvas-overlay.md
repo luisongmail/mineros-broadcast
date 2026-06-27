@@ -146,12 +146,12 @@ type OverlayComponentState = 'hidden' | 'preview' | 'live';
 ### 6.2 Flujo de estado
 
 ```
-hidden ──[ShowOverlay]──▶ live
-live   ──[HideOverlay]──▶ hidden
+hidden ──[PreviewOverlay]──▶ preview  (operador valida en monitor)
+preview ──[Take]──▶ live              (sale al aire)
+live ──[HideOverlay]──▶ hidden
 
-hidden ──[PreviewOverlay]──▶ preview  (futuro: modo preview del operador)
-preview ──[Take]──▶ live
-preview ──[Cancel]──▶ hidden
+Regla: nunca saltar de hidden directo a live en producción.
+El paso por preview garantiza que el operador valida el contenido antes de emitirlo.
 ```
 
 ### 6.3 Visibilidad controlada por el servidor
