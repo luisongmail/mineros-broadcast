@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Adaptadores de dispositivos de medición para béisbol — Mineros Broadcast",
+  "description": "Adaptadores de dispositivos de medición para béisbol — PlayFlow",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

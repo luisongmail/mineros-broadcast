@@ -403,11 +403,10 @@ function OperatorControlPanel() {
   const [layoutZones, setLayoutZones] = useState<Record<string, { x: number; y: number; width: number; height: number; visible: boolean }>>({});
   const [activeLayoutName, setActiveLayoutName] = useState<string>('Default');
   const [availableLayouts, setAvailableLayouts] = useState<{ id: string; name: string; isDefault: boolean }[]>([]);
-  const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
   const reloadActiveLayout = useCallback(() => {
     if (!game.gameId) return;
-    fetch(`${API_BASE}/layouts/active/${encodeURIComponent(game.gameId)}`)
+    fetch(`${SERVER_BASE_URL}/layouts/active/${encodeURIComponent(game.gameId)}`)
       .then((r) => r.json())
       .then((body: { result?: string; payload?: { name?: string; zones?: Record<string, { x: number; y: number; width: number; height: number; visible: boolean }> } }) => {
         if (body.result === 'ok' && body.payload) {
@@ -416,29 +415,29 @@ function OperatorControlPanel() {
         }
       })
       .catch(() => undefined);
-  }, [API_BASE, game.gameId]);
+  }, [game.gameId]);
 
   useEffect(() => { reloadActiveLayout(); }, [reloadActiveLayout]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/layouts`)
+    fetch(`${SERVER_BASE_URL}/layouts`)
       .then((r) => r.json())
       .then((body: { result?: string; payload?: { id: string; name: string; isDefault: boolean }[] }) => {
         if (body.result === 'ok' && body.payload) setAvailableLayouts(body.payload);
       })
       .catch(() => undefined);
-  }, [API_BASE]);
+  }, []);
 
   const switchLayout = useCallback((layoutId: string) => {
     if (!game.gameId) return;
-    fetch(`${API_BASE}/layouts/game/${encodeURIComponent(game.gameId)}`, {
+    fetch(`${SERVER_BASE_URL}/layouts/game/${encodeURIComponent(game.gameId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ layoutId }),
     })
       .then(() => reloadActiveLayout())
       .catch(() => undefined);
-  }, [API_BASE, game.gameId, reloadActiveLayout]);
+  }, [game.gameId, reloadActiveLayout]);
 
   const zoneStyle = useCallback(
     (overlayId: string): React.CSSProperties => {
@@ -489,7 +488,7 @@ function OperatorControlPanel() {
   const handleResetGame = useCallback(async () => {
     setResetting(true);
     try {
-      const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+      const API_BASE = SERVER_BASE_URL;
       await fetch(`${API_BASE}/game/reset`, { method: 'POST' });
       setResetDialog(null);
     } catch {
@@ -499,7 +498,9 @@ function OperatorControlPanel() {
     }
   }, []);
 
-  const browserSourceOrigin = typeof window === 'undefined' ? 'http://localhost:5174' : window.location.origin;
+  const browserSourceOrigin = typeof window === 'undefined'
+    ? (import.meta.env.VITE_OVERLAY_ORIGIN ?? 'http://localhost:5174')
+    : window.location.origin;
 
   const copyToClipboard = useCallback((value: string) => {
     if (typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -541,8 +542,7 @@ function OperatorControlPanel() {
           addHistory('hide_overlay', overlayLabel(overlayId) + ' · ' + formatVariantLabel(variant));
           setOnAir(false);
           // Sincronizar con el servidor para que Broadcast también oculte el overlay
-          const apiBase = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
-          void fetch(`${apiBase}/command`, {
+          void fetch(`${SERVER_BASE_URL}/command`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ command: 'HideOverlay', value: overlayId }),
@@ -1300,7 +1300,7 @@ function OperatorControlPanel() {
                 {rightTab === 'layout' && (
                   <LayoutEditor
                     gameId={game.gameId}
-                    apiBase={import.meta.env.DEV ? 'http://localhost:3001/api' : '/api'}
+                    apiBase={SERVER_BASE_URL}
                     onLayoutChange={reloadActiveLayout}
                   />
                 )}

@@ -186,8 +186,8 @@ export const DEMO_SCOREBOARD_DATA: ScoreboardOverlayData = {
   overlay: 'baseball_scoreboard_board',
   variant: 'full_board',
   branding: {
-    brandName: 'Mineros Broadcast',
-    brandLogoAssetId: 'brands/mineros-broadcast-logo',
+    brandName: 'PlayFlow',
+    brandLogoAssetId: 'brands/playflow-logo',
   },
   competition: {
     name: 'Liga Oriente',

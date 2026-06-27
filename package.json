@@ -1,8 +1,8 @@
 {
-  "name": "mineros-broadcast",
+  "name": "playflow",
   "private": true,
   "version": "0.0.0",
-  "description": "Sistema de overlays para transmisi\u00f3n de b\u00e9isbol \u2014 Club Mineros de Santiago",
+  "description": "PlayFlow — sistema de overlays para transmisión de béisbol en vivo",
   "scripts": {
     "build": "turbo build",
     "test": "turbo test",

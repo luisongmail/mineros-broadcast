@@ -7,7 +7,7 @@ const API = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 function emptyMetadata(gameId: string): MatchMetadata {
   return {
     gameId,
-    branding: { brandName: 'Mineros Broadcast', brandLogoAssetId: 'brands/mineros-broadcast-logo' },
+    branding: { brandName: 'PlayFlow', brandLogoAssetId: 'brands/playflow-logo' },
     competition: { name: '', tournament: '', category: '' },
     venue: { name: '' },
     game: { gameType: '', remainingTime: '', configuredInnings: 7 },
@@ -204,13 +204,13 @@ export function MatchMetadataEditor({ gameId, onSaved }: MatchMetadataEditorProp
             <div className="grid grid-cols-2 gap-2">
               <Field
                 label="Nombre del broadcast"
-                placeholder="Mineros Broadcast"
+                placeholder="PlayFlow"
                 value={meta.branding?.brandName ?? ''}
                 onChange={(v) => patch((p) => ({ ...p, branding: { ...p.branding, brandName: v } }))}
               />
               <Field
                 label="Logo (asset ID)"
-                placeholder="brands/mineros-broadcast-logo"
+                placeholder="brands/playflow-logo"
                 value={meta.branding?.brandLogoAssetId ?? ''}
                 onChange={(v) => patch((p) => ({ ...p, branding: { ...p.branding, brandLogoAssetId: v } }))}
               />

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Contratos de integración, tipos compartidos y utilidades — Mineros Broadcast",
+  "description": "Contratos de integración, tipos compartidos y utilidades — PlayFlow",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

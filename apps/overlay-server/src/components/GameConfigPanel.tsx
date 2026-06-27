@@ -4,7 +4,7 @@ import type { GameState } from '@mineros/game-engine';
 import type { GameConfigDetail, GameConfigSource, GameConfigSummary } from '../gameConfig';
 import { ConfirmDialog, type DialogState } from './data/shared';
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001/api' : '/api');
 
 type ApiSuccess<T> = {
   result: 'ok';
