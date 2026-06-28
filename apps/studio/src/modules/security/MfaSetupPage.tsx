@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../auth/SecurityContextProvider';
 
 type MfaStep = 'intro' | 'qr' | 'verify' | 'done';
@@ -89,13 +90,14 @@ export function MfaSetupPage() {
           <p className="text-sm text-gray-600">
             Escanea el código QR con tu app de autenticación y luego ingresa el código de 6 dígitos.
           </p>
-          {/* QR generado en el cliente a partir de la URI */}
           <div className="flex justify-center rounded border border-gray-200 bg-white p-4">
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(setupData.qrUri)}`}
-              alt="QR TOTP"
-              width={200}
-              height={200}
+            <QRCodeSVG
+              value={setupData.qrUri}
+              size={200}
+              level="M"
+              includeMargin
+              title="QR TOTP"
+              aria-label="QR TOTP"
             />
           </div>
           <details className="text-xs text-gray-500">

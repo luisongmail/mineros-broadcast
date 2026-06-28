@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   last_login_at DATETIME(3),
   INDEX idx_users_status (status),
   INDEX idx_users_email (email)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS user_identities (
   id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS user_identities (
   UNIQUE KEY uq_identity_provider_subject (provider, provider_subject),
   INDEX idx_user_identities_user (user_id),
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS otp_challenges (
   challenge_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS otp_challenges (
   INDEX idx_otp_user_status (user_id, status),
   INDEX idx_otp_expires (expires_at),
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS sessions (
   session_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   INDEX idx_sessions_user (user_id),
   INDEX idx_sessions_status (status),
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   token_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   INDEX idx_refresh_session (session_id),
   INDEX idx_refresh_user (user_id),
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS role_assignments (
   assignment_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS role_assignments (
   INDEX idx_role_resource (resource_type, resource_id),
   INDEX idx_role_status (status),
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS scoring_assignments (
   assignment_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS scoring_assignments (
   INDEX idx_scoring_game (game_id),
   INDEX idx_scoring_user (user_id),
   INDEX idx_scoring_status (status)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS step_up_challenges (
   challenge_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS step_up_challenges (
   INDEX idx_stepup_user (user_id),
   INDEX idx_stepup_session (session_id),
   INDEX idx_stepup_resource (resource_type, resource_id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS audit_events (
   audit_id VARCHAR(50) PRIMARY KEY DEFAULT (UUID()),
@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS audit_events (
   INDEX idx_audit_action (action),
   INDEX idx_audit_timestamp (timestamp),
   INDEX idx_audit_correlation (correlation_id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS security_events (
   id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS security_events (
   INDEX idx_security_event_type (event_type),
   INDEX idx_security_user (user_id),
   INDEX idx_security_timestamp (timestamp)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ─────────────────────────────────────────────
 -- user_mfa_credentials — SysAdmin MFA (Fase 2)
@@ -185,4 +185,4 @@ CREATE TABLE IF NOT EXISTS user_mfa_credentials (
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
   INDEX idx_mfa_user (user_id),
   INDEX idx_mfa_status (status)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

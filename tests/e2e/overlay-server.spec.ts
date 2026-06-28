@@ -5,7 +5,7 @@ test.describe('Overlay Server — rutas base', () => {
     const errors: string[] = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.goto('/');
+    await page.goto('/login');
     await page.waitForLoadState('networkidle');
 
     expect(errors).toHaveLength(0);
@@ -15,11 +15,7 @@ test.describe('Overlay Server — rutas base', () => {
     await page.goto('/ruta-que-no-existe');
     await page.waitForLoadState('networkidle');
 
-    // La app redirige a "/" que es el panel de control
-    expect(page.url()).toContain('localhost');
-    // No debe mostrar error 404 del servidor
-    const title = await page.title();
-    expect(title).toBeTruthy();
+    expect(page.url()).toContain('/login');
   });
 });
 
@@ -80,31 +76,4 @@ test.describe('Overlay Server — overlays individuales', () => {
       expect(errors, `Errores en /overlay/${overlayId}: ${errors.join(', ')}`).toHaveLength(0);
     });
   }
-});
-
-test.describe('Control Panel — UI', () => {
-  test('carga el panel de control', async ({ page }) => {
-    await page.goto('/control');
-    await page.waitForLoadState('networkidle');
-
-    const body = page.locator('body');
-    await expect(body).toBeVisible();
-  });
-
-  test('el panel muestra zonas Preview y Program', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-
-    const content = await page.content();
-    // El panel debe tener secciones Preview y Program
-    expect(content.toLowerCase()).toMatch(/preview|program/i);
-  });
-
-  test('el botón Take existe en el panel', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-
-    const content = await page.content();
-    expect(content).toMatch(/take|TAKE/i);
-  });
 });

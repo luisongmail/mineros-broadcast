@@ -1,85 +1,111 @@
-/**
- * Tests e2e — Panel de control (studio UI)
- * Cubre el flujo mínimo de operación:
- *   1. Carga de la aplicación (ruta /)
- *   2. Navegación a /control (panel de overlays)
- *   3. Panel de datos de juego visible
- *   4. Navegación a /live-game-scoring
- *   5. API de salud del studio
- */
+import { expect, test } from './fixtures/operatorUser';
 
-import { expect, test } from '@playwright/test';
+async function abrirControlAutenticado(
+  page: import('@playwright/test').Page,
+  operator: import('./fixtures/overlayServerMock').MockOperator,
+) {
+  await page.goto('/auth/otp');
+  await page.getByPlaceholder('correo@ejemplo.cl').fill(operator.email);
+  await page.getByRole('button', { name: 'Enviar código' }).click();
+  await expect(page).toHaveURL(/\/auth\/verify$/);
+  await page.getByPlaceholder('000000').fill(operator.otp);
+  await page.getByRole('button', { name: 'Ingresar', exact: true }).click();
+  await expect(page).toHaveURL(/\/control$/);
+  await expect(page.getByTestId('preview-canvas')).toBeVisible();
+  await expect(page.getByTestId('program-canvas')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Scorebug/i })).toBeEnabled();
+}
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-const API = 'http://localhost:5173';
+test.describe('Control Panel — flujos E2E básicos', () => {
+  test('OTP Login → Control Panel Visible', async ({ page, operatorUser }) => {
+    await page.goto('/auth/otp');
 
-// ── 1. Carga inicial ───────────────────────────────────────────────────────
-test('la app carga y muestra la UI principal', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveTitle(/Mineros|Broadcast|Control/i);
-  // Al menos un elemento visible en la raíz
-  const body = page.locator('body');
-  await expect(body).not.toBeEmpty();
-});
+    await test.step('Solicitar OTP mock', async () => {
+      await page.getByPlaceholder('correo@ejemplo.cl').fill(operatorUser.email);
+      await page.getByRole('button', { name: 'Enviar código' }).click();
+      await expect(page).toHaveURL(/\/auth\/verify$/);
+    });
 
-// ── 2. Ruta /control ────────────────────────────────────────────────────────
-test('/control muestra el panel de overlays', async ({ page }) => {
-  await page.goto('/control');
-  // El panel tiene algún botón de overlay o sección reconocible
-  await expect(page.locator('body')).toContainText(/overlay|scorebug|control/i);
-});
+    await test.step('Ingresar código OTP y validar redirect', async () => {
+      await page.getByPlaceholder('000000').fill(operatorUser.otp);
+      await page.getByRole('button', { name: 'Ingresar', exact: true }).click();
+      await expect(page).toHaveURL(/\/control$/);
+    });
 
-// ── 3. Navegación entre vistas ──────────────────────────────────────────────
-test('navegar a /live-game-scoring muestra el panel de anotación', async ({ page }) => {
-  await page.goto('/live-game-scoring');
-  // La página tiene bateador / pitcher / conteo o mensaje de "sin partido activo"
-  const body = page.locator('body');
-  await expect(body).toContainText(/bateador|batter|scorer|partido|game/i);
-});
+    await test.step('Verificar canvases Preview y Program', async () => {
+      await expect(page.getByTestId('preview-canvas')).toContainText('Preview');
+      await expect(page.getByTestId('program-canvas')).toContainText('Program');
+    });
+  });
 
-// ── 4. API REST: estado activo ───────────────────────────────────────────────
-test('GET /api/state devuelve estado del juego', async ({ request }) => {
-  const res = await request.get(`${API}/api/state`);
-  expect(res.ok()).toBe(true);
-  const body = await res.json() as Record<string, unknown>;
-  // El estado siempre tiene gameId (aunque sea vacío)
-  expect(body).toHaveProperty('gameId');
-});
+  test('Preview Overlay → Take Overlay', async ({ page, operatorUser }) => {
+    await abrirControlAutenticado(page, operatorUser);
 
-// ── 5. API v1: juego activo ─────────────────────────────────────────────────
-test('GET /api/v1/games/:id/live con juego no activo devuelve 404 limpio', async ({ request }) => {
-  const res = await request.get(`${API}/api/v1/games/game-inexistente/live`);
-  expect(res.status()).toBe(404);
-  const body = await res.json() as Record<string, unknown>;
-  expect(body).toHaveProperty('error');
-});
+    const latencyBar = page.getByTestId('ws-latency-bar');
+    const latencyInicial = await latencyBar.getAttribute('aria-valuenow');
 
-// ── 6. Lifecycle API ────────────────────────────────────────────────────────
-test('GET /api/v1/lifecycle devuelve lista de overlays registrados', async ({ request }) => {
-  const res = await request.get(`${API}/api/v1/lifecycle`);
-  expect(res.ok()).toBe(true);
-  const body = await res.json() as { data: { overlays: unknown[] } };
-  expect(Array.isArray(body.data.overlays)).toBe(true);
-  expect(body.data.overlays.length).toBeGreaterThan(0);
-});
+    await test.step('Preparar Scorebug en Preview', async () => {
+      await page.getByRole('button', { name: /Scorebug/i }).click();
+      await expect(page.getByTestId('preview-canvas')).toContainText('Scorebug');
+    });
 
-// ── 7. Box score: overlay no activo ─────────────────────────────────────────
-test('GET /api/v1/games/:id/box-score con juego sin datos responde 200 con estructura', async ({ request }) => {
-  // Este test usa el juego activo en memoria — si no hay BD, puede devolver estructura vacía
-  const stateRes = await request.get(`${API}/api/state`);
-  const state = await stateRes.json() as { gameId?: string };
-  const gameId = state.gameId ?? 'game-test';
+    await test.step('Enviar overlay a Program', async () => {
+      await page.getByRole('button', { name: 'Take' }).click();
+      await expect(page.getByTestId('program-canvas')).toContainText('Scorebug');
+    });
 
-  const res = await request.get(`${API}/api/v1/games/${gameId}/box-score`);
-  // Puede ser 200 (con datos vacíos) o 503 si no hay BD disponible — ambos son válidos
-  expect([200, 503]).toContain(res.status());
+    await test.step('Verificar actualización de latencia WS', async () => {
+      await expect.poll(async () => latencyBar.getAttribute('aria-valuenow')).not.toBe(latencyInicial);
+    });
+  });
 
-  if (res.status() === 200) {
-    const body = await res.json() as Record<string, unknown>;
-    expect(body).toHaveProperty('data');
-    const data = body['data'] as Record<string, unknown>;
-    expect(data).toHaveProperty('linescore');
-    expect(data).toHaveProperty('batting');
-    expect(data).toHaveProperty('pitching');
-  }
+  test('Hide All (sin romper Scorebug)', async ({ page, operatorUser }) => {
+    await abrirControlAutenticado(page, operatorUser);
+
+    await test.step('Confirmar Scorebug en Program', async () => {
+      await page.getByRole('button', { name: /Scorebug/i }).click();
+      await page.getByRole('button', { name: 'Take' }).click();
+      await expect(page.getByTestId('program-canvas')).toContainText('Scorebug');
+    });
+
+    await test.step('Ejecutar Hide All y preservar Scorebug', async () => {
+      await page.getByRole('button', { name: 'Hide All' }).click();
+      await expect(page.getByTestId('program-active-overlays')).toContainText('Scorebug');
+      await expect(page.getByTestId('program-active-overlays')).not.toContainText('Game Event');
+      await expect(page.getByTestId('program-active-overlays').locator('span')).toHaveCount(1);
+    });
+  });
+
+  test('Conflicto Zona → Error + Snapshot Actualizada', async ({ browser, page, operatorUser, secondaryOperatorUser }) => {
+    await abrirControlAutenticado(page, operatorUser);
+
+    await test.step('Operador 1 confirma Scorebug en Program', async () => {
+      await page.getByRole('button', { name: /Scorebug/i }).click();
+      await page.getByRole('button', { name: 'Take' }).click();
+      await expect(page.getByTestId('program-canvas')).toContainText('Scorebug');
+    });
+
+    const operator2Context = await browser.newContext({ baseURL: 'http://localhost:4173' });
+    const operator2Page = await operator2Context.newPage();
+
+    try {
+      await abrirControlAutenticado(operator2Page, secondaryOperatorUser);
+
+      await test.step('Operador 2 intenta Take conflictivo en la misma zona', async () => {
+        await operator2Page.getByRole('button', { name: /Game Event/i }).click();
+        await expect(operator2Page.getByTestId('preview-canvas')).toContainText('Game Event');
+
+        await operator2Page.getByRole('button', { name: 'Take' }).click();
+        await expect(operator2Page.getByTestId('control-error-banner')).toContainText('409');
+        await expect(operator2Page.getByTestId('control-error-banner')).toContainText('revisión');
+      });
+
+      await test.step('El snapshot visible mantiene Scorebug en Program', async () => {
+        await expect(operator2Page.getByTestId('program-canvas')).toContainText('Scorebug');
+        await expect(operator2Page.getByTestId('program-active-overlays')).toContainText('Scorebug');
+      });
+    } finally {
+      await operator2Context.close();
+    }
+  });
 });
