@@ -1,0 +1,135 @@
+name: E2E
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - dev
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.event_name }}-${{ github.event.workflow_run.head_branch || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+  TURBO_CONCURRENCY: "4"
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+jobs:
+  playwright:
+    name: Playwright end-to-end
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    services:
+      mysql:
+        image: mysql:8.0
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: playflow_db
+          MYSQL_USER: playflow_app
+          MYSQL_PASSWORD: dev_password
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uplayflow_app -pdev_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Definir variables locales por defecto
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "DATABASE_URL=mysql://playflow_app:dev_password@127.0.0.1:3306/playflow_db" >> "$GITHUB_ENV"
+          fi
+          if [ -z "${SUPABASE_URL}" ]; then
+            echo "SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
+          fi
+          if [ -z "${SUPABASE_KEY}" ]; then
+            echo "SUPABASE_KEY=local-anon-key" >> "$GITHUB_ENV"
+          fi
+
+      - name: Esperar MySQL
+        run: |
+          for intento in {1..30}; do
+            if docker exec "${{ job.services.mysql.id }}" mysqladmin ping -h localhost -uplayflow_app -pdev_password --silent; then
+              echo "✅ MySQL listo"
+              exit 0
+            fi
+            echo "⏳ Esperando MySQL (intento ${intento}/30)..."
+            sleep 2
+          done
+          echo "❌ MySQL no respondió a tiempo"
+          exit 1
+
+      - name: Aplicar migraciones MySQL
+        run: pnpm db:migrate
+
+      - name: Configurar Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Levantar Supabase local (template)
+        run: |
+          if [ -f infra/supabase/config.toml ]; then
+            supabase start --workdir infra/supabase
+          else
+            {
+              echo "## Supabase local pendiente"
+              echo "- Falta \`infra/supabase/config.toml\` para ejecutar \`supabase start\`."
+              echo "- Este workflow deja el paso preparado para completar la integración."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "⚠️ Se omite el arranque real de Supabase local porque aún no existe config.toml."
+          fi
+
+      - name: Instalar navegadores de Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Ejecutar pruebas e2e
+        run: pnpm test:e2e
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ env.SUPABASE_KEY }}
+
+      - name: Subir artefactos de fallo
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-artifacts
+          if-no-files-found: ignore
+          path: |
+            playwright-report/**
+            test-results/**

@@ -1,41 +1,136 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Ejecutar publish real con Changesets
+        required: true
+        default: false
+        type: boolean
   push:
-    branches: [main]
+    branches:
+      - dev
+    paths:
+      - ".changeset/*.md"
+      - ".changeset/config.json"
+      - "package.json"
+      - "pnpm-lock.yaml"
 
 permissions:
   contents: write
   pull-requests: write
 
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+  TURBO_CONCURRENCY: "4"
+
 jobs:
-  release:
-    name: Release
+  release-pr:
+    name: Preparar Release PR
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v3
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm turbo build
-
-      - name: Crear Release PR (sin publish npm — paquetes privados)
+      - name: Crear o actualizar Release PR
         uses: changesets/action@v1
         with:
           title: "chore: release"
           commit: "chore: release"
+          version: pnpm changeset version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: Publicar release (draft)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Build previo a release
+        run: pnpm turbo build --concurrency=${TURBO_CONCURRENCY}
+
+      - name: Publicar con Changesets
+        run: pnpm release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Configurar Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Aplicar migraciones de Supabase (template)
+        run: |
+          if [ -f infra/supabase/config.toml ] && [ -n "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            supabase db push --workdir infra/supabase
+          else
+            {
+              echo "## Release backend pendiente"
+              echo "- Falta \`infra/supabase/config.toml\` o \`SUPABASE_ACCESS_TOKEN\`."
+              echo "- Completar link/proyecto remoto antes de activar migraciones reales."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "⚠️ Migraciones de Supabase quedan como plantilla."
+          fi
+
+      - name: Deploy frontend en Vercel (template)
+        continue-on-error: true
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -n "${VERCEL_TOKEN}" ] && [ -n "${VERCEL_ORG_ID}" ] && [ -n "${VERCEL_PROJECT_ID}" ]; then
+            pnpm dlx vercel pull --yes --environment=production --token "${VERCEL_TOKEN}"
+            pnpm dlx vercel build --prod --token "${VERCEL_TOKEN}"
+            pnpm dlx vercel deploy --prebuilt --prod --token "${VERCEL_TOKEN}"
+          else
+            {
+              echo "## Release frontend pendiente"
+              echo "- Faltan \`VERCEL_TOKEN\`, \`VERCEL_ORG_ID\` o \`VERCEL_PROJECT_ID\`."
+              echo "- Ajustar además la app objetivo antes del primer deploy real."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "⚠️ Deploy de Vercel queda como plantilla."
+          fi

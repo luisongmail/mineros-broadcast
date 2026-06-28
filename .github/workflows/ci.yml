@@ -2,78 +2,56 @@ name: CI
 
 on:
   push:
-    branches: [dev, 'squad/**']
+    branches:
+      - dev
   pull_request:
-    branches: [dev, main]
+    branches:
+      - dev
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+  TURBO_CONCURRENCY: "4"
+
 jobs:
-  build:
-    name: build
+  ci:
+    name: Validaciones base
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v3
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm turbo build
-
-  test:
-    name: test
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Instalar dependencias
-        run: pnpm install --frozen-lockfile
-
-      - name: Tests unitarios
-        run: pnpm turbo test
-
-  lint:
-    name: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Instalar dependencias
-        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm turbo typecheck --concurrency=${TURBO_CONCURRENCY}
 
       - name: Lint
-        run: pnpm turbo lint
+        run: pnpm turbo lint --concurrency=${TURBO_CONCURRENCY}
 
-      - name: Type check
-        run: pnpm turbo typecheck
+      - name: Build
+        run: pnpm turbo build --concurrency=${TURBO_CONCURRENCY}
+
+      - name: Tests
+        run: pnpm turbo test --concurrency=${TURBO_CONCURRENCY}
