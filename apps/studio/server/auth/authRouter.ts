@@ -53,47 +53,54 @@ router.post('/otp/request', async (req: Request, res: Response): Promise<void> =
 // POST /api/auth/otp/verify
 // ─────────────────────────────────────────────
 router.post('/otp/verify', async (req: Request, res: Response): Promise<void> => {
-  const { email, otp } = req.body as { email?: string; otp?: string };
+  try {
+    const { email, otp } = req.body as { email?: string; otp?: string };
 
-  console.log(`[AUTH] POST /otp/verify → email=${email}, otp=${otp}`);
+    console.log(`[AUTH] POST /otp/verify → email=${email}, otp=${otp}`);
 
-  if (!email || !otp) {
-    console.log(`[AUTH] /otp/verify → MISSING EMAIL OR OTP`);
-    res.status(400).json({ error: { code: 'INVALID_OTP', message: 'Código inválido o expirado.' } });
-    return;
-  }
-
-  const result = await verifyOtp(email.toLowerCase().trim(), otp.trim());
-  console.log(`[AUTH] /otp/verify → result:`, result);
-
-  if (!result.ok) {
-    if (result.reason === 'max_attempts') {
-      res.status(401).json({ error: { code: 'OTP_MAX_ATTEMPTS', message: 'Máximo de intentos alcanzado. Solicita un nuevo código.' } });
+    if (!email || !otp) {
+      console.log(`[AUTH] /otp/verify → MISSING EMAIL OR OTP`);
+      res.status(400).json({ error: { code: 'INVALID_OTP', message: 'Código inválido o expirado.' } });
       return;
     }
-    res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Código inválido o expirado.' } });
-    return;
+
+    const result = await verifyOtp(email.toLowerCase().trim(), otp.trim());
+    console.log(`[AUTH] /otp/verify → result:`, result);
+
+    if (!result.ok) {
+      if (result.reason === 'max_attempts') {
+        res.status(401).json({ error: { code: 'OTP_MAX_ATTEMPTS', message: 'Máximo de intentos alcanzado. Solicita un nuevo código.' } });
+        return;
+      }
+      res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Código inválido o expirado.' } });
+      return;
+    }
+
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.socket.remoteAddress ?? 'unknown';
+    const ua = req.headers['user-agent'] ?? '';
+
+    const { sessionId, refreshToken } = await createSession(result.userId, ip, ua);
+
+    const accessToken = signToken({
+      sub: result.userId,
+      sid: sessionId,
+      email: result.email,
+      authLevel: 'otp',
+    });
+
+    res.setHeader('Set-Cookie', buildRefreshCookie(refreshToken));
+    res.json({
+      accessToken,
+      tokenType: 'Bearer',
+      expiresIn: getTokenExpiresInSeconds(),
+      sessionId,
+    });
+  } catch (error) {
+    console.error('[AUTH] /otp/verify ERROR:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Error interno del servidor.' } });
+    }
   }
-
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.socket.remoteAddress ?? 'unknown';
-  const ua = req.headers['user-agent'] ?? '';
-
-  const { sessionId, refreshToken } = await createSession(result.userId, ip, ua);
-
-  const accessToken = signToken({
-    sub: result.userId,
-    sid: sessionId,
-    email: result.email,
-    authLevel: 'otp',
-  });
-
-  res.setHeader('Set-Cookie', buildRefreshCookie(refreshToken));
-  res.json({
-    accessToken,
-    tokenType: 'Bearer',
-    expiresIn: getTokenExpiresInSeconds(),
-    sessionId,
-  });
 });
 
 // ─────────────────────────────────────────────
