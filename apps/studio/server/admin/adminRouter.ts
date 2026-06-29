@@ -50,6 +50,58 @@ adminRouter.get(
 );
 
 /**
+ * PATCH /api/admin/users/:userId
+ * Update user display_name — requires SysAdmin
+ */
+adminRouter.patch(
+  '/users/:userId',
+  requireAuth,
+  requireRole('SysAdmin'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const { userId } = req.params;
+    const { displayName } = req.body as { displayName?: string };
+
+    if (!displayName || displayName.trim().length === 0) {
+      res.status(400).json({
+        error: {
+          code: 'INVALID_DISPLAY_NAME',
+          message: 'displayName no puede estar vacío.',
+        },
+      });
+      return;
+    }
+
+    if (!pool) {
+      res.json({ ok: true, userId, displayName, message: 'Nombre actualizado (mock).' });
+      return;
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      // Verify user exists
+      const [user] = await conn.execute<RowDataPacket[]>(
+        `SELECT user_id FROM users WHERE user_id = ?`,
+        [userId],
+      );
+      if (user.length === 0) {
+        res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'Usuario no encontrado.' } });
+        return;
+      }
+
+      // Update display_name
+      await conn.execute(
+        `UPDATE users SET display_name = ?, updated_at = NOW() WHERE user_id = ?`,
+        [displayName.trim(), userId],
+      );
+
+      res.json({ ok: true, userId, displayName: displayName.trim(), message: 'Nombre de usuario actualizado.' });
+    } finally {
+      conn.release();
+    }
+  },
+);
+
+/**
  * GET /api/admin/sessions
  * Get list of active sessions — requires SysAdmin
  */

@@ -301,6 +301,33 @@ export function useAdmin() {
     }
   }, [getAuthHeaders]);
 
+  const updateUserDisplayName = useCallback(async (userId: string, displayName: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ displayName }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw data.error || { code: 'UPDATE_FAILED', message: 'Failed to update user' };
+      }
+
+      return await response.json();
+    } catch (err) {
+      const adminError: AdminError = err instanceof Error
+        ? { code: 'UPDATE_ERROR', message: err.message }
+        : err as AdminError;
+      setError(adminError);
+      throw adminError;
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthHeaders]);
+
   // ────────────────────────────────────────────
   // Audit API
   // ────────────────────────────────────────────
@@ -498,5 +525,6 @@ export function useAdmin() {
     inviteUser,
     assignUserRole,
     getUserRole,
+    updateUserDisplayName,
   };
 }
