@@ -178,9 +178,11 @@ type ApiSuccess<T> = {
 
 type ApiError = {
   result: 'error';
-  payload: {
-    message: string;
+  payload?: {
+    message?: string;
   };
+  message?: string;
+  error?: string | { message?: string };
 };
 
 type ApiResponse<T> = ApiSuccess<T> | ApiError;
@@ -439,13 +441,43 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers,
   });
-  const body = (await response.json()) as ApiResponse<T>;
+  const body = (await response.json()) as ApiResponse<T> | Record<string, unknown>;
 
-  if (body.result !== 'ok') {
-    throw new Error(body.payload.message);
+  const resolveErrorMessage = (payload: ApiResponse<T> | Record<string, unknown>): string | null => {
+    if (payload && typeof payload === 'object') {
+      if ('payload' in payload && payload.payload && typeof payload.payload === 'object'
+        && 'message' in payload.payload && typeof payload.payload.message === 'string') {
+        return payload.payload.message;
+      }
+      if ('message' in payload && typeof payload.message === 'string') {
+        return payload.message;
+      }
+      if ('error' in payload) {
+        if (typeof payload.error === 'string') {
+          return payload.error;
+        }
+        if (payload.error && typeof payload.error === 'object'
+          && 'message' in payload.error && typeof payload.error.message === 'string') {
+          return payload.error.message;
+        }
+      }
+    }
+    return null;
+  };
+
+  const hasEnvelopeResult = body && typeof body === 'object' && 'result' in body;
+  if (hasEnvelopeResult) {
+    if (body.result !== 'ok') {
+      throw new Error(resolveErrorMessage(body) ?? 'No se pudo completar la solicitud');
+    }
+    return body.payload as T;
   }
 
-  return body.payload;
+  if (!response.ok) {
+    throw new Error(resolveErrorMessage(body) ?? `Error HTTP ${response.status}`);
+  }
+
+  return body as T;
 }
 
 function formatInningLabel(inning: number, half: 'top' | 'bottom'): string {
@@ -1408,7 +1440,11 @@ export function LiveGameScoringPage() {
 
       if (!response.ok) {
         if (payload && typeof payload === 'object' && 'result' in payload && payload.result === 'error') {
-          throw new Error(payload.payload.message);
+          const envelopeMessage = payload.payload && typeof payload.payload === 'object' && 'message' in payload.payload
+            && typeof payload.payload.message === 'string'
+            ? payload.payload.message
+            : null;
+          throw new Error(envelopeMessage ?? 'No se pudo registrar la sustitución');
         }
         const fallbackMessage = payload && typeof payload === 'object'
           ? ('error' in payload && typeof payload.error === 'string'
@@ -2649,11 +2685,18 @@ export function LiveGameScoringPage() {
             onClick={() => setShowSubModal(false)}
             type="button"
           />
-          <div className="relative z-10 flex w-full max-w-2xl flex-col gap-4 rounded-2xl border border-white/10 bg-gray-900 p-5 shadow-2xl">
+          <div
+            aria-describedby="substitution-modal-team"
+            aria-labelledby="substitution-modal-title"
+            aria-modal="true"
+            className="relative z-10 flex w-full max-w-2xl flex-col gap-4 rounded-2xl border border-white/10 bg-gray-900 p-5 shadow-2xl"
+            data-testid="substitution-modal"
+            role="dialog"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="font-bebas text-2xl uppercase tracking-[0.18em] text-mineros-gold">Registrar sustitución</p>
-                <p className="mt-1 text-sm text-white/55">
+                <p className="font-bebas text-2xl uppercase tracking-[0.18em] text-mineros-gold" id="substitution-modal-title">Registrar sustitución</p>
+                <p className="mt-1 text-sm text-white/55" id="substitution-modal-team">
                   Equipo activo: <span className="font-semibold text-white">{substitutionTeamName}</span>
                 </p>
               </div>
@@ -2696,7 +2739,9 @@ export function LiveGameScoringPage() {
               <div>
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Jugador que sale</p>
                 <select
+                  aria-label="Jugador que sale"
                   className="w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
+                  data-testid="substitution-outgoing-select"
                   onChange={(event) => {
                     const nextOutgoingPlayerId = event.target.value;
                     setSubstitutionForm((current) => {
@@ -2722,8 +2767,10 @@ export function LiveGameScoringPage() {
               <div>
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Jugador que entra</p>
                 <select
+                  aria-label="Jugador que entra"
                   className="w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold disabled:opacity-50"
-                  disabled={loadingSubstitutionPlayers && substitutionIncomingOptions.length === 0}
+                  data-testid="substitution-incoming-select"
+                  disabled={substitutionIncomingOptions.length === 0}
                   onChange={(event) => setSubstitutionForm((current) => ({ ...current, incomingPlayerId: event.target.value }))}
                   value={substitutionForm.incomingPlayerId}
                 >
@@ -2743,6 +2790,7 @@ export function LiveGameScoringPage() {
                 <div>
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Base ocupada</p>
                   <select
+                    aria-label="Base ocupada"
                     className="w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
                     onChange={(event) => {
                       const nextBase = event.target.value as SubstitutionBase | '';
@@ -2767,6 +2815,7 @@ export function LiveGameScoringPage() {
                 <div>
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Posición defensiva</p>
                   <select
+                    aria-label="Posición defensiva"
                     className="w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
                     onChange={(event) => setSubstitutionForm((current) => ({ ...current, position: event.target.value }))}
                     value={substitutionForm.position}
@@ -2784,6 +2833,7 @@ export function LiveGameScoringPage() {
               <div>
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Orden al bate</p>
                 <input
+                  aria-label="Orden al bate"
                   className="w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
                   inputMode="numeric"
                   onChange={(event) => setSubstitutionForm((current) => ({ ...current, battingOrder: event.target.value.replace(/\D/g, '') }))}
@@ -2795,6 +2845,7 @@ export function LiveGameScoringPage() {
               <div>
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Notas</p>
                 <textarea
+                  aria-label="Notas"
                   className="min-h-[88px] w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white outline-none transition focus:border-mineros-gold"
                   onChange={(event) => setSubstitutionForm((current) => ({ ...current, notes: event.target.value }))}
                   placeholder="Opcional: motivo o detalle del cambio"
@@ -2813,6 +2864,7 @@ export function LiveGameScoringPage() {
               </button>
               <button
                 className="rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-red-700 disabled:opacity-50"
+                data-testid="substitution-submit"
                 disabled={savingSubstitution || !substitutionForm.outgoingPlayerId || !substitutionForm.incomingPlayerId}
                 onClick={() => void handleSubmitSubstitution()}
                 type="button"

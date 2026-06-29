@@ -28,6 +28,10 @@ dist/
 # OS
 .DS_Store
 
+# Playwright artifacts (local/CI outputs)
+playwright-report/
+test-results/
+
 # Assets locales — binarios no se commitean, subirlos a Azure en producción
 apps/overlay-server/storage/assets/**/*.jpg
 apps/overlay-server/storage/assets/**/*.jpeg
