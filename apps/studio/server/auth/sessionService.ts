@@ -57,6 +57,21 @@ export async function createSession(
   return { sessionId, refreshToken };
 }
 
+/** Actualiza last_login_at del usuario */
+export async function updateLastLogin(userId: string): Promise<void> {
+  if (!pool) return;
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.execute<ResultSetHeader>(
+      `UPDATE users SET last_login_at = NOW() WHERE user_id = ?`,
+      [userId],
+    );
+  } finally {
+    conn.release();
+  }
+}
+
 export type RefreshResult =
   | { ok: true; sessionId: string; userId: string; newRefreshToken: string }
   | { ok: false; reason: 'expired' }

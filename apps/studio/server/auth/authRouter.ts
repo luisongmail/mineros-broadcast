@@ -9,6 +9,7 @@ import {
   revokeSession,
   buildRefreshCookie,
   buildClearCookie,
+  updateLastLogin,
 } from './sessionService';
 import { hasMfaActive } from './totpService';
 import { requireAuth, type AuthenticatedRequest } from './authMiddleware';
@@ -133,6 +134,9 @@ router.post('/otp/verify', otpVerifyRateLimit, async (req: Request, res: Respons
     const ua = req.headers['user-agent'] ?? '';
 
     const { sessionId, refreshToken } = await createSession(result.userId, ip, ua);
+
+    // Actualizar last_login_at
+    await updateLastLogin(result.userId);
 
     // Verificar si el usuario tiene MFA TOTP activo
     const mfaActive = await hasMfaActive(result.userId);
@@ -306,6 +310,12 @@ if (process.env.NODE_ENV === 'development') {
           `INSERT INTO sessions (session_id, user_id, ip, user_agent_hash, status, created_at, last_seen_at, auth_level)
            VALUES (?, ?, ?, ?, 'active', ?, ?, 'otp')`,
           [sessionId, finalUserId, '127.0.0.1', 'dev-api', now, now],
+        );
+
+        // Actualizar last_login_at
+        await conn.execute(
+          `UPDATE users SET last_login_at = NOW() WHERE user_id = ?`,
+          [finalUserId],
         );
 
         // Generar token CON el rol

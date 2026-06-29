@@ -523,7 +523,7 @@ adminRouter.post(
        await conn.execute(
          `INSERT INTO role_assignments (user_id, role, resource_type, resource_id, granted_by_user_id, status, created_at)
           VALUES (?, ?, 'Platform', 'global', ?, 'active', NOW())`,
-         [userId, role, req.user?.sub],
+         [userId, role, req.user?.sub || null],
        );
 
        res.json({ ok: true, userId, role, message: `Rol '${role}' asignado a usuario.` });
