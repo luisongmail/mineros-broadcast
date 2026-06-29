@@ -219,6 +219,89 @@ export function useAdmin() {
   }, [getAuthHeaders]);
 
   // ────────────────────────────────────────────
+  // User Management: Invite + Roles (NEW)
+  // ────────────────────────────────────────────
+
+  const inviteUser = useCallback(async (email: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/admin/users/invite', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw { code: 'INVITE_FAILED', message: data.error?.message || 'Failed to invite user' };
+      }
+
+      return await response.json();
+    } catch (err) {
+      const adminError: AdminError = err instanceof Error
+        ? { code: 'INVITE_ERROR', message: err.message }
+        : err as AdminError;
+      setError(adminError);
+      throw adminError;
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthHeaders]);
+
+  const assignUserRole = useCallback(async (userId: string, role: 'SysAdmin' | 'Admin' | 'Operator') => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/roles/assign`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ role }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw { code: 'ASSIGN_ROLE_FAILED', message: data.error?.message || 'Failed to assign role' };
+      }
+
+      return await response.json();
+    } catch (err) {
+      const adminError: AdminError = err instanceof Error
+        ? { code: 'ASSIGN_ROLE_ERROR', message: err.message }
+        : err as AdminError;
+      setError(adminError);
+      throw adminError;
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthHeaders]);
+
+  const getUserRole = useCallback(async (userId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/roles`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw { code: 'GET_ROLE_FAILED', message: 'Failed to fetch user role' };
+      }
+
+      return await response.json();
+    } catch (err) {
+      const adminError: AdminError = err instanceof Error
+        ? { code: 'GET_ROLE_ERROR', message: err.message }
+        : err as AdminError;
+      setError(adminError);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthHeaders]);
+
+  // ────────────────────────────────────────────
   // Audit API
   // ────────────────────────────────────────────
 
@@ -385,5 +468,8 @@ export function useAdmin() {
     getSessions,
     invalidateSession,
     getSystemHealth,
+    inviteUser,
+    assignUserRole,
+    getUserRole,
   };
 }

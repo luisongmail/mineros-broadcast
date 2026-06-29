@@ -413,4 +413,165 @@ adminRouter.get(
   },
 );
 
+// ────────────────────────────────────────────
+// User Management: Invite + Role Assignment
+// ────────────────────────────────────────────
+
+/**
+ * POST /api/admin/users/invite
+ * Invite a new user to the system
+ * Required: SysAdmin
+ */
+adminRouter.post(
+ '/users/invite',
+ requireAuth,
+ requireRole('SysAdmin'),
+ async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+   try {
+     const { email } = req.body as { email?: string };
+
+     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+       res.status(400).json({ error: { code: 'INVALID_EMAIL', message: 'Email válido requerido.' } });
+       return;
+     }
+
+     if (!pool) {
+       res.json({ ok: true, userId: `usr_dev_${Date.now()}`, email });
+       return;
+     }
+
+     const conn = await pool.getConnection();
+     try {
+       // Check if user already exists
+       const [existing] = await conn.execute<RowDataPacket[]>(
+         `SELECT user_id FROM users WHERE email = ?`,
+         [email.toLowerCase().trim()],
+       );
+
+       if (existing.length > 0) {
+         res.status(400).json({ error: { code: 'USER_EXISTS', message: 'Usuario ya existe.' } });
+         return;
+       }
+
+       // Create user
+       const userId = `usr_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+       await conn.execute(
+         `INSERT INTO users (user_id, email, display_name, status, created_at, updated_at)
+          VALUES (?, ?, ?, 'active', NOW(), NOW())`,
+         [userId, email.toLowerCase().trim(), email.split('@')[0]],
+       );
+
+       res.status(201).json({ ok: true, userId, email, message: 'Usuario invitado. Podrá crear contraseña en el primer login.' });
+     } finally {
+       conn.release();
+     }
+   } catch (err) {
+     console.error('[Admin] Error inviting user:', err);
+     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Error al invitar usuario.' } });
+   }
+ },
+);
+
+/**
+ * POST /api/admin/users/:userId/roles/assign
+ * Assign a global system role (SysAdmin, Admin, Operator)
+ * Required: SysAdmin
+ */
+adminRouter.post(
+ '/users/:userId/roles/assign',
+ requireAuth,
+ requireRole('SysAdmin'),
+ async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+   try {
+     const { userId } = req.params;
+     const { role } = req.body as { role?: string };
+
+     if (!role || !['SysAdmin', 'Admin', 'Operator'].includes(role)) {
+       res.status(400).json({
+         error: {
+           code: 'INVALID_ROLE',
+           message: 'Role debe ser: SysAdmin, Admin, o Operator.',
+         },
+       });
+       return;
+     }
+
+     if (!pool) {
+       res.json({ ok: true, userId, role, message: 'Rol asignado (mock).' });
+       return;
+     }
+
+     const conn = await pool.getConnection();
+     try {
+       // Verify user exists
+       const [user] = await conn.execute<RowDataPacket[]>(`SELECT user_id FROM users WHERE user_id = ?`, [userId]);
+       if (user.length === 0) {
+         res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'Usuario no encontrado.' } });
+         return;
+       }
+
+       // Assign role (upsert)
+       await conn.execute(
+         `INSERT INTO role_assignments (user_id, role, status, created_at, updated_at)
+          VALUES (?, ?, 'active', NOW(), NOW())
+          ON DUPLICATE KEY UPDATE role = ?, status = 'active', updated_at = NOW()`,
+         [userId, role, role],
+       );
+
+       res.json({ ok: true, userId, role, message: `Rol '${role}' asignado a usuario.` });
+     } finally {
+       conn.release();
+     }
+   } catch (err) {
+     console.error('[Admin] Error assigning role:', err);
+     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Error al asignar rol.' } });
+   }
+ },
+);
+
+/**
+ * GET /api/admin/users/:userId/roles
+ * Get user's global role assignment
+ * Required: SysAdmin
+ */
+adminRouter.get(
+ '/users/:userId/roles',
+ requireAuth,
+ requireRole('SysAdmin'),
+ async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+   try {
+     const { userId } = req.params;
+
+     if (!pool) {
+       res.json({ userId, role: 'Operator', status: 'active' });
+       return;
+     }
+
+     const conn = await pool.getConnection();
+     try {
+       const [roles] = await conn.execute<RowDataPacket[]>(
+         `SELECT role, status, created_at FROM role_assignments WHERE user_id = ? AND status = 'active'`,
+         [userId],
+       );
+
+       if (roles.length === 0) {
+         res.json({ userId, role: null, message: 'Usuario sin rol asignado.' });
+         return;
+       }
+
+       // Return highest priority role
+       const rolePriority = { SysAdmin: 3, Admin: 2, Operator: 1 };
+       const sorted = roles.sort((a, b) => (rolePriority[a.role as keyof typeof rolePriority] || 0) - (rolePriority[b.role as keyof typeof rolePriority] || 0));
+
+       res.json({ userId, role: sorted[sorted.length - 1].role, status: sorted[sorted.length - 1].status });
+     } finally {
+       conn.release();
+     }
+   } catch (err) {
+     console.error('[Admin] Error fetching user roles:', err);
+     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Error al obtener roles.' } });
+   }
+ },
+);
+
 export default adminRouter;
