@@ -5,6 +5,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { useAuth } from '../modules/auth/SecurityContextProvider';
 
 export interface AdminError {
   code: string;
@@ -83,10 +84,23 @@ export interface SystemHealth {
 // ────────────────────────────────────────────
 
 export function useAdmin() {
+  const { getAccessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AdminError | null>(null);
 
   const clearError = useCallback(() => setError(null), []);
+
+  // Helper: Get auth headers
+  const getAuthHeaders = useCallback(() => {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+  }, [getAccessToken]);
 
   // ────────────────────────────────────────────
   // Policy API
@@ -98,7 +112,7 @@ export function useAdmin() {
     try {
       const response = await fetch('/api/admin/policy/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           policyName: 'mfa_policy',
           policyContent: policy,
@@ -107,7 +121,7 @@ export function useAdmin() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw { code: 'POLICY_UPDATE_FAILED', message: data.error || 'Failed to update policy' };
+        throw { code: 'POLICY_UPDATE_FAILED', message: data.error?.message || 'Failed to update policy' };
       }
 
       const result = await response.json();
@@ -121,7 +135,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ────────────────────────────────────────────
   // User API
@@ -133,7 +147,7 @@ export function useAdmin() {
     try {
       const response = await fetch('/api/admin/users', {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -159,7 +173,7 @@ export function useAdmin() {
     try {
       const response = await fetch(`/api/admin/user/${userId}/suspend`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ reason }),
       });
 
@@ -177,7 +191,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   const reactivateUser = useCallback(async (userId: string) => {
     setLoading(true);
@@ -185,7 +199,7 @@ export function useAdmin() {
     try {
       const response = await fetch(`/api/admin/user/${userId}/reactivate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -202,7 +216,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ────────────────────────────────────────────
   // Audit API
@@ -225,7 +239,7 @@ export function useAdmin() {
 
       const response = await fetch(`/api/admin/audit/logs?${params}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -243,12 +257,13 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   const exportAuditLogs = useCallback(async (format: 'csv' | 'json' = 'csv') => {
     try {
       const response = await fetch(`/api/admin/audit/logs/export?format=${format}`, {
         method: 'GET',
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -271,7 +286,7 @@ export function useAdmin() {
       setError(adminError);
       throw adminError;
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ────────────────────────────────────────────
   // Session API
@@ -283,7 +298,7 @@ export function useAdmin() {
     try {
       const response = await fetch('/api/admin/sessions', {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -301,7 +316,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   const invalidateSession = useCallback(async (sessionId: string) => {
     setLoading(true);
@@ -309,7 +324,7 @@ export function useAdmin() {
     try {
       const response = await fetch(`/api/admin/sessions/${sessionId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -326,7 +341,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ────────────────────────────────────────────
   // Health API
@@ -338,7 +353,7 @@ export function useAdmin() {
     try {
       const response = await fetch('/api/admin/system/health', {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -355,7 +370,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   return {
     loading,

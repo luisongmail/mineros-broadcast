@@ -25,17 +25,17 @@ adminRouter.get(
     const conn = await pool.getConnection();
     try {
       const [rows] = await conn.execute<RowDataPacket[]>(
-        `SELECT id, email, first_name, last_name, status, mfa_enabled, last_login, created_at
+        `SELECT user_id, email, display_name, status, mfa_enabled, last_login_at, created_at
          FROM users ORDER BY created_at DESC`,
       );
       const users = rows.map((row) => ({
-        id: row.id,
+        id: row.user_id,
         email: row.email,
-        firstName: row.first_name,
-        lastName: row.last_name,
+        firstName: row.display_name.split(' ')[0] || '',
+        lastName: row.display_name.split(' ').slice(1).join(' ') || '',
         status: row.status,
         mfaEnabled: row.mfa_enabled,
-        lastLogin: row.last_login,
+        lastLogin: row.last_login_at,
         createdAt: row.created_at,
       }));
       res.json({ users });
@@ -62,16 +62,16 @@ adminRouter.get(
     const conn = await pool.getConnection();
     try {
       const [rows] = await conn.execute<RowDataPacket[]>(
-        `SELECT id, user_id, ip_address, user_agent, created_at, last_activity, expires_at
-         FROM sessions WHERE status = 'active' ORDER BY last_activity DESC LIMIT 100`,
+        `SELECT session_id, user_id, ip, user_agent_hash, created_at, last_seen_at, expires_at
+         FROM sessions WHERE status = 'active' ORDER BY last_seen_at DESC LIMIT 100`,
       );
       const sessions = rows.map((row) => ({
-        id: row.id,
+        id: row.session_id,
         userId: row.user_id,
-        ipAddress: row.ip_address,
-        userAgent: row.user_agent,
+        ipAddress: row.ip,
+        userAgent: row.user_agent_hash,
         createdAt: row.created_at,
-        lastActivity: row.last_activity,
+        lastActivity: row.last_seen_at,
         expiresAt: row.expires_at,
       }));
       res.json({ sessions });
@@ -101,11 +101,11 @@ adminRouter.delete(
     const conn = await pool.getConnection();
     try {
       await conn.execute(
-        `UPDATE sessions SET status = 'invalidated', invalidated_at = NOW()
-         WHERE id = ? AND status = 'active'`,
+        `UPDATE sessions SET status = 'invalidated', revoked_at = NOW()
+         WHERE session_id = ? AND status = 'active'`,
         [sessionId],
       );
-      res.json({ ok: true, sessionId, invalidated: true, invalidatedAt: new Date().toISOString() });
+      res.json({ ok: true, sessionId, invalidated: true, revokedAt: new Date().toISOString() });
     } finally {
       conn.release();
     }
@@ -187,15 +187,48 @@ adminRouter.post(
         return;
       }
 
-      // TODO: Persist policy update to database (create system_policies table)
-      // For now, acknowledge the update in memory (mock)
-      res.json({
-        ok: true,
-        policyName: 'mfa_policy',
-        policyContent: policyData,
-        updatedAt: new Date().toISOString(),
-        updatedBy: req.user!.sub,
-      });
+      if (!pool) {
+        // Mock response if no database
+        res.json({
+          ok: true,
+          policyName: 'mfa_policy',
+          policyContent: policyData,
+          updatedAt: new Date().toISOString(),
+          updatedBy: req.user!.sub,
+        });
+        return;
+      }
+
+      const conn = await pool.getConnection();
+      try {
+        // Update or insert default policy
+        await conn.execute(
+          `INSERT INTO system_policies (policy_name, policy_content, updated_by)
+           VALUES ('default', JSON_OBJECT(?, ?), ?)
+           ON DUPLICATE KEY UPDATE
+             policy_content = JSON_OBJECT(?, ?),
+             updated_by = ?,
+             updated_at = NOW()`,
+          [
+            JSON.stringify(policyData),
+            JSON.stringify(policyData),
+            req.user!.sub,
+            JSON.stringify(policyData),
+            JSON.stringify(policyData),
+            req.user!.sub,
+          ],
+        );
+
+        res.json({
+          ok: true,
+          policyName: 'mfa_policy',
+          policyContent: policyData,
+          updatedAt: new Date().toISOString(),
+          updatedBy: req.user!.sub,
+        });
+      } finally {
+        conn.release();
+      }
     } catch (error) {
       res.status(500).json({
         error: {
