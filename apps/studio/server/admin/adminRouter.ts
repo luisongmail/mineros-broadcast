@@ -176,7 +176,6 @@ adminRouter.post(
   '/policy/update',
   requireAuth,
   requireRole('SysAdmin'),
-  requireAuthorization('policy.update', { resourceType: 'Platform' }),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const body = req.body as Record<string, unknown>;
