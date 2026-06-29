@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LogOut, AlertCircle } from 'lucide-react';
-
-interface Session {
-  sessionId: string;
-  userId: string;
-  createdAt: Date;
-  expiresAt: Date;
-  ipAddress: string;
-  userAgent: string;
-  lastActivity: Date;
-}
+import { useAdmin, AdminSession } from '../../../hooks/useAdmin';
 
 interface SessionsTabProps {
   onNotify: (type: 'success' | 'error' | 'info', message: string) => void;
@@ -17,7 +8,8 @@ interface SessionsTabProps {
 }
 
 const SessionsTab: React.FC<SessionsTabProps> = ({ onNotify, setLoading }) => {
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const admin = useAdmin();
+  const [sessions, setSessions] = useState<AdminSession[]>([]);
 
   useEffect(() => {
     loadSessions();
@@ -26,31 +18,8 @@ const SessionsTab: React.FC<SessionsTabProps> = ({ onNotify, setLoading }) => {
   const loadSessions = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch('/api/admin/sessions', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const mappedSessions = (data.sessions || []).map((session: any) => ({
-        sessionId: session.session_id || session.id,
-        userId: session.user_id,
-        createdAt: new Date(session.created_at),
-        expiresAt: new Date(session.expires_at),
-        ipAddress: session.ip_address || session.ip,
-        userAgent: session.user_agent,
-        lastActivity: new Date(session.last_activity || session.last_seen_at),
-      }));
-
-      setSessions(mappedSessions);
+      const sessions = await admin.getSessions();
+      setSessions(sessions);
     } catch (error) {
       onNotify('error', (error as any).message || 'Error al cargar sesiones');
       setSessions([]);
@@ -64,25 +33,14 @@ const SessionsTab: React.FC<SessionsTabProps> = ({ onNotify, setLoading }) => {
 
     setLoading(true);
     try {
-      const session = sessions.find((s) => s.sessionId === sessionId);
+      const session = sessions.find((s) => s.id === sessionId);
       if (!session) throw new Error('Session not found');
 
-      const response = await fetch(`/api/admin/sessions/invalidate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          userId: session.userId,
-          reason: 'admin_action',
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to invalidate session');
-
-      setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+      await admin.invalidateSession(sessionId);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
       onNotify('success', 'Sesión invalidada');
     } catch (error) {
-      onNotify('error', 'Error al invalidar sesión');
+      onNotify('error', (error as any).message || 'Error al invalidar sesión');
     } finally {
       setLoading(false);
     }
@@ -94,27 +52,15 @@ const SessionsTab: React.FC<SessionsTabProps> = ({ onNotify, setLoading }) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/sessions/invalidate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          reason: 'admin_action',
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to invalidate sessions');
-
+      await admin.invalidateUserSessions(userId);
       setSessions((prev) => prev.filter((s) => s.userId !== userId));
       onNotify('success', `${userSessions.length} sesión(es) invalidada(s)`);
     } catch (error) {
-      onNotify('error', 'Error al invalidar sesiones');
+      onNotify('error', (error as any).message || 'Error al invalidar sesiones');
     } finally {
       setLoading(false);
     }
   };
-
-  const isSessionExpired = (session: Session) => new Date() > session.expiresAt;
 
   return (
     <div className="space-y-6">
@@ -144,29 +90,29 @@ const SessionsTab: React.FC<SessionsTabProps> = ({ onNotify, setLoading }) => {
           </thead>
           <tbody>
             {sessions.map((session) => (
-              <tr key={session.sessionId} className="border-b border-slate-600 hover:bg-slate-600/20">
-                <td className="px-4 py-3 text-slate-300 font-mono text-xs">{session.sessionId}</td>
+              <tr key={session.id} className="border-b border-slate-600 hover:bg-slate-600/20">
+                <td className="px-4 py-3 text-slate-300 font-mono text-xs">{session.id}</td>
                 <td className="px-4 py-3 text-white">{session.userId}</td>
                 <td className="px-4 py-3 text-slate-300">{session.ipAddress}</td>
                 <td className="px-4 py-3 text-slate-300 text-xs truncate">{session.userAgent}</td>
                 <td className="px-4 py-3 text-slate-400 text-xs">
-                  {session.lastActivity.toLocaleString('es-CL')}
+                  {new Date(session.lastActivity).toLocaleString('es-CL')}
                 </td>
                 <td className="px-4 py-3">
                   <span
                     className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                      isSessionExpired(session)
+                      new Date() < new Date(session.expiresAt)
                         ? 'bg-emerald-900/30 text-emerald-300'
                         : 'bg-slate-900/30 text-slate-400'
                     }`}
                   >
-                    {isSessionExpired(session) ? 'Activa' : 'Expirada'}
+                    {new Date() < new Date(session.expiresAt) ? 'Activa' : 'Expirada'}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button
-                    onClick={() => handleInvalidateSession(session.sessionId)}
-                    disabled={isSessionExpired(session)}
+                    onClick={() => handleInvalidateSession(session.id)}
+                    disabled={new Date() > new Date(session.expiresAt)}
                     className="inline-flex items-center gap-1 px-3 py-1 rounded bg-red-900/30 hover:bg-red-900/50 disabled:opacity-50 text-red-300 text-sm"
                   >
                     <LogOut className="w-4 h-4" />

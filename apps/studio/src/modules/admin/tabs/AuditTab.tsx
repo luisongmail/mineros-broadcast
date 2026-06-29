@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download } from 'lucide-react';
-
-interface AuditLog {
-  id: string;
-  action: string;
-  userId: string;
-  resourceType: string;
-  resourceId: string;
-  result: 'allowed' | 'denied';
-  timestamp: Date;
-}
+import { useAdmin, AuditEntry } from '../../../hooks/useAdmin';
 
 interface AuditTabProps {
   onNotify: (type: 'success' | 'error' | 'info', message: string) => void;
@@ -17,7 +8,8 @@ interface AuditTabProps {
 }
 
 const AuditTab: React.FC<AuditTabProps> = ({ onNotify, setLoading }) => {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const admin = useAdmin();
+  const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [actionFilter, setActionFilter] = useState('all');
   const [resultFilter, setResultFilter] = useState('all');
 
@@ -28,34 +20,14 @@ const AuditTab: React.FC<AuditTabProps> = ({ onNotify, setLoading }) => {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch('/api/admin/audit/logs', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const filters: any = {};
+      if (actionFilter !== 'all') filters.action = actionFilter;
+      if (resultFilter !== 'all') filters.result = resultFilter;
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const mappedLogs = (data.logs || []).map((log: any) => ({
-        id: log.id || log.audit_id,
-        action: log.action,
-        userId: log.user_id || log.actor_id,
-        resourceType: log.resource_type,
-        resourceId: log.resource_id,
-        result: log.result === 'allowed' ? 'allowed' : 'denied',
-        timestamp: new Date(log.timestamp || log.created_at),
-      }));
-
-      setLogs(mappedLogs);
+      const result = await admin.getAuditLogs(filters);
+      setLogs(result.entries);
     } catch (error) {
       onNotify('error', (error as any).message || 'Error al cargar auditoría');
-      setLogs([]);
     } finally {
       setLoading(false);
     }
@@ -64,15 +36,14 @@ const AuditTab: React.FC<AuditTabProps> = ({ onNotify, setLoading }) => {
   const handleExport = async () => {
     try {
       const csv = [
-        ['ID Auditoría', 'Acción', 'Usuario', 'Tipo Recurso', 'ID Recurso', 'Resultado', 'Timestamp'],
+        ['ID Auditoría', 'Acción', 'Actor', 'Recurso', 'Resultado', 'Timestamp'],
         ...logs.map((log) => [
           log.id,
           log.action,
-          log.userId,
-          log.resourceType,
-          log.resourceId,
+          log.actor,
+          log.resource,
           log.result,
-          log.timestamp.toISOString(),
+          log.timestamp,
         ]),
       ]
         .map((row) => row.join(','))
@@ -152,9 +123,9 @@ const AuditTab: React.FC<AuditTabProps> = ({ onNotify, setLoading }) => {
               <tr key={log.id} className="border-b border-slate-600 hover:bg-slate-600/20">
                 <td className="px-4 py-3 text-slate-300 font-mono">{log.id}</td>
                 <td className="px-4 py-3 text-white">{log.action}</td>
-                <td className="px-4 py-3 text-slate-300">{log.userId}</td>
+                <td className="px-4 py-3 text-white">{log.actor}</td>
                 <td className="px-4 py-3 text-slate-300">
-                  {log.resourceType}/{log.resourceId}
+                  {log.resource}
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -168,7 +139,7 @@ const AuditTab: React.FC<AuditTabProps> = ({ onNotify, setLoading }) => {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-400 text-xs">
-                  {log.timestamp.toLocaleString('es-CL')}
+                  {new Date(log.timestamp).toLocaleString('es-CL')}
                 </td>
               </tr>
             ))}

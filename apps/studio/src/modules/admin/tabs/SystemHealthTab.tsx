@@ -1,31 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
-
-interface SystemHealth {
-  status: 'healthy' | 'degraded' | 'critical';
-  database: {
-    status: 'connected' | 'disconnected';
-    latency: string;
-  };
-  auth: { status: 'operational' | 'degraded' };
-  mfa: { status: 'operational' | 'degraded' };
-  audit: { status: 'operational' | 'degraded' };
-  uptime: number;
-  timestamp: Date;
-  metrics: {
-    auditQueueDepth: number;
-    recentAdminActions: number;
-    suspendedUsers: number;
-    failedMfaAttempts: number;
-  };
-}
+import { useAdmin, SystemHealth } from '../../../hooks/useAdmin';
 
 interface SystemHealthTabProps {
   onNotify: (type: 'success' | 'error' | 'info', message: string) => void;
   setLoading: (loading: boolean) => void;
 }
 
-const SystemHealthTab: React.FC<SystemHealthTabProps> = ({ onNotify }) => {
+const SystemHealthTab: React.FC<SystemHealthTabProps> = ({ onNotify, setLoading }) => {
+  const admin = useAdmin();
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
@@ -38,49 +21,20 @@ const SystemHealthTab: React.FC<SystemHealthTabProps> = ({ onNotify }) => {
   }, [autoRefresh]);
 
   const loadHealth = async () => {
+    setLoading(true);
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch('/api/admin/system/health', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const healthData = data.health || data;
-
-      setHealth({
-        status: healthData.status || 'healthy',
-        database: {
-          status: healthData.database?.status || 'connected',
-          latency: healthData.database?.latency || '0ms',
-        },
-        auth: { status: healthData.auth?.status || 'operational' },
-        mfa: { status: healthData.mfa?.status || 'operational' },
-        audit: { status: healthData.audit?.status || 'operational' },
-        uptime: healthData.uptime || 0,
-        timestamp: new Date(),
-        metrics: {
-          auditQueueDepth: healthData.metrics?.auditQueueDepth || 0,
-          recentAdminActions: healthData.metrics?.recentAdminActions || 0,
-          suspendedUsers: healthData.metrics?.suspendedUsers || 0,
-          failedMfaAttempts: healthData.metrics?.failedMfaAttempts || 0,
-        },
-      });
+      const data = await admin.getSystemHealth();
+      setHealth(data || null);
     } catch (error) {
       onNotify('error', (error as any).message || 'Error al cargar estado del sistema');
       setHealth(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-    const isHealthy = status === 'connected' || status === 'operational';
+    const isHealthy = status === 'connected' || status === 'operational' || status === 'healthy';
     return (
       <span
         className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${
@@ -97,143 +51,104 @@ const SystemHealthTab: React.FC<SystemHealthTabProps> = ({ onNotify }) => {
     );
   };
 
-  const OverallStatus: React.FC<{ status: string }> = ({ status }) => {
-    const colorMap = {
-      healthy: 'bg-emerald-900/20 border-emerald-700/50 text-emerald-300',
-      degraded: 'bg-yellow-900/20 border-yellow-700/50 text-yellow-300',
-      critical: 'bg-red-900/20 border-red-700/50 text-red-300',
-    };
-    const iconMap = {
-      healthy: <CheckCircle className="w-5 h-5" />,
-      degraded: <AlertTriangle className="w-5 h-5" />,
-      critical: <AlertCircle className="w-5 h-5" />,
-    };
-
+  if (!health) {
     return (
-      <div className={`border rounded-lg p-4 flex gap-3 ${colorMap[status as keyof typeof colorMap]}`}>
-        {iconMap[status as keyof typeof iconMap]}
-        <div>
-          <p className="font-semibold capitalize">{status}</p>
-          <p className="text-sm mt-1">
-            {status === 'healthy' && 'Todos los componentes funcionan correctamente'}
-            {status === 'degraded' && 'Algunos componentes están funcionando con degradación'}
-            {status === 'critical' && 'Sistema crítico requiere atención inmediata'}
-          </p>
-        </div>
+      <div className="flex flex-col items-center justify-center py-12">
+        <AlertCircle className="w-12 h-12 text-yellow-400 mb-4" />
+        <p className="text-slate-300">Cargando estado del sistema...</p>
       </div>
     );
-  };
-
-  if (!health) {
-    return <div className="text-center py-8 text-slate-400">Cargando...</div>;
   }
-
-  const formatUptime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
-  };
 
   return (
     <div className="space-y-6">
       {/* Overall Status */}
-      <OverallStatus status={health.status} />
+      <div className="bg-gradient-to-r from-slate-700/50 to-slate-800/50 rounded-lg border border-slate-600 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-2">Estado General</h3>
+            <p className="text-slate-400 text-sm">Última actualización: {new Date(health.timestamp).toLocaleString('es-CL')}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {health.status === 'healthy' && <CheckCircle className="w-8 h-8 text-emerald-400" />}
+            {health.status === 'degraded' && <AlertTriangle className="w-8 h-8 text-yellow-400" />}
+            {health.status === 'unhealthy' && <AlertCircle className="w-8 h-8 text-red-400" />}
+            <span
+              className={`text-2xl font-bold ${
+                health.status === 'healthy'
+                  ? 'text-emerald-400'
+                  : health.status === 'degraded'
+                    ? 'text-yellow-400'
+                    : 'text-red-400'
+              }`}
+            >
+              {health.status === 'healthy' ? 'Saludable' : health.status === 'degraded' ? 'Degradado' : 'Crítico'}
+            </span>
+          </div>
+        </div>
+      </div>
 
-      {/* Auto Refresh Toggle */}
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={autoRefresh}
-            onChange={(e) => setAutoRefresh(e.target.checked)}
-            className="w-4 h-4 rounded bg-slate-700 border border-slate-500"
-          />
-          <span className="text-slate-300">Actualizar automáticamente (cada 5s)</span>
+      {/* Component Status Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-slate-700/20 border border-slate-600 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-slate-300 font-semibold">Base de Datos</span>
+            <StatusBadge status={health.db} />
+          </div>
+          <p className="text-xs text-slate-400">Conexión: {health.db === 'connected' ? 'Conectada' : 'No configurada'}</p>
+        </div>
+
+        <div className="bg-slate-700/20 border border-slate-600 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-slate-300 font-semibold">Tiempo Activo</span>
+            <span className="text-emerald-300 text-sm font-mono">{Math.floor(health.uptime / 3600)}h {Math.floor((health.uptime % 3600) / 60)}m</span>
+          </div>
+          <p className="text-xs text-slate-400">{health.uptime} segundos</p>
+        </div>
+      </div>
+
+      {/* Memory Usage */}
+      {health.memory && (
+        <div className="bg-slate-700/20 border border-slate-600 rounded-lg p-4">
+          <h4 className="text-slate-300 font-semibold mb-3">Memoria</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Usada</p>
+              <p className="text-lg font-mono text-emerald-300">
+                {(health.memory.heapUsed / 1024 / 1024).toFixed(2)} MB
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Total</p>
+              <p className="text-lg font-mono text-slate-300">
+                {(health.memory.heapTotal / 1024 / 1024).toFixed(2)} MB
+              </p>
+            </div>
+          </div>
+          <div className="w-full bg-slate-900/50 rounded-full h-2 mt-3 overflow-hidden">
+            <div
+              className="bg-emerald-500 h-2 rounded-full transition-all"
+              style={{
+                width: `${(health.memory.heapUsed / health.memory.heapTotal) * 100}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Auto-refresh Toggle */}
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          id="autoRefresh"
+          checked={autoRefresh}
+          onChange={(e) => setAutoRefresh(e.target.checked)}
+          className="w-4 h-4 rounded bg-slate-700 border-slate-600 checked:bg-blue-600"
+        />
+        <label htmlFor="autoRefresh" className="text-sm text-slate-300 cursor-pointer">
+          Actualización automática cada 5 segundos
         </label>
       </div>
-
-      {/* Component Status Grid */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-slate-600/20 rounded-lg p-4 border border-slate-600">
-          <h3 className="font-semibold text-white mb-3">Base de Datos</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-300">Estado</span>
-              <StatusBadge status={health.database.status} />
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-300">Latencia</span>
-              <span className="text-white font-mono">{health.database.latency}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-600/20 rounded-lg p-4 border border-slate-600">
-          <h3 className="font-semibold text-white mb-3">Autenticación</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-300">Estado</span>
-              <StatusBadge status={health.auth.status} />
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-300">Uptime</span>
-              <span className="text-white font-mono">{formatUptime(health.uptime)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-600/20 rounded-lg p-4 border border-slate-600">
-          <h3 className="font-semibold text-white mb-3">MFA</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-300">Estado</span>
-              <StatusBadge status={health.mfa.status} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-600/20 rounded-lg p-4 border border-slate-600">
-          <h3 className="font-semibold text-white mb-3">Auditoría</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-300">Estado</span>
-              <StatusBadge status={health.audit.status} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Metrics */}
-      <div className="bg-slate-600/20 rounded-lg p-4 border border-slate-600">
-        <h3 className="font-semibold text-white mb-4">Métricas</h3>
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <p className="text-sm text-slate-400 mb-1">Cola de Auditoría</p>
-            <p className="text-2xl font-bold text-white">{health.metrics.auditQueueDepth}</p>
-            <p className="text-xs text-slate-500 mt-1">eventos pendientes</p>
-          </div>
-          <div>
-            <p className="text-sm text-slate-400 mb-1">Acciones Admin Recientes</p>
-            <p className="text-2xl font-bold text-white">{health.metrics.recentAdminActions}</p>
-            <p className="text-xs text-slate-500 mt-1">últimas 24 horas</p>
-          </div>
-          <div>
-            <p className="text-sm text-slate-400 mb-1">Usuarios Suspendidos</p>
-            <p className="text-2xl font-bold text-white">{health.metrics.suspendedUsers}</p>
-            <p className="text-xs text-slate-500 mt-1">actualmente</p>
-          </div>
-          <div>
-            <p className="text-sm text-slate-400 mb-1">Intentos MFA Fallidos</p>
-            <p className="text-2xl font-bold text-white">{health.metrics.failedMfaAttempts}</p>
-            <p className="text-xs text-slate-500 mt-1">últimas 24 horas</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Last Update */}
-      <p className="text-xs text-slate-500 text-right">
-        Última actualización: {health.timestamp.toLocaleTimeString('es-CL')}
-      </p>
     </div>
   );
 };

@@ -426,6 +426,31 @@ export function useAdmin() {
     }
   }, [getAuthHeaders]);
 
+  const invalidateUserSessions = useCallback(async (userId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/sessions/user/${userId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw { code: 'INVALIDATE_USER_SESSIONS_FAILED', message: 'Failed to invalidate user sessions' };
+      }
+
+      return await response.json();
+    } catch (err) {
+      const adminError: AdminError = err instanceof Error
+        ? { code: 'INVALIDATE_USER_SESSIONS_ERROR', message: err.message }
+        : err as AdminError;
+      setError(adminError);
+      throw adminError;
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthHeaders]);
+
   // ────────────────────────────────────────────
   // Health API
   // ────────────────────────────────────────────
@@ -467,6 +492,7 @@ export function useAdmin() {
     exportAuditLogs,
     getSessions,
     invalidateSession,
+    invalidateUserSessions,
     getSystemHealth,
     inviteUser,
     assignUserRole,
