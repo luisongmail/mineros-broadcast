@@ -20,6 +20,8 @@ const UsersTab: React.FC<UsersTabProps> = ({ onNotify, setLoading }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [selectedUserForRole, setSelectedUserForRole] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<'SysAdmin' | 'Admin' | 'Operator'>('Operator');
+  const [editingDisplayName, setEditingDisplayName] = useState<string | null>(null);
+  const [displayNameValue, setDisplayNameValue] = useState('');
 
   useEffect(() => {
     loadUsers();
@@ -121,6 +123,30 @@ const UsersTab: React.FC<UsersTabProps> = ({ onNotify, setLoading }) => {
     }
   };
 
+  const handleEditDisplayName = (userId: string, currentName: string) => {
+    setEditingDisplayName(userId);
+    setDisplayNameValue(currentName || '');
+  };
+
+  const handleSaveDisplayName = async (userId: string) => {
+    if (!displayNameValue.trim()) {
+      onNotify('error', 'El nombre no puede estar vacío');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await admin.updateUserDisplayName(userId, displayNameValue);
+      onNotify('success', 'Nombre de usuario actualizado');
+      setEditingDisplayName(null);
+      await loadUsers();
+    } catch (error) {
+      onNotify('error', (error as any).message || 'Error al actualizar nombre');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredUsers = users.filter((user) => {
     const matchesFilter = filter === 'all' || user.status === filter;
     const matchesSearch = user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -200,6 +226,7 @@ const UsersTab: React.FC<UsersTabProps> = ({ onNotify, setLoading }) => {
           <thead>
             <tr className="bg-slate-600/50 border-b border-slate-600">
               <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Email</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Nombre</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">ID Usuario</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Estado</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Rol</th>
@@ -212,6 +239,43 @@ const UsersTab: React.FC<UsersTabProps> = ({ onNotify, setLoading }) => {
             {filteredUsers.map((user) => (
               <tr key={user.id} className="border-b border-slate-600 hover:bg-slate-600/20">
                 <td className="px-4 py-3 text-sm text-white">{user.email}</td>
+                <td className="px-4 py-3 text-sm">
+                  {editingDisplayName === user.id ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={displayNameValue}
+                        onChange={(e) => setDisplayNameValue(e.target.value)}
+                        className="flex-1 bg-slate-600 border border-slate-500 rounded px-2 py-1 text-white text-sm"
+                        placeholder="Nombre"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleSaveDisplayName(user.id)}
+                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-white text-xs font-semibold"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => setEditingDisplayName(null)}
+                        className="px-3 py-1 bg-slate-600 hover:bg-slate-500 rounded text-white text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 group">
+                      <span className="text-white font-medium">{user.firstName}</span>
+                      <button
+                        onClick={() => handleEditDisplayName(user.id, user.firstName)}
+                        className="text-slate-400 hover:text-slate-200 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                        title="Editar nombre"
+                      >
+                        ✎
+                      </button>
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm text-slate-300">{user.id}</td>
                 <td className="px-4 py-3 text-sm">
                   <span
