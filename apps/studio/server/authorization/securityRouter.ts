@@ -25,12 +25,12 @@ router.get('/context', requireAuth, async (req: AuthenticatedRequest, res: Respo
     try {
       const [rows] = await conn.execute<RowDataPacket[]>(
         `SELECT ra.resource_type, ra.resource_id, ra.role,
-                COALESCE(l.name, t.name, tm.name, g.game_date, 'Recurso') AS resource_name
+                COALESCE(l.name, t.name, tm.name, g.id, 'Recurso') AS resource_name
          FROM role_assignments ra
-         LEFT JOIN leagues l ON ra.resource_type = 'League' AND l.league_id = ra.resource_id
-         LEFT JOIN tournaments t ON ra.resource_type = 'Tournament' AND t.tournament_id = ra.resource_id
-         LEFT JOIN teams tm ON ra.resource_type = 'Team' AND tm.team_id = ra.resource_id
-         LEFT JOIN games g ON ra.resource_type = 'Game' AND g.game_id = ra.resource_id
+         LEFT JOIN leagues l ON ra.resource_type = 'League' AND l.id = ra.resource_id
+         LEFT JOIN tournaments t ON ra.resource_type = 'Tournament' AND t.id = ra.resource_id
+         LEFT JOIN teams tm ON ra.resource_type = 'Team' AND tm.id = ra.resource_id
+         LEFT JOIN games g ON ra.resource_type = 'Game' AND g.id = ra.resource_id
          WHERE ra.user_id = ? AND ra.status = 'active'`,
         [user.sub],
       );

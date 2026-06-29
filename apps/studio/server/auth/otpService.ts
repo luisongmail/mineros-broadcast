@@ -152,7 +152,9 @@ export async function verifyOtp(email: string, code: string): Promise<OtpVerifyR
     }
 
     const providedHash = hashOtp(code);
-    if (providedHash !== ch.otp_hash) {
+    const storedHash = (ch.otp_hash as Buffer | string).toString?.() || String(ch.otp_hash);
+    console.log(`[OTP DEBUG] Código: ${code}, Proporcionado: ${providedHash}, Almacenado: ${storedHash}, Match: ${providedHash === storedHash}`);
+    if (providedHash !== storedHash) {
       await conn.execute(
         `UPDATE otp_challenges SET attempts = attempts + 1 WHERE challenge_id = ?`,
         [challengeId],
