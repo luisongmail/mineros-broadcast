@@ -34,6 +34,7 @@ import { usersRouter } from './users/usersRouter';
 import { auditRouter } from './audit/auditRouter';
 import { scoringRouter } from './scoring/scoringRouter';
 import { startRetentionScheduler } from './audit/auditRetentionJob';
+import adminRouter from './admin/adminRouter';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -138,6 +139,8 @@ app.use('/api/auth', authRouter);
 // Security — rutas de autorización, context y step-up
 app.use('/api/security', securityRouter);
 app.use('/api/auth', securityRouter); // step-up y mfa comparten prefijo /api/auth
+// Admin — rutas protegidas con autorización
+app.use('/api/admin', adminRouter);
 // Users & Roles (Fase 3)
 app.use('/api/users', usersRouter);
 // Scoring Assignments (Fase 4)
