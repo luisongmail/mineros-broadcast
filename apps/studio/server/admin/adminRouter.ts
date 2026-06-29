@@ -9,6 +9,165 @@ import type { RowDataPacket } from 'mysql2';
 export const adminRouter = Router();
 
 /**
+ * GET /api/admin/users
+ * Get list of all users — requires SysAdmin
+ */
+adminRouter.get(
+  '/users',
+  requireAuth,
+  requireRole('SysAdmin'),
+  async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+    if (!pool) {
+      res.json({ users: [] });
+      return;
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await conn.execute<RowDataPacket[]>(
+        `SELECT id, email, first_name, last_name, status, mfa_enabled, last_login, created_at
+         FROM users ORDER BY created_at DESC`,
+      );
+      const users = rows.map((row) => ({
+        id: row.id,
+        email: row.email,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        status: row.status,
+        mfaEnabled: row.mfa_enabled,
+        lastLogin: row.last_login,
+        createdAt: row.created_at,
+      }));
+      res.json({ users });
+    } finally {
+      conn.release();
+    }
+  },
+);
+
+/**
+ * GET /api/admin/sessions
+ * Get list of active sessions — requires SysAdmin
+ */
+adminRouter.get(
+  '/sessions',
+  requireAuth,
+  requireRole('SysAdmin'),
+  async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+    if (!pool) {
+      res.json({ sessions: [] });
+      return;
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await conn.execute<RowDataPacket[]>(
+        `SELECT id, user_id, ip_address, user_agent, created_at, last_activity, expires_at
+         FROM sessions WHERE status = 'active' ORDER BY last_activity DESC LIMIT 100`,
+      );
+      const sessions = rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        ipAddress: row.ip_address,
+        userAgent: row.user_agent,
+        createdAt: row.created_at,
+        lastActivity: row.last_activity,
+        expiresAt: row.expires_at,
+      }));
+      res.json({ sessions });
+    } finally {
+      conn.release();
+    }
+  },
+);
+
+/**
+ * DELETE /api/admin/sessions/:sessionId
+ * Invalidate a single session — requires SysAdmin + step-up MFA
+ */
+adminRouter.delete(
+  '/sessions/:sessionId',
+  requireAuth,
+  requireRole('SysAdmin'),
+  requireAuthorization('session.invalidate', { resourceType: 'Session', resourceIdParam: 'sessionId' }),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const { sessionId } = req.params;
+
+    if (!pool) {
+      res.json({ ok: true, sessionId, invalidated: true });
+      return;
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.execute(
+        `UPDATE sessions SET status = 'invalidated', invalidated_at = NOW()
+         WHERE id = ? AND status = 'active'`,
+        [sessionId],
+      );
+      res.json({ ok: true, sessionId, invalidated: true, invalidatedAt: new Date().toISOString() });
+    } finally {
+      conn.release();
+    }
+  },
+);
+
+/**
+ * GET /api/admin/audit/logs/export
+ * Export audit logs as CSV or JSON — requires SysAdmin
+ */
+adminRouter.get(
+  '/audit/logs/export',
+  requireAuth,
+  requireRole('SysAdmin'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const {
+      format = 'csv',
+      action,
+      from,
+      to,
+    } = req.query as Record<string, string>;
+
+    const entries = await queryAudit({
+      action,
+      from,
+      to,
+      page: 1,
+      limit: 10000, // Export all available
+    });
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename="audit-logs.json"');
+      res.json(entries);
+      return;
+    }
+
+    // CSV format (default)
+    const csvHeader = 'AuditID,Actor,Action,ResourceType,ResourceID,Result,CreatedAt\n';
+    const csvRows = entries
+      .map((entry) =>
+        [
+          entry.auditId,
+          entry.actorUserId || '',
+          entry.action,
+          entry.resourceType,
+          entry.resourceId,
+          entry.result,
+          entry.createdAt,
+        ]
+          .map((field) => `"${String(field).replace(/"/g, '""')}"`)
+          .join(','),
+      )
+      .join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="audit-logs.csv"');
+    res.send(csvHeader + csvRows);
+  },
+);
+
+/**
  * POST /api/admin/policy/update
  * Update security policy — requires SysAdmin role + step-up MFA
  * Protected: Admin-only action requiring identity re-verification
