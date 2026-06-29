@@ -2,6 +2,13 @@ import type { Response } from 'express';
 import { Router } from 'express';
 import { initTotpSetup, verifyAndActivateTotp, verifyTotpLogin } from './totpService';
 import { requireAuth, type AuthenticatedRequest } from './authMiddleware';
+import {
+  recordMfaFailedAttempt,
+  clearMfaAttempts,
+  isMfaBlocked,
+  getMfaLockoutTimeRemaining,
+} from './failedAttemptService';
+import { invalidateAllUserSessions } from './sessionManagementService';
 
 const router = Router();
 
@@ -78,6 +85,7 @@ router.post('/mfa/setup/verify', requireAuth, async (req: AuthenticatedRequest, 
 // POST /api/auth/mfa/verify
 // Verifica el código TOTP en el flujo de login
 // Devuelve JWT si el código es correcto
+// Implementa lockout después de intentos fallidos
 // ─────────────────────────────────────────────
 router.post('/mfa/verify', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -88,14 +96,62 @@ router.post('/mfa/verify', async (req: AuthenticatedRequest, res: Response): Pro
       return;
     }
 
+    const requestContext = {
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      path: req.path,
+    };
+
     console.log(`[MFA] POST /mfa/verify → userId=${userId}`);
 
+    // Verifica si el usuario está bloqueado por intentos fallidos
+    if (isMfaBlocked(userId)) {
+      const lockoutTimeRemaining = getMfaLockoutTimeRemaining(userId);
+      const lockoutMinutes = Math.ceil(lockoutTimeRemaining / 1000 / 60);
+
+      res.status(429).json({
+        error: {
+          code: 'MFA_LOCKED_OUT',
+          message: `Usuario bloqueado por demasiados intentos. Intenta en ${lockoutMinutes} minutos.`,
+          retryAfter: lockoutTimeRemaining,
+        },
+      });
+      return;
+    }
+
+    // Verifica el código TOTP
     const isValid = await verifyTotpLogin(userId, code.trim());
 
     if (!isValid) {
-      res.status(401).json({ error: { code: 'INVALID_CODE', message: 'Código TOTP inválido o expirado.' } });
+      // Registra intento fallido y verifica si debe bloquear
+      const { blocked, remainingAttempts } = await recordMfaFailedAttempt(userId, requestContext);
+
+      if (blocked) {
+        // Invalida todas las sesiones del usuario por seguridad
+        await invalidateAllUserSessions(userId, 'MFA lockout triggered', undefined, requestContext);
+
+        res.status(429).json({
+          error: {
+            code: 'MFA_LOCKED_OUT',
+            message: 'Usuario bloqueado por demasiados intentos. Sesiones invalidadas. Intenta en 30 minutos.',
+            retryAfter: 30 * 60 * 1000,
+          },
+        });
+        return;
+      }
+
+      res.status(401).json({
+        error: {
+          code: 'INVALID_CODE',
+          message: 'Código TOTP inválido o expirado.',
+          remainingAttempts,
+        },
+      });
       return;
     }
+
+    // Código válido: limpia intentos fallidos
+    await clearMfaAttempts(userId);
 
     // En un flujo real, aquí se crearía la sesión y se emitiría el JWT
     // Por ahora, devolvemos confirmación
