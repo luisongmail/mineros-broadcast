@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { pool } from '../db';
 import { sendOtpEmail } from '../auth/emailService';
+import { logStepUpEvent } from '../audit/auditService';
 
 function generateOpaqueToken(): string {
   return crypto.randomBytes(32).toString('hex');
@@ -98,6 +99,9 @@ export async function verifyStepUp(
   userId: string,
   challengeId: string,
   code: string,
+  sessionId?: string,
+  ipAddress?: string,
+  userAgent?: string,
 ): Promise<StepUpVerifyResult> {
   const providedHash = crypto.createHash('sha256').update(code).digest('hex');
 
@@ -111,9 +115,24 @@ export async function verifyStepUp(
       expiresAt: Date;
     } | undefined;
     if (!stored) return { ok: false, reason: 'not_found' };
-    if (crypto.createHash('sha256').update(stored.otp).digest('hex') !== providedHash) {
-      return { ok: false, reason: 'invalid_code' };
-    }
+    
+    const isValid = crypto.createHash('sha256').update(stored.otp).digest('hex') === providedHash;
+    
+    // Log audit event
+    await logStepUpEvent({
+      action: isValid ? 'step_up_verified' : 'step_up_failed',
+      userId,
+      sessionId: sessionId || 'unknown',
+      resourceType: stored.resourceType,
+      resourceId: stored.resourceId,
+      ipAddress,
+      userAgent,
+      verificationMethod: 'totp',
+      totpVerified: isValid,
+    });
+    
+    if (!isValid) return { ok: false, reason: 'invalid_code' };
+    
     delete (global as Record<string, unknown>)[`__stepup_${challengeId}`];
     const stepUpToken = generateOpaqueToken();
     (global as Record<string, unknown>)[`__su_${stepUpToken}`] = {
@@ -136,22 +155,73 @@ export async function verifyStepUp(
       [challengeId, userId],
     );
 
-    if (rows.length === 0) return { ok: false, reason: 'not_found' };
+    if (rows.length === 0) {
+      await logStepUpEvent({
+        action: 'step_up_failed',
+        userId,
+        sessionId: sessionId || 'unknown',
+        resourceType: 'unknown',
+        resourceId: 'unknown',
+        ipAddress,
+        userAgent,
+        verificationMethod: 'totp',
+        totpVerified: false,
+        reason: 'not_found',
+      });
+      return { ok: false, reason: 'not_found' };
+    }
+    
     const ch = rows[0];
 
-    if (ch.status !== 'pending') return { ok: false, reason: 'already_consumed' };
-    if (new Date(ch.expires_at as string) < new Date()) return { ok: false, reason: 'invalid_code' };
-    if (ch.otp_hash !== providedHash) return { ok: false, reason: 'invalid_code' };
+    if (ch.status !== 'pending') {
+      await logStepUpEvent({
+        action: 'step_up_failed',
+        userId,
+        sessionId: sessionId || 'unknown',
+        resourceType: ch.resource_type as string,
+        resourceId: ch.resource_id as string,
+        ipAddress,
+        userAgent,
+        verificationMethod: 'totp',
+        totpVerified: false,
+        reason: 'already_consumed',
+      });
+      return { ok: false, reason: 'already_consumed' };
+    }
+    
+    const isExpired = new Date(ch.expires_at as string) < new Date();
+    const isValidCode = ch.otp_hash === providedHash;
+    const isValid = !isExpired && isValidCode;
 
-    const stepUpToken = generateOpaqueToken();
+    const stepUpToken = isValid ? generateOpaqueToken() : '';
     const tokenExpiresAt = new Date(Date.now() + STEP_UP_TTL_MINUTES * 60_000);
 
-    await conn.execute(
-      `UPDATE step_up_challenges
-       SET status = 'consumed', step_up_token_hash = ?, consumed_at = NOW()
-       WHERE challenge_id = ?`,
-      [crypto.createHash('sha256').update(stepUpToken).digest('hex'), challengeId],
-    );
+    if (isValid) {
+      await conn.execute(
+        `UPDATE step_up_challenges
+         SET status = 'consumed', step_up_token_hash = ?, consumed_at = NOW()
+         WHERE challenge_id = ?`,
+        [crypto.createHash('sha256').update(stepUpToken).digest('hex'), challengeId],
+      );
+    }
+
+    // Log audit event
+    await logStepUpEvent({
+      action: isValid ? 'step_up_verified' : 'step_up_failed',
+      userId,
+      sessionId: sessionId || 'unknown',
+      resourceType: ch.resource_type as string,
+      resourceId: ch.resource_id as string,
+      ipAddress,
+      userAgent,
+      verificationMethod: 'totp',
+      totpVerified: isValid,
+      reason: isExpired ? 'expired' : !isValidCode ? 'invalid_code' : undefined,
+    });
+
+    if (!isValid) {
+      return { ok: false, reason: isExpired ? 'invalid_code' : 'invalid_code' };
+    }
 
     return {
       ok: true,

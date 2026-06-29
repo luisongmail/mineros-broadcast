@@ -33,4 +33,52 @@ describe('auditService — sin DB', () => {
     expect(id2).toMatch(/^aud_/);
     expect(id1).not.toBe(id2);
   });
+
+  it('logStepUpEvent registra verificación exitosa', async () => {
+    const { logStepUpEvent } = await import('./auditService');
+    const auditId = await logStepUpEvent({
+      action: 'step_up_verified',
+      userId: 'usr_1',
+      sessionId: 'sess_123',
+      resourceType: 'User',
+      resourceId: 'usr_2',
+      ipAddress: '192.168.1.1',
+      userAgent: 'Mozilla/5.0',
+      verificationMethod: 'totp',
+      totpVerified: true,
+    });
+    expect(auditId).toMatch(/^aud_/);
+  });
+
+  it('logStepUpEvent registra fallo de verificación', async () => {
+    const { logStepUpEvent } = await import('./auditService');
+    const auditId = await logStepUpEvent({
+      action: 'step_up_failed',
+      userId: 'usr_1',
+      sessionId: 'sess_123',
+      resourceType: 'User',
+      resourceId: 'usr_2',
+      verificationMethod: 'totp',
+      totpVerified: false,
+      reason: 'invalid_code',
+    });
+    expect(auditId).toMatch(/^aud_/);
+  });
+
+  it('logStepUpEvent con información de contexto', async () => {
+    const { logStepUpEvent } = await import('./auditService');
+    const auditId = await logStepUpEvent({
+      action: 'step_up_requested',
+      userId: 'usr_admin',
+      sessionId: 'sess_admin_456',
+      resourceType: 'Policy',
+      resourceId: 'pol_999',
+      ipAddress: '10.0.0.5',
+      userAgent: 'Chrome/120.0',
+      verificationMethod: 'totp',
+      totpVerified: false, // Aún no verificado en request
+      reason: 'sensitive_policy_change',
+    });
+    expect(auditId).toMatch(/^aud_/);
+  });
 });

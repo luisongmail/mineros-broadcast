@@ -15,6 +15,19 @@ export interface AuditEntry {
   createdAt: string;
 }
 
+export interface StepUpAuditEvent {
+  action: 'step_up_requested' | 'step_up_verified' | 'step_up_failed';
+  userId: string;
+  sessionId: string;
+  resourceType: string;
+  resourceId: string;
+  ipAddress?: string;
+  userAgent?: string;
+  verificationMethod: 'totp';
+  totpVerified: boolean;
+  reason?: string;
+}
+
 export interface AuditFilter {
   actorUserId?: string;
   resourceType?: string;
@@ -73,6 +86,32 @@ export async function logAuditEvent(
   }
 
   return auditId;
+}
+
+/**
+ * Log a step-up MFA verification event to the audit trail
+ * Tracks when users verify their identity via TOTP for sensitive operations
+ */
+export async function logStepUpEvent(event: StepUpAuditEvent): Promise<string> {
+  const result = event.totpVerified ? 'allowed' : 'denied';
+  
+  return logAuditEvent(
+    event.userId,
+    event.action,
+    event.resourceType,
+    event.resourceId,
+    result,
+    {
+      verificationMethod: event.verificationMethod,
+      totpVerified: event.totpVerified,
+      sessionId: event.sessionId,
+    },
+    {
+      ipAddress: event.ipAddress,
+      userAgent: event.userAgent,
+      reason: event.reason,
+    },
+  );
 }
 
 export async function queryAudit(filter: AuditFilter = {}): Promise<AuditEntry[]> {
