@@ -17,12 +17,12 @@ permissions:
 
 env:
   NODE_VERSION: "20"
-  PNPM_VERSION: "9"
+  PNPM_VERSION: "9.0.0"
   TURBO_CONCURRENCY: "4"
 
 jobs:
-  ci:
-    name: Validaciones base
+  typecheck:
+    name: Typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -47,11 +47,112 @@ jobs:
       - name: Typecheck
         run: pnpm turbo typecheck --concurrency=${TURBO_CONCURRENCY}
 
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
       - name: Lint
         run: pnpm turbo lint --concurrency=${TURBO_CONCURRENCY}
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         run: pnpm turbo build --concurrency=${TURBO_CONCURRENCY}
 
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: playflow_db
+          MYSQL_USER: playflow_app
+          MYSQL_PASSWORD: dev_password
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uplayflow_app -pdev_password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Preparar MySQL para tests de integración
+        run: |
+          for intento in {1..30}; do
+            if docker exec "${{ job.services.mysql.id }}" mysqladmin ping -h localhost -uplayflow_app -pdev_password --silent; then
+              break
+            fi
+            echo "⏳ Esperando MySQL (intento ${intento}/30)..."
+            sleep 2
+          done
+          docker exec -i "${{ job.services.mysql.id }}" mysql -uroot -proot_password playflow_db < infra/mysql/migrations/002_security_module.sql
+
       - name: Tests
         run: pnpm turbo test --concurrency=${TURBO_CONCURRENCY}
+        env:
+          DATABASE_URL: mysql://playflow_app:dev_password@127.0.0.1:3306/playflow_db
+          DB_HOST: 127.0.0.1
+          DB_USER: playflow_app
+          DB_PASSWORD: dev_password
+          DB_NAME: playflow_db

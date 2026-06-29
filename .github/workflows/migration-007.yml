@@ -1,0 +1,73 @@
+name: Migration 007
+
+on:
+  push:
+    branches:
+      - squad/p5-*
+  workflow_dispatch:
+
+concurrency:
+  group: migration-007-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-migration-007:
+    name: Validate migration 007
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.0
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: playflow_db
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot_password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Esperar MySQL
+        run: |
+          for intento in {1..30}; do
+            if docker exec "${{ job.services.mysql.id }}" mysql -N -B -uroot -proot_password -e "SELECT 1" >/dev/null 2>&1; then
+              echo "✅ MySQL listo"
+              exit 0
+            fi
+            echo "⏳ Esperando MySQL (intento ${intento}/30)..."
+            sleep 2
+          done
+          echo "❌ MySQL no respondió a tiempo"
+          exit 1
+
+      - name: Lint SQL migrations
+        run: python3 infra/mysql/lint-migrations.sh
+
+      - name: Validate migration 007 and rollback
+        run: |
+          chmod +x infra/mysql/validate-migration-007.sh
+          MYSQL_HOST=127.0.0.1 \
+          MYSQL_PORT=3306 \
+          MYSQL_DATABASE=playflow_db \
+          MYSQL_ROOT_PASSWORD=root_password \
+          bash infra/mysql/validate-migration-007.sh
+
+      - name: Report summary
+        if: always()
+        run: |
+          {
+            echo "## Migration 007"
+            echo "- Branch: \`${GITHUB_REF_NAME}\`"
+            echo "- Lint SQL: ejecutado"
+            echo "- Resultado del job: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -19,7 +19,7 @@ permissions:
 
 env:
   NODE_VERSION: "20"
-  PNPM_VERSION: "9"
+  PNPM_VERSION: "9.0.0"
   TURBO_CONCURRENCY: "4"
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

@@ -61,7 +61,26 @@ Bloquear regresiones básicas antes de mergear a `dev`.
 
 ---
 
-### 3. `release.yml`
+### 3. `migration-007.yml`
+
+**Trigger**
+
+- `push` a `squad/p5-*`
+- `workflow_dispatch`
+
+**Qué ejecuta**
+
+1. Levanta MySQL 8 efímero
+2. Ejecuta `python3 infra/mysql/lint-migrations.sh`
+3. Aplica `000_playflow_seed.sql`
+4. Aplica `007_lineup_roster_refactor.sql`
+5. Verifica índices/FKs + backfill
+6. Ejecuta `infra/mysql/ROLLBACK_007.sql`
+7. Verifica reversión completa
+
+---
+
+### 4. `release.yml`
 
 **Trigger**
 
@@ -103,8 +122,15 @@ Configurar estos secrets en GitHub Actions:
 ## Convenciones de ejecución
 
 - **Node.js:** `20`
-- **pnpm:** `9`
+- **pnpm:** `9.0.0`
 - **Concurrencia de Turbo/Node en CI:** `4`
+
+## Protección recomendada de `dev`
+
+- Checks requeridos:
+  - `CI / Lint`
+  - `CI / Tests`
+- Reviews requeridos: `2` (operativamente: Babe + Mariano en el flujo Squad)
 
 ## Pendientes para completar la integración
 
