@@ -114,6 +114,111 @@ export async function logStepUpEvent(event: StepUpAuditEvent): Promise<string> {
   );
 }
 
+/**
+ * Log policy update event (for admin panel)
+ */
+export async function logPolicyUpdateEvent(event: {
+  action: string;
+  adminUserId: string;
+  policyName: string;
+  previousValue: unknown;
+  newValue: unknown;
+  reason: string;
+}): Promise<string> {
+  return logAuditEvent(
+    event.adminUserId,
+    event.action,
+    'Policy',
+    event.policyName,
+    'allowed',
+    { previousValue: event.previousValue, newValue: event.newValue },
+    { reason: event.reason },
+  );
+}
+
+/**
+ * Log user suspension event
+ */
+export async function logUserSuspensionEvent(event: {
+  action: string;
+  adminUserId: string;
+  targetUserId: string;
+  reason: string;
+  details?: string;
+}): Promise<string> {
+  return logAuditEvent(
+    event.adminUserId,
+    event.action,
+    'User',
+    event.targetUserId,
+    'allowed',
+    { reason: event.reason },
+    { details: event.details },
+  );
+}
+
+/**
+ * Log user reactivation event
+ */
+export async function logUserReactivationEvent(event: {
+  action: string;
+  adminUserId: string;
+  targetUserId: string;
+  reason: string;
+  approvalCount?: number;
+}): Promise<string> {
+  return logAuditEvent(
+    event.adminUserId,
+    event.action,
+    'User',
+    event.targetUserId,
+    'allowed',
+    { reason: event.reason, approvalCount: event.approvalCount },
+    {},
+  );
+}
+
+/**
+ * Log session invalidation event
+ */
+export async function logSessionInvalidationEvent(event: {
+  action: string;
+  adminUserId: string;
+  targetUserId: string;
+  sessionCount: number;
+  reason: string;
+}): Promise<string> {
+  return logAuditEvent(
+    event.adminUserId,
+    event.action,
+    'User',
+    event.targetUserId,
+    'allowed',
+    { sessionCount: event.sessionCount, reason: event.reason },
+    {},
+  );
+}
+
+/**
+ * Log access denial event
+ */
+export async function logAccessDenialEvent(event: {
+  action: string;
+  userId: string;
+  attemptedAction: string;
+  reason: string;
+}): Promise<string> {
+  return logAuditEvent(
+    event.userId,
+    event.action,
+    'Action',
+    event.attemptedAction,
+    'denied',
+    { reason: event.reason },
+    {},
+  );
+}
+
 export async function queryAudit(filter: AuditFilter = {}): Promise<AuditEntry[]> {
   if (!pool) return [];
   const {

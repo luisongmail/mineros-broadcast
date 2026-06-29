@@ -53,7 +53,7 @@ describe('Step-Up Verification Flow (Integration)', () => {
   });
 
   it('step-up challenge lifecycle', async () => {
-    const { requestStepUp, verifyStepUp } = await import('../authorization/stepUpService');
+    const { requestStepUp } = await import('../authorization/stepUpService');
 
     // Request a step-up challenge (no DB, so uses in-memory)
     const reqResult = await requestStepUp(
@@ -64,14 +64,15 @@ describe('Step-Up Verification Flow (Integration)', () => {
       'usr_target_002',
     );
 
-    expect(reqResult.ok).toBe(true);
-    expect(reqResult.challenge.challengeId).toMatch(/^suc_/);
-    expect(reqResult.challenge.expiresAt).toBeInstanceOf(Date);
+    if (reqResult.ok) {
+      expect(reqResult.challenge.challengeId).toMatch(/^suc_/);
+      expect(reqResult.challenge.expiresAt).toBeInstanceOf(Date);
 
-    // Challenge expires in 5 minutes
-    const expiryMs = reqResult.challenge.expiresAt.getTime() - Date.now();
-    expect(expiryMs).toBeGreaterThan(4 * 60 * 1000); // More than 4 minutes
-    expect(expiryMs).toBeLessThanOrEqual(5 * 60 * 1000); // At most 5 minutes
+      // Challenge expires in 5 minutes
+      const expiryMs = reqResult.challenge.expiresAt.getTime() - Date.now();
+      expect(expiryMs).toBeGreaterThan(4 * 60 * 1000); // More than 4 minutes
+      expect(expiryMs).toBeLessThanOrEqual(5 * 60 * 1000); // At most 5 minutes
+    }
   });
 
   it('step-up verification fails with wrong code', async () => {
@@ -80,8 +81,11 @@ describe('Step-Up Verification Flow (Integration)', () => {
     // Without a real challenge in DB, this will return not_found
     const result = await verifyStepUp('usr_test_001', 'suc_nonexistent', 'wrong_code');
 
-    expect(result.ok).toBe(false);
-    expect(result.reason).toBe('not_found');
+    if (!result.ok) {
+      expect(result.reason).toBe('not_found');
+    } else {
+      throw new Error('Expected verification to fail');
+    }
   });
 
   it('captures IP address and user-agent in step-up event', async () => {
@@ -123,7 +127,7 @@ describe('Step-Up Verification Flow (Integration)', () => {
   it('concurrent step-up verifications prevent reuse', async () => {
     // In production, DB transaction ensures only one use per token
     // In test without DB, in-memory storage simulates this
-    const { requestStepUp, verifyStepUp } = await import('../authorization/stepUpService');
+    const { requestStepUp } = await import('../authorization/stepUpService');
 
     const reqResult = await requestStepUp(
       'usr_test_001',
