@@ -26,29 +26,34 @@ const SessionsTab: React.FC<SessionsTabProps> = ({ onNotify, setLoading }) => {
   const loadSessions = async () => {
     setLoading(true);
     try {
-      // Mock sessions data
-      setSessions([
-        {
-          sessionId: 'sess_001',
-          userId: 'usr_001',
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-          expiresAt: new Date(Date.now() + 22 * 60 * 60 * 1000),
-          ipAddress: '192.168.1.100',
-          userAgent: 'Chrome/120.0 (macOS)',
-          lastActivity: new Date(Date.now() - 5 * 60 * 1000),
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('/api/admin/sessions', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        {
-          sessionId: 'sess_002',
-          userId: 'usr_002',
-          createdAt: new Date(Date.now() - 30 * 60 * 1000),
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          ipAddress: '192.168.1.50',
-          userAgent: 'Safari/17.0 (macOS)',
-          lastActivity: new Date(),
-        },
-      ]);
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const mappedSessions = (data.sessions || []).map((session: any) => ({
+        sessionId: session.session_id || session.id,
+        userId: session.user_id,
+        createdAt: new Date(session.created_at),
+        expiresAt: new Date(session.expires_at),
+        ipAddress: session.ip_address || session.ip,
+        userAgent: session.user_agent,
+        lastActivity: new Date(session.last_activity || session.last_seen_at),
+      }));
+
+      setSessions(mappedSessions);
     } catch (error) {
-      onNotify('error', 'Error al cargar sesiones');
+      onNotify('error', (error as any).message || 'Error al cargar sesiones');
+      setSessions([]);
     } finally {
       setLoading(false);
     }

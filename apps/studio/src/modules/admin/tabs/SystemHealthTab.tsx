@@ -39,27 +39,43 @@ const SystemHealthTab: React.FC<SystemHealthTabProps> = ({ onNotify }) => {
 
   const loadHealth = async () => {
     try {
-      // Mock system health data
-      setHealth({
-        status: 'healthy',
-        database: {
-          status: 'connected',
-          latency: '12ms',
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('/api/admin/system/health', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        auth: { status: 'operational' },
-        mfa: { status: 'operational' },
-        audit: { status: 'operational' },
-        uptime: 3600,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const healthData = data.health || data;
+
+      setHealth({
+        status: healthData.status || 'healthy',
+        database: {
+          status: healthData.database?.status || 'connected',
+          latency: healthData.database?.latency || '0ms',
+        },
+        auth: { status: healthData.auth?.status || 'operational' },
+        mfa: { status: healthData.mfa?.status || 'operational' },
+        audit: { status: healthData.audit?.status || 'operational' },
+        uptime: healthData.uptime || 0,
         timestamp: new Date(),
         metrics: {
-          auditQueueDepth: 0,
-          recentAdminActions: 5,
-          suspendedUsers: 2,
-          failedMfaAttempts: 23,
+          auditQueueDepth: healthData.metrics?.auditQueueDepth || 0,
+          recentAdminActions: healthData.metrics?.recentAdminActions || 0,
+          suspendedUsers: healthData.metrics?.suspendedUsers || 0,
+          failedMfaAttempts: healthData.metrics?.failedMfaAttempts || 0,
         },
       });
     } catch (error) {
-      onNotify('error', 'Error al cargar estado del sistema');
+      onNotify('error', (error as any).message || 'Error al cargar estado del sistema');
+      setHealth(null);
     }
   };
 

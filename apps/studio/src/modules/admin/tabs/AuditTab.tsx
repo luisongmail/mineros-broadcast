@@ -28,38 +28,34 @@ const AuditTab: React.FC<AuditTabProps> = ({ onNotify, setLoading }) => {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      // Mock audit logs
-      setLogs([
-        {
-          id: 'aud_001',
-          action: 'step_up_verified',
-          userId: 'usr_001',
-          resourceType: 'User',
-          resourceId: 'usr_002',
-          result: 'allowed',
-          timestamp: new Date(),
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('/api/admin/audit/logs', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        {
-          id: 'aud_002',
-          action: 'policy_updated',
-          userId: 'usr_admin_001',
-          resourceType: 'Policy',
-          resourceId: 'mfa_config',
-          result: 'allowed',
-          timestamp: new Date(Date.now() - 60 * 60 * 1000),
-        },
-        {
-          id: 'aud_003',
-          action: 'user_suspended',
-          userId: 'usr_admin_001',
-          resourceType: 'User',
-          resourceId: 'usr_003',
-          result: 'allowed',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        },
-      ]);
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const mappedLogs = (data.logs || []).map((log: any) => ({
+        id: log.id || log.audit_id,
+        action: log.action,
+        userId: log.user_id || log.actor_id,
+        resourceType: log.resource_type,
+        resourceId: log.resource_id,
+        result: log.result === 'allowed' ? 'allowed' : 'denied',
+        timestamp: new Date(log.timestamp || log.created_at),
+      }));
+
+      setLogs(mappedLogs);
     } catch (error) {
-      onNotify('error', 'Error al cargar auditoría');
+      onNotify('error', (error as any).message || 'Error al cargar auditoría');
+      setLogs([]);
     } finally {
       setLoading(false);
     }
