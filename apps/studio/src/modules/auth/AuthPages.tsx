@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './SecurityContextProvider';
 
 export function LoginPage() {
@@ -69,12 +69,10 @@ export function OtpVerifyPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const { setAccessToken } = useAuth();
 
-  const location = window.location as unknown as { state?: { email?: string } };
-  const email = (navigate as unknown as { state?: { email?: string } }).state?.email
-    ?? (location as { state?: { email?: string } }).state?.email
-    ?? '';
+  const email = (location.state as { email?: string } | null)?.email ?? '';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

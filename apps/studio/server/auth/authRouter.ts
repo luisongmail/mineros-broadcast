@@ -55,12 +55,16 @@ router.post('/otp/request', async (req: Request, res: Response): Promise<void> =
 router.post('/otp/verify', async (req: Request, res: Response): Promise<void> => {
   const { email, otp } = req.body as { email?: string; otp?: string };
 
+  console.log(`[AUTH] POST /otp/verify → email=${email}, otp=${otp}`);
+
   if (!email || !otp) {
+    console.log(`[AUTH] /otp/verify → MISSING EMAIL OR OTP`);
     res.status(400).json({ error: { code: 'INVALID_OTP', message: 'Código inválido o expirado.' } });
     return;
   }
 
   const result = await verifyOtp(email.toLowerCase().trim(), otp.trim());
+  console.log(`[AUTH] /otp/verify → result:`, result);
 
   if (!result.ok) {
     if (result.reason === 'max_attempts') {

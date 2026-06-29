@@ -68,12 +68,6 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
   // El access token (JWT) vive en memoria — nunca en localStorage
   const accessTokenRef = useRef<string | null>(null);
 
-  const setAccessToken = useCallback((token: string) => {
-    accessTokenRef.current = token;
-  }, []);
-
-  const getAccessToken = useCallback(() => accessTokenRef.current, []);
-
   /** Carga el contexto de seguridad desde el servidor */
   const loadSecurityContext = useCallback(async (token: string): Promise<void> => {
     try {
@@ -93,6 +87,16 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
       // Si falla el context, el usuario sigue autenticado con los datos del JWT
     }
   }, []);
+
+  const setAccessToken = useCallback((token: string) => {
+    accessTokenRef.current = token;
+    // Cargar contexto inmediatamente después de recibir el token OTP
+    loadSecurityContext(token).catch(() => {
+      // Si falla, el usuario sigue autenticado con los datos del JWT
+    });
+  }, [loadSecurityContext]);
+
+  const getAccessToken = useCallback(() => accessTokenRef.current, []);
 
   /** Al cargar la app: intenta refresh automático con la cookie httpOnly */
   useEffect(() => {
