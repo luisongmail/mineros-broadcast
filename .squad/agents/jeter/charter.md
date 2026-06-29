@@ -45,5 +45,4 @@
 - `.squad/agents/jeter/history.md`
 - `packages/design-system/`
 - `packages/overlays/`
-- `apps/control-panel/`
-- `apps/overlay-server/`
+- `apps/studio/src/` (overlays, control panel)

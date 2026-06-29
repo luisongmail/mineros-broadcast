@@ -13,7 +13,7 @@
 
 Este documento consolida el paquete completo de especificación de **Mineros Broadcast**.
 
-> Nota de implementación (2026-06-24): el panel del operador quedó consolidado en `apps/overlay-server` bajo la ruta `/control`. La antigua SPA independiente en `apps/control-panel` fue retirada por redundancia.
+> Nota de implementación (2026-06-28): Estructura consolidada en `apps/studio` — server Express + panel operador React en `/control` bajo una única aplicación isomórfica.
 
 Debe responder:
 
