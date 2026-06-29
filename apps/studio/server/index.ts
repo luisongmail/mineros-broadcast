@@ -35,6 +35,7 @@ import { auditRouter } from './audit/auditRouter';
 import { scoringRouter } from './scoring/scoringRouter';
 import { startRetentionScheduler } from './audit/auditRetentionJob';
 import adminRouter from './admin/adminRouter';
+import { createRateLimitMiddleware, startRateLimitCleanup } from './auth/rateLimitMiddleware';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -134,7 +135,25 @@ app.use((_request, response, next) => {
   next();
 });
 
-// Auth — rutas públicas (sin requireAuth)
+// Auth — rutas públicas (sin requireAuth) con rate limiting
+const authLoginRateLimit = createRateLimitMiddleware({
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  blockDurationMs: 30 * 60 * 1000, // 30 minutos
+  keyGenerator: (req) => `${req.ip}-login`,
+});
+
+const authVerifyRateLimit = createRateLimitMiddleware({
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  blockDurationMs: 30 * 60 * 1000, // 30 minutos
+  keyGenerator: (req) => `${req.ip}-verify`,
+});
+
+// Registra rate limiting por ruta
+app.post('/api/auth/login', authLoginRateLimit);
+app.post('/api/auth/verify', authVerifyRateLimit);
+
 app.use('/api/auth', authRouter);
 // Security — rutas de autorización, context y step-up
 app.use('/api/security', securityRouter);
@@ -240,6 +259,7 @@ Promise.all([
 ]).finally(() => {
   loadPolicy(); // cargar política en memoria al arrancar
   startRetentionScheduler(); // job de retención de audit logs (24 h)
+  startRateLimitCleanup(); // cleanup automático de rate limit (cada 10 min)
   server.listen(port, () => {
     console.log(`PlayFlow server listening on http://localhost:${port}`);
   });
