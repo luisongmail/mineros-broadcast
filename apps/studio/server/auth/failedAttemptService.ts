@@ -32,8 +32,7 @@ export async function recordMfaFailedAttempt(
       'User',
       userId,
       'denied',
-      {},
-      requestContext
+      requestContext,
     );
     return { blocked: true, remainingAttempts: 0 };
   }
@@ -53,8 +52,7 @@ export async function recordMfaFailedAttempt(
       'User',
       userId,
       'denied',
-      {},
-      requestContext
+      requestContext,
     );
     return { blocked: false, remainingAttempts: MAX_MFA_ATTEMPTS - 1 };
   }
@@ -70,8 +68,7 @@ export async function recordMfaFailedAttempt(
       'User',
       userId,
       'denied',
-      { reason: 'Max failed attempts reached', lockoutDuration: MFA_LOCKOUT_DURATION_MS },
-      requestContext
+      { reason: 'Max failed attempts reached', lockoutDuration: MFA_LOCKOUT_DURATION_MS, ...requestContext },
     );
     return { blocked: true, remainingAttempts: 0 };
   }
@@ -84,8 +81,7 @@ export async function recordMfaFailedAttempt(
     'User',
     userId,
     'denied',
-    { attemptCount: attempts.attempts, maxAttempts: MAX_MFA_ATTEMPTS },
-    requestContext
+    { attemptCount: attempts.attempts, maxAttempts: MAX_MFA_ATTEMPTS, ...requestContext },
   );
 
   return { blocked: false, remainingAttempts: MAX_MFA_ATTEMPTS - attempts.attempts };

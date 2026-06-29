@@ -320,7 +320,7 @@ export function useAdmin() {
       if (filters?.page) params.append('page', filters.page.toString());
       if (filters?.limit) params.append('limit', filters.limit.toString());
 
-      const response = await fetch(`/api/admin/audit/logs?${params}`, {
+      const response = await fetch(`/api/admin/audit-logs?${params}`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -330,7 +330,7 @@ export function useAdmin() {
       }
 
       const data = await response.json();
-      return { entries: data.entries || [], total: data.count || 0 };
+      return { entries: data.logs || [], total: data.count || 0 };
     } catch (err) {
       const adminError: AdminError = err instanceof Error
         ? { code: 'AUDIT_FETCH_ERROR', message: err.message }
@@ -344,7 +344,7 @@ export function useAdmin() {
 
   const exportAuditLogs = useCallback(async (format: 'csv' | 'json' = 'csv') => {
     try {
-      const response = await fetch(`/api/admin/audit/logs/export?format=${format}`, {
+      const response = await fetch(`/api/admin/audit-logs/export?format=${format}`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });

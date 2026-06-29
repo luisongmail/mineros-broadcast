@@ -39,8 +39,6 @@ export interface AuditFilter {
   limit?: number;
 }
 
-let lastHash: string | null = null;
-
 export async function logAuditEvent(
   actorUserId: string,
   action: string,
@@ -48,26 +46,17 @@ export async function logAuditEvent(
   resourceId: string,
   result: 'allowed' | 'denied',
   authorizationContext: Record<string, unknown>,
-  requestContext: Record<string, unknown>,
 ): Promise<string> {
   const auditId = `aud_${crypto.randomUUID().replace(/-/g, '')}`;
   const eventHash = hashEntry(auditId, actorUserId, action, resourceType, resourceId);
-
-  const integrityJson = JSON.stringify({
-    eventHash,
-    previousHash: lastHash,
-    algorithm: 'sha256-chain',
-  });
-
-  lastHash = eventHash;
 
   if (pool) {
     const conn = await pool.getConnection();
     try {
       await conn.execute(
         `INSERT INTO audit_events
-           (audit_id, actor_user_id, action, resource_type, resource_id, result, authorization_json, request_json, integrity_json, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+           (audit_id, timestamp, actor_user_id, action, resource_type, resource_id, result, event_hash, authorization_json)
+         VALUES (?, NOW(3), ?, ?, ?, ?, ?, ?, ?)`,
         [
           auditId,
           actorUserId,
@@ -75,9 +64,8 @@ export async function logAuditEvent(
           resourceType,
           resourceId,
           result,
+          eventHash,
           JSON.stringify(authorizationContext),
-          JSON.stringify(requestContext),
-          integrityJson,
         ],
       );
     } finally {
@@ -105,8 +93,6 @@ export async function logStepUpEvent(event: StepUpAuditEvent): Promise<string> {
       verificationMethod: event.verificationMethod,
       totpVerified: event.totpVerified,
       sessionId: event.sessionId,
-    },
-    {
       ipAddress: event.ipAddress,
       userAgent: event.userAgent,
       reason: event.reason,
@@ -131,8 +117,7 @@ export async function logPolicyUpdateEvent(event: {
     'Policy',
     event.policyName,
     'allowed',
-    { previousValue: event.previousValue, newValue: event.newValue },
-    { reason: event.reason },
+    { previousValue: event.previousValue, newValue: event.newValue, reason: event.reason },
   );
 }
 
@@ -152,8 +137,7 @@ export async function logUserSuspensionEvent(event: {
     'User',
     event.targetUserId,
     'allowed',
-    { reason: event.reason },
-    { details: event.details },
+    { reason: event.reason, details: event.details },
   );
 }
 
@@ -174,7 +158,6 @@ export async function logUserReactivationEvent(event: {
     event.targetUserId,
     'allowed',
     { reason: event.reason, approvalCount: event.approvalCount },
-    {},
   );
 }
 
@@ -195,7 +178,6 @@ export async function logSessionInvalidationEvent(event: {
     event.targetUserId,
     'allowed',
     { sessionCount: event.sessionCount, reason: event.reason },
-    {},
   );
 }
 
@@ -215,7 +197,6 @@ export async function logAccessDenialEvent(event: {
     event.attemptedAction,
     'denied',
     { reason: event.reason },
-    {},
   );
 }
 
@@ -334,5 +315,35 @@ function mapAudit(row: RowDataPacket): AuditEntry {
     requestJson: row.request_json as string,
     integrityJson: row.integrity_json as string,
     createdAt: String(row.created_at),
+  };
+}
+
+/**
+ * Map audit event to frontend AuditEntry for admin panel
+ * Converts database schema to UI interface
+ */
+export function mapAuditToUI(row: RowDataPacket): {
+  id: string;
+  action: string;
+  result: 'allowed' | 'denied';
+  actor: string;
+  resource: string;
+  timestamp: string;
+  details: Record<string, unknown>;
+} {
+  return {
+    id: row.audit_id as string,
+    action: row.action as string,
+    result: row.result as 'allowed' | 'denied',
+    actor: row.actor_email || row.actor_user_id || 'Unknown',
+    resource: row.resource_type ? `${row.resource_type}${row.resource_id ? ':' + row.resource_id : ''}` : 'Unknown',
+    timestamp: String(row.timestamp),
+    details: {
+      sessionId: row.session_id,
+      ipAddress: row.ip,
+      userAgent: row.user_agent_hash,
+      decision: row.decision,
+      reason: row.reason,
+    },
   };
 }

@@ -41,8 +41,7 @@ export async function invalidateSession(
       'Session',
       sessionId,
       'allowed',
-      { reason },
-      requestContext
+      { reason, ...requestContext },
     );
   } catch (error) {
     console.error(`[SessionManagement] Error invalidating session ${sessionId}:`, error);
@@ -83,8 +82,7 @@ export async function invalidateAllUserSessions(
         'User',
         userId,
         'allowed',
-        { reason, sessionsAffected: (result as any).affectedRows },
-        requestContext
+        { reason, sessionsAffected: (result as any).affectedRows, ...requestContext },
       );
     }
 

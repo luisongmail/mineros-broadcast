@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import crypto from 'node:crypto';
 import { requestOtp, verifyOtp, consumeOtpPlaintext } from './otpService';
 import { sendOtpEmail } from './emailService';
 import { signToken, getTokenExpiresInSeconds } from './jwtService';
@@ -238,5 +239,104 @@ router.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: Respo
   res.setHeader('Set-Cookie', buildClearCookie());
   res.status(204).send();
 });
+
+// ─────────────────────────────────────────────
+// DEV ONLY: Token generation without OTP
+// MUST NEVER leave development environment
+// ─────────────────────────────────────────────
+if (process.env.NODE_ENV === 'development') {
+  router.post('/dev/token', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { email } = req.body as { email?: string };
+
+      if (!email) {
+        res.status(400).json({ error: 'email requerido' });
+        return;
+      }
+
+      if (!pool) {
+        res.status(500).json({ error: 'Database no configurada' });
+        return;
+      }
+
+      const conn = await pool.getConnection();
+      try {
+        // Crear o actualizar usuario
+        const userNamepart = email.split('@')[0];
+        const userId = `usr_dev_${userNamepart}_${crypto.randomBytes(4).toString('hex')}`;
+        
+        // Primero verificar si ya existe
+        const [existing] = await conn.execute<RowDataPacket[]>(
+          `SELECT user_id FROM users WHERE email = ? LIMIT 1`,
+          [email],
+        );
+        
+        const finalUserId = existing.length > 0 ? (existing[0].user_id as string) : userId;
+        
+        // Insertar o skip si ya existe
+        if (existing.length === 0) {
+          await conn.execute(
+            `INSERT INTO users (user_id, email, display_name, status)
+             VALUES (?, ?, ?, 'active')`,
+            [finalUserId, email, `Dev User (${email})`],
+          );
+        }
+
+        // Asignar rol SysAdmin para testing completo
+        await conn.execute(
+          `INSERT IGNORE INTO role_assignments (user_id, role)
+           VALUES (?, ?)`,
+          [finalUserId, 'SysAdmin'],
+        );
+
+        // Cargar el rol del usuario
+        const [roleRows] = await conn.execute<RowDataPacket[]>(
+          `SELECT role FROM role_assignments 
+           WHERE user_id = ? 
+           ORDER BY FIELD(role, 'SysAdmin', 'Admin', 'Operator', 'User') ASC 
+           LIMIT 1`,
+          [finalUserId],
+        );
+        const userRole = roleRows.length > 0 ? (roleRows[0].role as string) : 'User';
+
+        // Crear sesión
+        const sessionId = `sess_${crypto.randomUUID().replace(/-/g, '')}`;
+        const now = new Date();
+        await conn.execute(
+          `INSERT INTO sessions (session_id, user_id, ip, user_agent_hash, status, created_at, last_seen_at, auth_level)
+           VALUES (?, ?, ?, ?, 'active', ?, ?, 'otp')`,
+          [sessionId, finalUserId, '127.0.0.1', 'dev-api', now, now],
+        );
+
+        // Generar token CON el rol
+        const accessToken = signToken({
+          sub: finalUserId,
+          sid: sessionId,
+          email,
+          role: userRole,
+          authLevel: 'otp',
+        });
+
+        res.status(200).json({
+          accessToken,
+          userId: finalUserId,
+          email,
+          role: userRole,
+          expiresIn: 3600,
+          note: 'DEV ONLY - Token válido por 1 hora',
+        });
+      } finally {
+        conn.release();
+      }
+    } catch (error) {
+      console.error('[AUTH DEV]', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  });
+
+  console.log('⚠️  DEV MODE: Endpoint /api/auth/dev/token disponible SOLO en desarrollo');
+}
 
 export default router;
