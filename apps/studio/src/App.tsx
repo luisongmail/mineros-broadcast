@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { OperatorControlPanel } from './components/OperatorControlPanel';
+import AdminPanel from './modules/admin/AdminPanel';
 import { AdminUsersPage } from './modules/admin/AdminUsersPage';
 import { AuditViewerPage } from './modules/admin/AuditViewerPage';
 import { PermissionSimulatorPage } from './modules/admin/PermissionSimulatorPage';
@@ -8,6 +9,7 @@ import { LoginPage, OtpVerifyPage, ScopeSelectorPage } from './modules/auth/Auth
 import { MfaSetupPage } from './modules/auth/MfaSetupPage';
 import { MfaVerifyPage } from './modules/auth/MfaVerifyPage';
 import { PrivateRoute } from './modules/auth/PrivateRoute';
+import { ProtectedRoute } from './modules/auth/ProtectedRoute';
 import { BroadcastPage } from './pages/BroadcastPage';
 import { LiveGameScoringPage } from './pages/LiveGameScoringPage';
 import { OverlayPage } from './pages/OverlayPage';
@@ -30,6 +32,14 @@ export function App() {
           <PrivateRoute>
             <OperatorControlPanel />
           </PrivateRoute>
+        )}
+      />
+      <Route
+        path="/control/admin"
+        element={(
+          <ProtectedRoute allowedRoles={['SysAdmin']}>
+            <AdminPanel />
+          </ProtectedRoute>
         )}
       />
       <Route
