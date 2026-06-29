@@ -71,27 +71,38 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
   /** Carga el contexto de seguridad desde el servidor */
   const loadSecurityContext = useCallback(async (token: string): Promise<void> => {
     try {
+      console.log('[SecurityContext] Fetching /api/security/context with token:', token.substring(0, 20) + '...');
       const res = await fetch('/api/security/context', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) return;
+      console.log('[SecurityContext] Response status:', res.status);
+      if (!res.ok) {
+        console.error('[SecurityContext] Fetch failed with status', res.status);
+        const errorText = await res.text();
+        console.error('[SecurityContext] Error response:', errorText);
+        return;
+      }
       const data = (await res.json()) as {
         user: UserProfile;
         availableScopes: ResourceScope[];
         securityFlags: SecurityContextValue['securityFlags'];
       };
+      console.log('[SecurityContext] Loaded context:', { user: data.user, scopeCount: data.availableScopes.length });
       setUser(data.user);
       setAvailableScopes(data.availableScopes ?? []);
       setSecurityFlags(data.securityFlags ?? null);
-    } catch {
+    } catch (error) {
+      console.error('[SecurityContext] loadSecurityContext failed:', error);
       // Si falla el context, el usuario sigue autenticado con los datos del JWT
     }
   }, []);
 
   const setAccessToken = useCallback((token: string) => {
+    console.log('[SecurityContext] setAccessToken called with token:', token.substring(0, 20) + '...');
     accessTokenRef.current = token;
     // Cargar contexto inmediatamente después de recibir el token OTP
-    loadSecurityContext(token).catch(() => {
+    loadSecurityContext(token).catch((err) => {
+      console.error('[SecurityContext] setAccessToken -> loadSecurityContext error:', err);
       // Si falla, el usuario sigue autenticado con los datos del JWT
     });
   }, [loadSecurityContext]);
