@@ -85,7 +85,12 @@ export function OtpVerifyPage() {
         credentials: 'include',
         body: JSON.stringify({ email, otp }),
       });
-      const data = await res.json() as { accessToken?: string; error?: { code: string } };
+      const data = await res.json() as { 
+        accessToken?: string; 
+        mfaRequired?: boolean;
+        sessionId?: string;
+        error?: { code: string } 
+      };
       if (!res.ok) {
         if (data.error?.code === 'OTP_MAX_ATTEMPTS') {
           setError('Máximo de intentos alcanzado. Solicita un nuevo código.');
@@ -94,6 +99,12 @@ export function OtpVerifyPage() {
         }
         return;
       }
+      // Si requiere MFA, ir a MFA verify
+      if (data.mfaRequired && data.sessionId) {
+        navigate('/auth/mfa', { state: { sessionId: data.sessionId, email } });
+        return;
+      }
+      // Sin MFA, usar token directamente
       if (data.accessToken) {
         setAccessToken(data.accessToken);
         navigate('/auth/select-scope');

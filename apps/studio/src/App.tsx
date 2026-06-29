@@ -5,8 +5,9 @@ import { AdminUsersPage } from './modules/admin/AdminUsersPage';
 import { AuditViewerPage } from './modules/admin/AuditViewerPage';
 import { PermissionSimulatorPage } from './modules/admin/PermissionSimulatorPage';
 import { LoginPage, OtpVerifyPage, ScopeSelectorPage } from './modules/auth/AuthPages';
+import { MfaSetupPage } from './modules/auth/MfaSetupPage';
+import { MfaVerifyPage } from './modules/auth/MfaVerifyPage';
 import { PrivateRoute } from './modules/auth/PrivateRoute';
-import { MfaSetupPage } from './modules/security/MfaSetupPage';
 import { BroadcastPage } from './pages/BroadcastPage';
 import { LiveGameScoringPage } from './pages/LiveGameScoringPage';
 import { OverlayPage } from './pages/OverlayPage';
@@ -18,6 +19,7 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/otp" element={<LoginPage />} />
       <Route path="/auth/verify" element={<OtpVerifyPage />} />
+      <Route path="/auth/mfa" element={<MfaVerifyPage />} />
       <Route path="/auth/select-scope" element={<ScopeSelectorPage />} />
 
       <Route path="/broadcast" element={<BroadcastPage />} />
