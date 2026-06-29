@@ -214,24 +214,26 @@ export async function queryAudit(filter: AuditFilter = {}): Promise<AuditEntry[]
   } = filter;
 
   const conditions: string[] = [];
-  const params: unknown[] = [];
+  const params: (string | number)[] = [];
 
   if (actorUserId) { conditions.push('actor_user_id = ?'); params.push(actorUserId); }
   if (resourceType) { conditions.push('resource_type = ?'); params.push(resourceType); }
   if (resourceId) { conditions.push('resource_id = ?'); params.push(resourceId); }
   if (action) { conditions.push('action = ?'); params.push(action); }
-  if (from) { conditions.push('created_at >= ?'); params.push(from); }
-  if (to) { conditions.push('created_at <= ?'); params.push(to); }
+  if (from) { conditions.push('timestamp >= ?'); params.push(from); }
+  if (to) { conditions.push('timestamp <= ?'); params.push(to); }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const offset = (page - 1) * limit;
-  params.push(limit, offset);
+  
+  // Build LIMIT/OFFSET clauses separately to avoid mysql2 type confusion
+  const limitClause = `LIMIT ${Math.max(1, Math.min(500, limit))} OFFSET ${Math.max(0, offset)}`;
 
   const conn = await pool.getConnection();
   try {
     const [rows] = await conn.execute<RowDataPacket[]>(
-      `SELECT * FROM audit_events ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      params as string[],
+      `SELECT * FROM audit_events ${where} ORDER BY timestamp DESC ${limitClause}`,
+      params as (string | number)[],
     );
     return rows.map(mapAudit);
   } finally {

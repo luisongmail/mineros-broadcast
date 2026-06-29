@@ -2,7 +2,7 @@ import { Router, type Response } from 'express';
 import type { AuthenticatedRequest } from '../auth/authMiddleware';
 import { requireAuth } from '../auth/authMiddleware';
 import { requireAuthorization, requireRole } from '../authorization/authzMiddleware';
-import { queryAudit, mapAuditToUI } from '../audit/auditService';
+import { queryAudit } from '../audit/auditService';
 import { pool } from '../db';
 import type { RowDataPacket } from 'mysql2';
 
@@ -319,14 +319,28 @@ adminRouter.get(
       limit = '50',
     } = req.query as Record<string, string>;
 
-    // TODO: Parametrizar correctamente LIMIT/OFFSET en mysql2
-    // Por ahora devolver estructura vacía para dev
-    res.json({
-      logs: [],
-      page: Math.max(1, Number(page) || 1),
-      limit: Math.max(1, Math.min(100, Number(limit) || 50)),
-      count: 0,
-    });
+    try {
+      const pageNum = Math.max(1, Number(page) || 1);
+      const limitNum = Math.max(1, Math.min(100, Number(limit) || 50));
+
+      const logs = await queryAudit({
+        page: pageNum,
+        limit: limitNum,
+      });
+
+      res.json({
+        logs,
+        page: pageNum,
+        limit: limitNum,
+        count: logs.length,
+      });
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      res.status(500).json({
+        error: 'Failed to fetch audit logs',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   },
 );
 
