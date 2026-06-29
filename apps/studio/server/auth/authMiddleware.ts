@@ -2,7 +2,10 @@ import type { Request, Response, NextFunction } from 'express';
 import { verifyToken, type JwtPayload } from './jwtService';
 
 export interface AuthenticatedRequest extends Request {
-  user?: JwtPayload;
+  user?: JwtPayload & {
+    userId: string;    // Alias de 'sub'
+    sessionId: string; // Alias de 'sid'
+  };
 }
 
 /**
@@ -20,7 +23,13 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
 
   const token = header.slice(7);
   try {
-    req.user = verifyToken(token);
+    const jwtPayload = verifyToken(token);
+    // Mapear JwtPayload a AuthenticatedRequest con alias
+    req.user = {
+      ...jwtPayload,
+      userId: jwtPayload.sub,
+      sessionId: jwtPayload.sid,
+    };
     next();
   } catch {
     res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Token inválido o expirado.' } });
@@ -35,7 +44,12 @@ export function optionalAuth(req: AuthenticatedRequest, _res: Response, next: Ne
   const header = req.headers.authorization;
   if (header?.startsWith('Bearer ')) {
     try {
-      req.user = verifyToken(header.slice(7));
+      const jwtPayload = verifyToken(header.slice(7));
+      req.user = {
+        ...jwtPayload,
+        userId: jwtPayload.sub,
+        sessionId: jwtPayload.sid,
+      };
     } catch {
       // Token inválido → continuar sin usuario
     }

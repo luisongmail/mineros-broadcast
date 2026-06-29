@@ -25,8 +25,21 @@ export type StepUpVerifyResult =
 
 const STEP_UP_TTL_MINUTES = 5;
 const STEP_UP_HEADER = 'x-step-up-token' as const;
+const STEP_UP_FRESHNESS_MINUTES = 5; // Frescura: re-verificar si pasaron > 5 minutos
 
 export { STEP_UP_HEADER };
+
+/**
+ * Valida si un step-up es vigente (fresco).
+ * Retorna true si stepUpAt está dentro de la ventana de tiempo.
+ */
+export function stepUpRequired(_sessionId: string, stepUpAt?: number): boolean {
+  if (!stepUpAt) return false;
+  const now = Date.now();
+  const ageMs = now - stepUpAt;
+  const freshnesThresholdMs = STEP_UP_FRESHNESS_MINUTES * 60_000;
+  return ageMs < freshnesThresholdMs;
+}
 
 /** Crea un desafío step-up y envía OTP al usuario */
 export async function requestStepUp(

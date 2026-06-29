@@ -7,8 +7,16 @@ export interface JwtPayload {
   sid: string;   // sessionId
   email: string;
   authLevel: AuthLevel;
+  role?: string;  // User role (Admin, SysAdmin, Operator, etc.) — opcional
+  stepUpAt?: number; // Timestamp cuando se verificó step-up (para validar frescura)
   iat?: number;
   exp?: number;
+}
+
+// Alias para compatibilidad con authMiddleware
+export interface JwtPayloadWithProperties extends JwtPayload {
+  userId: string; // Alias de 'sub'
+  sessionId: string; // Alias de 'sid'
 }
 
 function getSecret(): string {
