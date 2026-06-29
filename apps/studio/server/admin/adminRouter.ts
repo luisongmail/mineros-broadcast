@@ -179,7 +179,10 @@ adminRouter.post(
   requireAuthorization('policy.update', { resourceType: 'Platform' }),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const policyData = req.body as Record<string, unknown>;
+      const body = req.body as Record<string, unknown>;
+      
+      // Accept both formats: { policyContent: {...} } or direct { ...policyData }
+      const policyData = body.policyContent || body.policy || body;
 
       // Validate required fields
       if (!policyData || typeof policyData !== 'object') {
@@ -191,7 +194,7 @@ adminRouter.post(
         // Mock response if no database
         res.json({
           ok: true,
-          policyName: 'mfa_policy',
+          policyName: 'default',
           policyContent: policyData,
           updatedAt: new Date().toISOString(),
           updatedBy: req.user!.sub,
@@ -204,16 +207,14 @@ adminRouter.post(
         // Update or insert default policy
         await conn.execute(
           `INSERT INTO system_policies (policy_name, policy_content, updated_by)
-           VALUES ('default', JSON_OBJECT(?, ?), ?)
+           VALUES ('default', ?, ?)
            ON DUPLICATE KEY UPDATE
-             policy_content = JSON_OBJECT(?, ?),
+             policy_content = ?,
              updated_by = ?,
              updated_at = NOW()`,
           [
             JSON.stringify(policyData),
-            JSON.stringify(policyData),
             req.user!.sub,
-            JSON.stringify(policyData),
             JSON.stringify(policyData),
             req.user!.sub,
           ],
@@ -221,7 +222,7 @@ adminRouter.post(
 
         res.json({
           ok: true,
-          policyName: 'mfa_policy',
+          policyName: 'default',
           policyContent: policyData,
           updatedAt: new Date().toISOString(),
           updatedBy: req.user!.sub,
