@@ -29,10 +29,23 @@ function getExpiresIn(): number {
   return Number(process.env.JWT_ACCESS_TOKEN_MINUTES ?? 15) * 60;
 }
 
+export function getDevTokenExpiresIn(): number {
+  return Number(process.env.JWT_DEV_TOKEN_MINUTES ?? 1440) * 60;  // default 24h
+}
+
 export function signToken(payload: Omit<JwtPayload, 'iat' | 'exp'>): string {
   return jwt.sign(payload, getSecret(), {
     algorithm: 'HS256',
     expiresIn: getExpiresIn(),
+    issuer: process.env.JWT_ISSUER ?? 'playflow',
+    audience: process.env.JWT_AUDIENCE ?? 'playflow-app',
+  });
+}
+
+export function signDevToken(payload: Omit<JwtPayload, 'iat' | 'exp'>): string {
+  return jwt.sign(payload, getSecret(), {
+    algorithm: 'HS256',
+    expiresIn: getDevTokenExpiresIn(),
     issuer: process.env.JWT_ISSUER ?? 'playflow',
     audience: process.env.JWT_AUDIENCE ?? 'playflow-app',
   });

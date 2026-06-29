@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useAuth } from '../modules/auth/SecurityContextProvider';
+import { useSecureApiFetch } from '../modules/auth/useSecureApiFetch';
 
 export interface AdminError {
   code: string;
@@ -84,23 +84,11 @@ export interface SystemHealth {
 // ────────────────────────────────────────────
 
 export function useAdmin() {
-  const { getAccessToken } = useAuth();
+  const secureFetch = useSecureApiFetch();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AdminError | null>(null);
 
   const clearError = useCallback(() => setError(null), []);
-
-  // Helper: Get auth headers
-  const getAuthHeaders = useCallback(() => {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error('No authentication token available');
-    }
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    };
-  }, [getAccessToken]);
 
   // ────────────────────────────────────────────
   // Policy API
@@ -110,9 +98,9 @@ export function useAdmin() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/admin/policy/update', {
+      const response = await secureFetch('/api/admin/policy/update', {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           policyName: 'mfa_policy',
           policyContent: policy,
@@ -135,7 +123,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   // ────────────────────────────────────────────
   // User API
@@ -145,9 +133,9 @@ export function useAdmin() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await secureFetch('/api/admin/users', {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -171,9 +159,9 @@ export function useAdmin() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/user/${userId}/suspend`, {
+      const response = await secureFetch(`/api/admin/user/${userId}/suspend`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason }),
       });
 
@@ -191,15 +179,15 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   const reactivateUser = useCallback(async (userId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/user/${userId}/reactivate`, {
+      const response = await secureFetch(`/api/admin/user/${userId}/reactivate`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -216,7 +204,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   // ────────────────────────────────────────────
   // User Management: Invite + Roles (NEW)
@@ -226,9 +214,9 @@ export function useAdmin() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/admin/users/invite', {
+      const response = await secureFetch('/api/admin/users/invite', {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
@@ -247,15 +235,15 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   const assignUserRole = useCallback(async (userId: string, role: 'SysAdmin' | 'Admin' | 'Operator') => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/users/${userId}/roles/assign`, {
+      const response = await secureFetch(`/api/admin/users/${userId}/roles/assign`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
       });
 
@@ -274,15 +262,15 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   const getUserRole = useCallback(async (userId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/users/${userId}/roles`, {
+      const response = await secureFetch(`/api/admin/users/${userId}/roles`, {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -299,15 +287,15 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   const updateUserDisplayName = useCallback(async (userId: string, displayName: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await secureFetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ displayName }),
       });
 
@@ -326,7 +314,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   // ────────────────────────────────────────────
   // Audit API
@@ -347,9 +335,9 @@ export function useAdmin() {
       if (filters?.page) params.append('page', filters.page.toString());
       if (filters?.limit) params.append('limit', filters.limit.toString());
 
-      const response = await fetch(`/api/admin/audit-logs?${params}`, {
+      const response = await secureFetch(`/api/admin/audit-logs?${params}`, {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -367,13 +355,13 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   const exportAuditLogs = useCallback(async (format: 'csv' | 'json' = 'csv') => {
     try {
-      const response = await fetch(`/api/admin/audit-logs/export?format=${format}`, {
+      const response = await secureFetch(`/api/admin/audit-logs/export?format=${format}`, {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -396,7 +384,7 @@ export function useAdmin() {
       setError(adminError);
       throw adminError;
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   // ────────────────────────────────────────────
   // Session API
@@ -406,9 +394,9 @@ export function useAdmin() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/admin/sessions', {
+      const response = await secureFetch('/api/admin/sessions', {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -426,15 +414,15 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   const invalidateSession = useCallback(async (sessionId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/sessions/${sessionId}`, {
+      const response = await secureFetch(`/api/admin/sessions/${sessionId}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -451,15 +439,15 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   const invalidateUserSessions = useCallback(async (userId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/admin/sessions/invalidate', {
+      const response = await secureFetch('/api/admin/sessions/invalidate', {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),
       });
 
@@ -477,7 +465,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   // ────────────────────────────────────────────
   // Health API
@@ -487,9 +475,9 @@ export function useAdmin() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/admin/system/health', {
+      const response = await secureFetch('/api/admin/system/health', {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -506,7 +494,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, [secureFetch]);
 
   return {
     loading,

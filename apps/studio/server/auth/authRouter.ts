@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import crypto from 'node:crypto';
 import { requestOtp, verifyOtp, consumeOtpPlaintext } from './otpService';
 import { sendOtpEmail } from './emailService';
-import { signToken, getTokenExpiresInSeconds } from './jwtService';
+import { signToken, signDevToken, getTokenExpiresInSeconds, getDevTokenExpiresIn } from './jwtService';
 import {
   createSession,
   rotateRefreshToken,
@@ -318,8 +318,8 @@ if (process.env.NODE_ENV === 'development') {
           [finalUserId],
         );
 
-        // Generar token CON el rol
-        const accessToken = signToken({
+        // Generar token CON el rol (usando TTL de dev: 24h)
+        const accessToken = signDevToken({
           sub: finalUserId,
           sid: sessionId,
           email,
@@ -332,8 +332,8 @@ if (process.env.NODE_ENV === 'development') {
           userId: finalUserId,
           email,
           role: userRole,
-          expiresIn: 3600,
-          note: 'DEV ONLY - Token válido por 1 hora',
+          expiresIn: getDevTokenExpiresIn(),
+          note: `DEV ONLY - Token válido por ${getDevTokenExpiresIn() / 3600} horas`,
         });
       } finally {
         conn.release();
