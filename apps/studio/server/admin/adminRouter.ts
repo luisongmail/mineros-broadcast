@@ -2,7 +2,7 @@ import { Router, type Response } from 'express';
 import type { AuthenticatedRequest } from '../auth/authMiddleware';
 import { requireAuth } from '../auth/authMiddleware';
 import { requireAuthorization, requireRole } from '../authorization/authzMiddleware';
-import { queryAudit } from '../audit/auditService';
+import { queryAudit, logAuditEvent } from '../audit/auditService';
 import { pool } from '../db';
 import type { RowDataPacket } from 'mysql2';
 
@@ -78,20 +78,37 @@ adminRouter.patch(
 
     const conn = await pool.getConnection();
     try {
-      // Verify user exists
-      const [user] = await conn.execute<RowDataPacket[]>(
-        `SELECT user_id FROM users WHERE user_id = ?`,
+      // Verify user exists and get old display_name
+      const [userRows] = await conn.execute<RowDataPacket[]>(
+        `SELECT user_id, display_name FROM users WHERE user_id = ?`,
         [userId],
       );
-      if (user.length === 0) {
+      if (userRows.length === 0) {
         res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'Usuario no encontrado.' } });
         return;
       }
+
+      const oldDisplayName = userRows[0].display_name;
 
       // Update display_name
       await conn.execute(
         `UPDATE users SET display_name = ?, updated_at = NOW() WHERE user_id = ?`,
         [displayName.trim(), userId],
+      );
+
+      // Log to audit trail
+      await logAuditEvent(
+        req.user!.sub,
+        'user.profile.update',
+        'User',
+        userId,
+        'allowed',
+        {
+          field: 'display_name',
+          oldValue: oldDisplayName,
+          newValue: displayName.trim(),
+          actorRole: req.user!.role,
+        },
       );
 
       res.json({ ok: true, userId, displayName: displayName.trim(), message: 'Nombre de usuario actualizado.' });
@@ -319,9 +336,24 @@ adminRouter.post(
     try {
       await conn.execute(
         `UPDATE users SET status = 'suspended', suspended_reason = ?, suspended_at = NOW()
-         WHERE id = ?`,
+         WHERE user_id = ?`,
         [reason || 'admin_suspension', userId],
       );
+
+      // Log to audit trail
+      await logAuditEvent(
+        req.user!.sub,
+        'user.suspend',
+        'User',
+        userId,
+        'allowed',
+        {
+          action: 'suspend',
+          reason: reason || 'admin_suspension',
+          actorRole: req.user!.role,
+        },
+      );
+
       res.json({ ok: true, userId, suspended: true, suspendedAt: new Date().toISOString() });
     } finally {
       conn.release();
@@ -350,9 +382,23 @@ adminRouter.post(
     try {
       await conn.execute(
         `UPDATE users SET status = 'active', suspended_reason = NULL, suspended_at = NULL
-         WHERE id = ?`,
+         WHERE user_id = ?`,
         [userId],
       );
+
+      // Log to audit trail
+      await logAuditEvent(
+        req.user!.sub,
+        'user.reactivate',
+        'User',
+        userId,
+        'allowed',
+        {
+          action: 'reactivate',
+          actorRole: req.user!.role,
+        },
+      );
+
       res.json({ ok: true, userId, reactivated: true, reactivatedAt: new Date().toISOString() });
     } finally {
       conn.release();
@@ -558,12 +604,19 @@ adminRouter.post(
 
      const conn = await pool.getConnection();
      try {
-       // Verify user exists
-       const [user] = await conn.execute<RowDataPacket[]>(`SELECT user_id FROM users WHERE user_id = ?`, [userId]);
+       // Verify user exists and get current role
+       const [user] = await conn.execute<RowDataPacket[]>(
+         `SELECT ra.role FROM users u
+          LEFT JOIN role_assignments ra ON u.user_id = ra.user_id AND ra.resource_type = 'Platform' AND ra.resource_id = 'global'
+          WHERE u.user_id = ?`,
+         [userId],
+       );
        if (user.length === 0) {
          res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'Usuario no encontrado.' } });
          return;
        }
+
+       const oldRole = user[0].role || null;
 
        // Delete existing role assignment (simpler than ON DUPLICATE KEY with missing columns)
        await conn.execute(
@@ -576,6 +629,21 @@ adminRouter.post(
          `INSERT INTO role_assignments (user_id, role, resource_type, resource_id, granted_by_user_id, status, created_at)
           VALUES (?, ?, 'Platform', 'global', ?, 'active', NOW())`,
          [userId, role, req.user?.sub || null],
+       );
+
+       // Log to audit trail
+       await logAuditEvent(
+         req.user!.sub,
+         'user.role.assign',
+         'User',
+         userId,
+         'allowed',
+         {
+           field: 'role',
+           oldValue: oldRole,
+           newValue: role,
+           actorRole: req.user!.role,
+         },
        );
 
        res.json({ ok: true, userId, role, message: `Rol '${role}' asignado a usuario.` });
