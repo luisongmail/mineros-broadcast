@@ -9,11 +9,18 @@ import {
   buildRefreshCookie,
   buildClearCookie,
 } from './sessionService';
+import { hasMfaActive } from './totpService';
 import { requireAuth, type AuthenticatedRequest } from './authMiddleware';
+import mfaRouter from './mfaRouter';
 import type { RowDataPacket } from 'mysql2';
 import { pool } from '../db';
 
 const router = Router();
+
+// ─────────────────────────────────────────────
+// MFA sub-router
+// ─────────────────────────────────────────────
+router.use(mfaRouter);
 
 // ─────────────────────────────────────────────
 // POST /api/auth/otp/request
@@ -81,6 +88,22 @@ router.post('/otp/verify', async (req: Request, res: Response): Promise<void> =>
 
     const { sessionId, refreshToken } = await createSession(result.userId, ip, ua);
 
+    // Verificar si el usuario tiene MFA TOTP activo
+    const mfaActive = await hasMfaActive(result.userId);
+    console.log(`[AUTH] /otp/verify → user=${result.userId}, mfaActive=${mfaActive}`);
+
+    if (mfaActive) {
+      // Si hay MFA, no emitir JWT todavía — devolver sessionId para flujo MFA
+      res.setHeader('Set-Cookie', buildRefreshCookie(refreshToken));
+      res.json({
+        mfaRequired: true,
+        sessionId,
+        message: 'Ingresa tu código TOTP para completar la autenticación.',
+      });
+      return;
+    }
+
+    // Sin MFA, emitir JWT normalmente
     const accessToken = signToken({
       sub: result.userId,
       sid: sessionId,
