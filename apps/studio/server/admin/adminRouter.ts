@@ -25,8 +25,11 @@ adminRouter.get(
     const conn = await pool.getConnection();
     try {
       const [rows] = await conn.execute<RowDataPacket[]>(
-        `SELECT user_id, email, display_name, status, mfa_enabled, last_login_at, created_at
-         FROM users ORDER BY created_at DESC`,
+        `SELECT u.user_id, u.email, u.display_name, u.status, u.mfa_enabled, u.last_login_at, u.created_at, 
+                ra.role
+         FROM users u
+         LEFT JOIN role_assignments ra ON u.user_id = ra.user_id AND ra.resource_type = 'Platform' AND ra.resource_id = 'global'
+         ORDER BY u.created_at DESC`,
       );
       const users = rows.map((row) => ({
         id: row.user_id,
@@ -37,6 +40,7 @@ adminRouter.get(
         mfaEnabled: row.mfa_enabled,
         lastLogin: row.last_login_at,
         createdAt: row.created_at,
+        role: row.role || null,
       }));
       res.json({ users });
     } finally {
@@ -509,12 +513,17 @@ adminRouter.post(
          return;
        }
 
-       // Assign role (upsert)
+       // Delete existing role assignment (simpler than ON DUPLICATE KEY with missing columns)
        await conn.execute(
-         `INSERT INTO role_assignments (user_id, role, status, created_at, updated_at)
-          VALUES (?, ?, 'active', NOW(), NOW())
-          ON DUPLICATE KEY UPDATE role = ?, status = 'active', updated_at = NOW()`,
-         [userId, role, role],
+         `DELETE FROM role_assignments WHERE user_id = ? AND resource_type = 'Platform' AND resource_id = 'global'`,
+         [userId],
+       );
+
+       // Assign new role
+       await conn.execute(
+         `INSERT INTO role_assignments (user_id, role, resource_type, resource_id, granted_by_user_id, status, created_at)
+          VALUES (?, ?, 'Platform', 'global', ?, 'active', NOW())`,
+         [userId, role, req.user?.sub],
        );
 
        res.json({ ok: true, userId, role, message: `Rol '${role}' asignado a usuario.` });
