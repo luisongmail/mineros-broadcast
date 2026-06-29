@@ -42,10 +42,13 @@ interface SecurityContextValue {
   } | null;
   loading: boolean;
   stepUpToken: string | null;
+  stepUpAt: number | null; // Timestamp en ms de cuándo fue verificado el step-up
   setScope: (scope: ResourceScope) => void;
   clearScope: () => void;
   setStepUpToken: (token: string) => void;
   clearStepUpToken: () => void;
+  setStepUpAt: (timestamp: number | null) => void;
+  isStepUpFresh: () => boolean; // Valida que stepUpAt esté dentro de 5 minutos
   setAccessToken: (token: string) => void;
   getAccessToken: () => string | null;
   logout: () => Promise<void>;
@@ -64,6 +67,7 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
   const [securityFlags, setSecurityFlags] = useState<SecurityContextValue['securityFlags']>(null);
   const [loading, setLoading] = useState(true);
   const [stepUpToken, setStepUpTokenState] = useState<string | null>(null);
+  const [stepUpAt, setStepUpAtState] = useState<number | null>(null);
 
   // El access token (JWT) vive en memoria — nunca en localStorage
   const accessTokenRef = useRef<string | null>(null);
@@ -146,6 +150,18 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
     setStepUpTokenState(null);
   }, []);
 
+  const setStepUpAt = useCallback((timestamp: number | null) => {
+    setStepUpAtState(timestamp);
+  }, []);
+
+  /** Valida que el step-up sea fresco (dentro de 5 minutos) */
+  const isStepUpFresh = useCallback(() => {
+    if (!stepUpAt) return false;
+    const now = Date.now();
+    const fiveMinutesMs = 5 * 60 * 1000;
+    return now - stepUpAt <= fiveMinutesMs;
+  }, [stepUpAt]);
+
   const logout = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', {
@@ -162,6 +178,7 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
       setCurrentScope(null);
       setSecurityFlags(null);
       setStepUpTokenState(null);
+      setStepUpAtState(null);
     }
   }, []);
 
@@ -174,10 +191,13 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
         securityFlags,
         loading,
         stepUpToken,
+        stepUpAt,
         setScope,
         clearScope,
         setStepUpToken,
         clearStepUpToken,
+        setStepUpAt,
+        isStepUpFresh,
         setAccessToken,
         getAccessToken,
         logout,
