@@ -62,16 +62,16 @@ adminRouter.get(
     const conn = await pool.getConnection();
     try {
       const [rows] = await conn.execute<RowDataPacket[]>(
-        `SELECT session_id, user_id, ip, user_agent_hash, created_at, last_seen_at, expires_at
-         FROM sessions WHERE status = 'active' ORDER BY last_seen_at DESC LIMIT 100`,
+        `SELECT session_id, user_id, ip_address, user_agent, created_at, last_activity, expires_at
+         FROM sessions WHERE status = 'active' ORDER BY last_activity DESC LIMIT 100`,
       );
       const sessions = rows.map((row) => ({
         id: row.session_id,
         userId: row.user_id,
-        ipAddress: row.ip,
-        userAgent: row.user_agent_hash,
+        ipAddress: row.ip_address,
+        userAgent: row.user_agent,
         createdAt: row.created_at,
-        lastActivity: row.last_seen_at,
+        lastActivity: row.last_activity,
         expiresAt: row.expires_at,
       }));
       res.json({ sessions });

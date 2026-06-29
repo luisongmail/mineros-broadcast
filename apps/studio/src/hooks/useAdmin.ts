@@ -430,9 +430,10 @@ export function useAdmin() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/sessions/user/${userId}`, {
-        method: 'DELETE',
+      const response = await fetch('/api/admin/sessions/invalidate', {
+        method: 'POST',
         headers: getAuthHeaders(),
+        body: JSON.stringify({ userId }),
       });
 
       if (!response.ok) {
