@@ -12,10 +12,26 @@ import {
 import { hasMfaActive } from './totpService';
 import { requireAuth, type AuthenticatedRequest } from './authMiddleware';
 import mfaRouter from './mfaRouter';
+import { createRateLimitMiddleware } from './rateLimitMiddleware';
 import type { RowDataPacket } from 'mysql2';
 import { pool } from '../db';
 
 const router = Router();
+
+// Rate limiting middleware para rutas públicas
+const otpRequestRateLimit = createRateLimitMiddleware({
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000,
+  blockDurationMs: 30 * 60 * 1000,
+  keyGenerator: (req) => `${req.ip}-otp-request`,
+});
+
+const otpVerifyRateLimit = createRateLimitMiddleware({
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000,
+  blockDurationMs: 30 * 60 * 1000,
+  keyGenerator: (req) => `${req.ip}-otp-verify`,
+});
 
 // ─────────────────────────────────────────────
 // MFA sub-router
@@ -25,7 +41,7 @@ router.use(mfaRouter);
 // ─────────────────────────────────────────────
 // POST /api/auth/otp/request
 // ─────────────────────────────────────────────
-router.post('/otp/request', async (req: Request, res: Response): Promise<void> => {
+router.post('/otp/request', otpRequestRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body as { email?: string };
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -59,7 +75,7 @@ router.post('/otp/request', async (req: Request, res: Response): Promise<void> =
 // ─────────────────────────────────────────────
 // POST /api/auth/otp/verify
 // ─────────────────────────────────────────────
-router.post('/otp/verify', async (req: Request, res: Response): Promise<void> => {
+router.post('/otp/verify', otpVerifyRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, otp } = req.body as { email?: string; otp?: string };
 

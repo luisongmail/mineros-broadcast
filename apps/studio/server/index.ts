@@ -35,7 +35,7 @@ import { auditRouter } from './audit/auditRouter';
 import { scoringRouter } from './scoring/scoringRouter';
 import { startRetentionScheduler } from './audit/auditRetentionJob';
 import adminRouter from './admin/adminRouter';
-import { createRateLimitMiddleware, startRateLimitCleanup } from './auth/rateLimitMiddleware';
+import { startRateLimitCleanup } from './auth/rateLimitMiddleware';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -135,25 +135,7 @@ app.use((_request, response, next) => {
   next();
 });
 
-// Auth — rutas públicas (sin requireAuth) con rate limiting
-const authLoginRateLimit = createRateLimitMiddleware({
-  maxAttempts: 5,
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  blockDurationMs: 30 * 60 * 1000, // 30 minutos
-  keyGenerator: (req) => `${req.ip}-login`,
-});
-
-const authVerifyRateLimit = createRateLimitMiddleware({
-  maxAttempts: 5,
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  blockDurationMs: 30 * 60 * 1000, // 30 minutos
-  keyGenerator: (req) => `${req.ip}-verify`,
-});
-
-// Registra rate limiting por ruta
-app.post('/api/auth/login', authLoginRateLimit);
-app.post('/api/auth/verify', authVerifyRateLimit);
-
+// Auth router (rutas públicas y protegidas)
 app.use('/api/auth', authRouter);
 // Security — rutas de autorización, context y step-up
 app.use('/api/security', securityRouter);
