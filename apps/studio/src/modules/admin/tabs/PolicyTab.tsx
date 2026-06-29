@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertCircle, Save } from 'lucide-react';
+import { useAdmin } from '../../../hooks/useAdmin';
 
 interface PolicySettings {
   requireMfaForAll: boolean;
-  mfaGracePeriodDays: number;
+  gracePeriodDays: number;
   stepUpExpiryMinutes: number;
-  maxFailedMfaAttempts: number;
+  maxFailedAttempts: number;
   lockoutDurationMinutes: number;
 }
 
@@ -15,15 +16,20 @@ interface PolicyTabProps {
 }
 
 const PolicyTab: React.FC<PolicyTabProps> = ({ onNotify, setLoading }) => {
+  const { loading: apiLoading, updatePolicy } = useAdmin();
   const [policy, setPolicy] = useState<PolicySettings>({
     requireMfaForAll: true,
-    mfaGracePeriodDays: 7,
+    gracePeriodDays: 7,
     stepUpExpiryMinutes: 5,
-    maxFailedMfaAttempts: 5,
+    maxFailedAttempts: 5,
     lockoutDurationMinutes: 30,
   });
 
   const [isDirty, setIsDirty] = useState(false);
+
+  useEffect(() => {
+    setLoading(apiLoading);
+  }, [apiLoading, setLoading]);
 
   const handleChange = (field: keyof PolicySettings, value: string | boolean) => {
     setPolicy((prev) => ({
@@ -34,27 +40,12 @@ const PolicyTab: React.FC<PolicyTabProps> = ({ onNotify, setLoading }) => {
   };
 
   const handleSave = async () => {
-    setLoading(true);
     try {
-      const response = await fetch('/api/admin/policy/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...policy,
-          reason: 'admin_panel_update',
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update policy');
-      }
-
+      await updatePolicy(policy);
       setIsDirty(false);
       onNotify('success', 'Políticas actualizadas exitosamente');
     } catch (error) {
       onNotify('error', error instanceof Error ? error.message : 'Error al actualizar políticas');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -95,8 +86,8 @@ const PolicyTab: React.FC<PolicyTabProps> = ({ onNotify, setLoading }) => {
               type="number"
               min="0"
               max="90"
-              value={policy.mfaGracePeriodDays}
-              onChange={(e) => handleChange('mfaGracePeriodDays', e.target.value)}
+              value={policy.gracePeriodDays}
+              onChange={(e) => handleChange('gracePeriodDays', e.target.value)}
               className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm"
             />
             <p className="text-xs text-slate-400 mt-2">
@@ -131,8 +122,8 @@ const PolicyTab: React.FC<PolicyTabProps> = ({ onNotify, setLoading }) => {
               type="number"
               min="1"
               max="20"
-              value={policy.maxFailedMfaAttempts}
-              onChange={(e) => handleChange('maxFailedMfaAttempts', e.target.value)}
+              value={policy.maxFailedAttempts}
+              onChange={(e) => handleChange('maxFailedAttempts', e.target.value)}
               className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm"
             />
             <p className="text-xs text-slate-400 mt-2">
