@@ -18,6 +18,35 @@ import { pool } from '../db';
 
 const router = Router();
 
+// ─────────────────────────────────────────────
+// Helper: Get user role from database
+// ─────────────────────────────────────────────
+
+async function getUserRole(userId: string): Promise<string | undefined> {
+  if (!pool) return undefined;
+
+  try {
+    const conn = await pool.getConnection();
+    try {
+      // Get the highest-priority role for the user
+      // SysAdmin > Admin > Operator
+      const [rows] = await conn.execute<RowDataPacket[]>(
+        `SELECT role FROM role_assignments 
+         WHERE user_id = ? 
+         ORDER BY FIELD(role, 'SysAdmin', 'Admin', 'Operator', 'User') ASC 
+         LIMIT 1`,
+        [userId],
+      );
+      return rows.length > 0 ? (rows[0].role as string) : undefined;
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    console.warn(`[AUTH] Failed to get role for user ${userId}:`, error);
+    return undefined;
+  }
+}
+
 // Rate limiting middleware para rutas públicas
 const otpRequestRateLimit = createRateLimitMiddleware({
   maxAttempts: 5,
@@ -120,11 +149,13 @@ router.post('/otp/verify', otpVerifyRateLimit, async (req: Request, res: Respons
     }
 
     // Sin MFA, emitir JWT normalmente
+    const userRole = await getUserRole(result.userId);
     const accessToken = signToken({
       sub: result.userId,
       sid: sessionId,
       email: result.email,
       authLevel: 'otp',
+      role: userRole,
     });
 
     res.setHeader('Set-Cookie', buildRefreshCookie(refreshToken));
@@ -167,8 +198,9 @@ router.post('/token/refresh', async (req: Request, res: Response): Promise<void>
     return;
   }
 
-  // Obtener email del usuario para el nuevo JWT
+  // Obtener email y rol del usuario para el nuevo JWT
   let email = 'unknown@playflow.app';
+  let userRole: string | undefined;
   if (pool) {
     try {
       const conn = await pool.getConnection();
@@ -176,6 +208,8 @@ router.post('/token/refresh', async (req: Request, res: Response): Promise<void>
       conn.release();
       if (rows.length > 0) email = rows[0].email as string;
     } catch { /* no fatal */ }
+    
+    userRole = await getUserRole(result.userId);
   }
 
   const accessToken = signToken({
@@ -183,6 +217,7 @@ router.post('/token/refresh', async (req: Request, res: Response): Promise<void>
     sid: result.sessionId,
     email,
     authLevel: 'otp',
+    role: userRole,
   });
 
   res.setHeader('Set-Cookie', buildRefreshCookie(result.newRefreshToken));
