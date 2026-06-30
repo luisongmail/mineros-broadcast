@@ -27,8 +27,19 @@ export type StepUpVerifyResult =
 const STEP_UP_TTL_MINUTES = 5;
 const STEP_UP_HEADER = 'x-step-up-token' as const;
 const STEP_UP_FRESHNESS_MINUTES = 5; // Frescura: re-verificar si pasaron > 5 minutos
+const STEP_UP_CHALLENGE_ID_MAX_LENGTH = 36;
+const STEP_UP_SESSION_ID_MAX_LENGTH = 36;
 
 export { STEP_UP_HEADER };
+
+function normalizeStepUpSessionId(sessionId?: string): string {
+  if (!sessionId || sessionId.trim().length === 0) return crypto.randomUUID();
+  if (sessionId.length <= STEP_UP_SESSION_ID_MAX_LENGTH) return sessionId;
+
+  // Session IDs en otras tablas pueden ser más largos (ej. VARCHAR(50)).
+  // Para step_up_challenges (CHAR(36)) usamos un identificador determinístico acotado.
+  return crypto.createHash('sha256').update(sessionId).digest('hex').slice(0, STEP_UP_SESSION_ID_MAX_LENGTH);
+}
 
 /**
  * Valida si un step-up es vigente (fresco).
@@ -49,26 +60,33 @@ export async function requestStepUp(
   action: string,
   resourceType: string,
   resourceId: string,
+  sessionId?: string,
 ): Promise<StepUpRequestResult> {
   const otp = crypto.randomInt(100000, 999999).toString();
-  const challengeId = `suc_${crypto.randomUUID()}`;
+  // UUID v4 (36 chars) para respetar columnas CHAR/VARCHAR cortas en DB.
+  const challengeId = crypto.randomUUID();
+  if (challengeId.length > STEP_UP_CHALLENGE_ID_MAX_LENGTH) {
+    throw new Error('Generated challenge_id exceeds supported length.');
+  }
   const expiresAt = new Date(Date.now() + STEP_UP_TTL_MINUTES * 60_000);
 
   if (pool) {
     const conn = await pool.getConnection();
     try {
+      const challengeHash = crypto.createHash('sha256').update(otp).digest('hex');
       await conn.execute<ResultSetHeader>(
         `INSERT INTO step_up_challenges
-           (challenge_id, user_id, action, resource_type, resource_id,
-            otp_hash, expires_at, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+           (challenge_id, user_id, session_id, action, resource_type, resource_id,
+            challenge_hash, expires_at, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
         [
           challengeId,
           userId,
+          normalizeStepUpSessionId(sessionId),
           action,
           resourceType,
           resourceId,
-          crypto.createHash('sha256').update(otp).digest('hex'),
+          challengeHash,
           expiresAt,
         ],
       );
@@ -90,7 +108,13 @@ export async function requestStepUp(
 
   return {
     ok: true,
-    challenge: { challengeId, expiresAt, action, resourceType, resourceId },
+    challenge: {
+      challengeId,
+      expiresAt,
+      action,
+      resourceType,
+      resourceId,
+    },
   };
 }
 
@@ -149,7 +173,7 @@ export async function verifyStepUp(
   try {
     const [rows] = await conn.execute<RowDataPacket[]>(
       `SELECT challenge_id, user_id, action, resource_type, resource_id,
-              otp_hash, expires_at, status
+              challenge_hash, expires_at, status
        FROM step_up_challenges
        WHERE challenge_id = ? AND user_id = ?`,
       [challengeId, userId],
@@ -190,18 +214,19 @@ export async function verifyStepUp(
     }
     
     const isExpired = new Date(ch.expires_at as string) < new Date();
-    const isValidCode = ch.otp_hash === providedHash;
+    const isValidCode = ch.challenge_hash === providedHash;
     const isValid = !isExpired && isValidCode;
 
     const stepUpToken = isValid ? generateOpaqueToken() : '';
     const tokenExpiresAt = new Date(Date.now() + STEP_UP_TTL_MINUTES * 60_000);
 
     if (isValid) {
+      const tokenHash = crypto.createHash('sha256').update(stepUpToken).digest('hex');
       await conn.execute(
         `UPDATE step_up_challenges
-         SET status = 'consumed', step_up_token_hash = ?, consumed_at = NOW()
+         SET status = 'consumed', challenge_hash = ?, consumed_at = NOW()
          WHERE challenge_id = ?`,
-        [crypto.createHash('sha256').update(stepUpToken).digest('hex'), challengeId],
+        [tokenHash, challengeId],
       );
     }
 
@@ -268,7 +293,7 @@ export async function validateStepUpToken(
     const [rows] = await conn.execute<RowDataPacket[]>(
       `SELECT challenge_id, action, resource_id, expires_at, status
        FROM step_up_challenges
-       WHERE step_up_token_hash = ? AND user_id = ? AND status = 'consumed'
+       WHERE challenge_hash = ? AND user_id = ? AND status = 'consumed'
        LIMIT 1`,
       [tokenHash, userId],
     );

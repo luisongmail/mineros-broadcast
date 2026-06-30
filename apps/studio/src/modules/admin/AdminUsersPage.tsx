@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/SecurityContextProvider';
+import { Trash2 } from 'lucide-react';
 
 interface UserRow {
   userId: string;
@@ -8,10 +9,28 @@ interface UserRow {
   status: 'active' | 'suspended' | 'invited';
 }
 
+interface UserRoleAssignment {
+  resourceType: string;
+  resourceId: string;
+  role: string;
+}
+
+interface ScopedUserRow extends UserRow {
+  roles: UserRoleAssignment[];
+}
+
+interface SecurityScope {
+  resourceType: string;
+  resourceId: string;
+  role: string;
+}
+
 export function AdminUsersPage() {
   const { getAccessToken } = useAuth();
   const accessToken = getAccessToken();
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const [users, setUsers] = useState<ScopedUserRow[]>([]);
+  const [scopes, setScopes] = useState<SecurityScope[]>([]);
+  const [isSysAdmin, setIsSysAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -26,7 +45,19 @@ export function AdminUsersPage() {
       });
       if (!res.ok) throw new Error('Sin permiso para ver usuarios');
       const data = (await res.json()) as { users: UserRow[] };
-      setUsers(data.users);
+      const usersWithRoles = await Promise.all(
+        data.users.map(async (user) => {
+          const rolesRes = await fetch(`/api/users/${user.userId}/roles`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          const rolesData = rolesRes.ok ? await rolesRes.json() as { roles?: UserRoleAssignment[] } : { roles: [] };
+          return {
+            ...user,
+            roles: rolesData.roles ?? [],
+          };
+        }),
+      );
+      setUsers(usersWithRoles);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error');
     } finally {
@@ -34,7 +65,25 @@ export function AdminUsersPage() {
     }
   };
 
-  useEffect(() => { void fetchUsers(); }, [accessToken]);
+  const fetchSecurityContext = async () => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch('/api/security/context', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json() as { availableScopes?: SecurityScope[]; securityFlags?: { isSysAdmin?: boolean } };
+      setScopes((data.availableScopes ?? []).filter((scope) => scope.role === 'Admin' || scope.role === 'Owner' || scope.role === 'SysAdmin'));
+      setIsSysAdmin(Boolean(data.securityFlags?.isSysAdmin));
+    } catch {
+      setScopes([]);
+    }
+  };
+
+  useEffect(() => {
+    void fetchSecurityContext();
+    void fetchUsers();
+  }, [accessToken]);
 
   async function inviteUser(e: React.FormEvent) {
     e.preventDefault();
@@ -88,6 +137,66 @@ export function AdminUsersPage() {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     await fetchUsers();
+  }
+
+  function getDeleteScope(user: ScopedUserRow): SecurityScope | null {
+    if (isSysAdmin) return null;
+
+    const candidate = user.roles.find((role) => (
+      (role.resourceType === 'Tournament' || role.resourceType === 'Team')
+      && scopes.some((scope) => scope.resourceType === role.resourceType
+        && scope.resourceId === role.resourceId
+        && ['Admin', 'Owner', 'SysAdmin'].includes(scope.role))
+    ));
+
+    if (!candidate) return null;
+    return {
+      resourceType: candidate.resourceType,
+      resourceId: candidate.resourceId,
+      role: 'Admin',
+    };
+  }
+
+  async function deleteUser(user: ScopedUserRow) {
+    if (!accessToken) return;
+
+    const scope = getDeleteScope(user);
+    const scopeText = scope ? `${scope.resourceType} ${scope.resourceId}` : 'SysAdmin';
+    const confirmed = window.confirm(`¿Eliminar este usuario? Alcance: ${scopeText}`);
+    if (!confirmed) return;
+
+    const reason = window.prompt('Motivo de eliminación (requerido):');
+    if (!reason?.trim()) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/users/${user.userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(scope ? {
+          resourceType: scope.resourceType,
+          resourceId: scope.resourceId,
+          reason,
+        } : { reason }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.error === 'step_up_required') {
+          throw new Error('Se requiere step-up para eliminar usuarios.');
+        }
+        throw new Error(data.error || 'No se pudo eliminar el usuario');
+      }
+
+      await fetchUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error');
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (loading) return <div className="p-6 text-gray-500">Cargando usuarios…</div>;
@@ -159,6 +268,15 @@ export function AdminUsersPage() {
                       className="text-xs text-green-600 hover:underline"
                     >
                       Reactivar
+                    </button>
+                  )}
+                  {(isSysAdmin || getDeleteScope(u)) && (
+                    <button
+                      onClick={() => void deleteUser(u)}
+                      className="ml-3 inline-flex items-center gap-1 text-xs text-red-700 hover:underline"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Eliminar
                     </button>
                   )}
                 </td>

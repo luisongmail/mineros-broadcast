@@ -135,63 +135,88 @@ router.post('/authorize', requireAuth, async (req: AuthenticatedRequest, res: Re
 // POST /api/auth/step-up/request
 // ─────────────────────────────────────────────
 router.post('/step-up/request', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const user = req.user!;
-  const { action, resourceType, resourceId } = req.body as {
-    action: string;
-    resourceType: string;
-    resourceId: string;
-  };
+  try {
+    const user = req.user!;
+    const { action, resourceType, resourceId } = req.body as {
+      action: string;
+      resourceType: string;
+      resourceId: string;
+    };
 
-  if (!action || !resourceType || !resourceId) {
-    res.status(400).json({ error: { code: 'MISSING_TOKEN', message: 'action, resourceType y resourceId son requeridos.' } });
-    return;
+    if (!action || !resourceType || !resourceId) {
+      res.status(400).json({ error: { code: 'MISSING_TOKEN', message: 'action, resourceType y resourceId son requeridos.' } });
+      return;
+    }
+
+    const result = await requestStepUp(
+      user.sub,
+      user.email,
+      action,
+      resourceType,
+      resourceId,
+      user.sid,
+    );
+    if (!result.ok) {
+      res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Demasiadas solicitudes de step-up.' } });
+      return;
+    }
+
+    res.json({
+      challengeId: result.challenge.challengeId,
+      expiresAt: result.challenge.expiresAt.toISOString(),
+      method: 'otp',
+      action,
+      resourceType,
+      resourceId,
+    });
+  } catch (error) {
+    console.error('[securityRouter] step-up/request failed:', error);
+    const detail = error instanceof Error ? error.message : 'unknown_error';
+    const isProd = process.env.NODE_ENV === 'production';
+    res.status(500).json({
+      error: {
+        code: 'STEP_UP_REQUEST_FAILED',
+        message: 'No fue posible iniciar la re-verificación.',
+        ...(isProd ? {} : { detail }),
+      },
+    });
   }
-
-  const result = await requestStepUp(user.sub, user.email, action, resourceType, resourceId);
-  if (!result.ok) {
-    res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Demasiadas solicitudes de step-up.' } });
-    return;
-  }
-
-  res.json({
-    challengeId: result.challenge.challengeId,
-    expiresAt: result.challenge.expiresAt.toISOString(),
-    method: 'otp',
-    action,
-    resourceType,
-    resourceId,
-  });
 });
 
 // ─────────────────────────────────────────────
 // POST /api/auth/step-up/verify
 // ─────────────────────────────────────────────
 router.post('/step-up/verify', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const user = req.user!;
-  const { challengeId, code } = req.body as { challengeId: string; code: string; reason?: string };
+  try {
+    const user = req.user!;
+    const { challengeId, code } = req.body as { challengeId: string; code: string; reason?: string };
 
-  // Extract client info from request
-  const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.socket.remoteAddress ?? 'unknown';
-  const userAgent = (req.headers['user-agent'] ?? 'unknown') as string;
+    // Extract client info from request
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.socket.remoteAddress ?? 'unknown';
+    const userAgent = (req.headers['user-agent'] ?? 'unknown') as string;
 
-  const result = await verifyStepUp(user.sub, challengeId, code, user.sid, ipAddress, userAgent);
+    const result = await verifyStepUp(user.sub, challengeId, code, user.sid, ipAddress, userAgent);
 
-  if (!result.ok) {
-    if (result.reason === 'already_consumed') {
-      res.status(409).json({ error: { code: 'CHALLENGE_ALREADY_CONSUMED', message: 'Este desafío ya fue utilizado.' } });
+    if (!result.ok) {
+      if (result.reason === 'already_consumed') {
+        res.status(409).json({ error: { code: 'CHALLENGE_ALREADY_CONSUMED', message: 'Este desafío ya fue utilizado.' } });
+        return;
+      }
+      res.status(401).json({ error: { code: 'INVALID_STEP_UP_CODE', message: 'Código inválido o expirado.' } });
       return;
     }
-    res.status(401).json({ error: { code: 'INVALID_STEP_UP_CODE', message: 'Código inválido o expirado.' } });
-    return;
-  }
 
-  res.json({
-    stepUpToken: result.stepUpToken,
-    expiresAt: result.challenge.expiresAt.toISOString(),
-    action: result.challenge.action,
-    resourceType: result.challenge.resourceType,
-    resourceId: result.challenge.resourceId,
-  });
+    res.json({
+      stepUpToken: result.stepUpToken,
+      expiresAt: result.challenge.expiresAt.toISOString(),
+      action: result.challenge.action,
+      resourceType: result.challenge.resourceType,
+      resourceId: result.challenge.resourceId,
+    });
+  } catch (error) {
+    console.error('[securityRouter] step-up/verify failed:', error);
+    res.status(500).json({ error: { code: 'STEP_UP_VERIFY_FAILED', message: 'No fue posible verificar el código.' } });
+  }
 });
 
 // ─────────────────────────────────────────────

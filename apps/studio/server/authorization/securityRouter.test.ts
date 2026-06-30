@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import crypto from 'node:crypto';
 
 // Test the stepUpService and auditService separately
 // Router integration is tested via E2E tests
@@ -65,7 +66,7 @@ describe('Step-Up Verification Flow (Integration)', () => {
     );
 
     if (reqResult.ok) {
-      expect(reqResult.challenge.challengeId).toMatch(/^suc_/);
+      expect(reqResult.challenge.challengeId).toMatch(/^[0-9a-f-]{36}$/i);
       expect(reqResult.challenge.expiresAt).toBeInstanceOf(Date);
 
       // Challenge expires in 5 minutes
@@ -79,7 +80,7 @@ describe('Step-Up Verification Flow (Integration)', () => {
     const { verifyStepUp } = await import('../authorization/stepUpService');
 
     // Without a real challenge in DB, this will return not_found
-    const result = await verifyStepUp('usr_test_001', 'suc_nonexistent', 'wrong_code');
+    const result = await verifyStepUp('usr_test_001', crypto.randomUUID(), 'wrong_code');
 
     if (!result.ok) {
       expect(result.reason).toBe('not_found');
@@ -143,7 +144,7 @@ describe('Step-Up Verification Flow (Integration)', () => {
       // First verification with correct code would succeed
       // For test purposes, we verify the challenge structure exists
       expect(challengeId).toBeDefined();
-      expect(challengeId).toMatch(/^suc_/);
+      expect(challengeId).toMatch(/^[0-9a-f-]{36}$/i);
     }
   });
 
@@ -176,4 +177,3 @@ describe('Step-Up Verification Flow (Integration)', () => {
     expect(verified).not.toBe(failed);
   });
 });
-

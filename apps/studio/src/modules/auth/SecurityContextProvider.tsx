@@ -49,6 +49,8 @@ interface SecurityContextValue {
   clearStepUpToken: () => void;
   setStepUpAt: (timestamp: number | null) => void;
   isStepUpFresh: () => boolean; // Valida que stepUpAt esté dentro de 5 minutos
+  timeZone: string;
+  setTimeZone: (tz: string) => void;
   setAccessToken: (token: string) => void;
   getAccessToken: () => string | null;
   logout: () => Promise<void>;
@@ -68,6 +70,12 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [stepUpToken, setStepUpTokenState] = useState<string | null>(null);
   const [stepUpAt, setStepUpAtState] = useState<number | null>(null);
+  const [timeZone, setTimeZoneState] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'UTC';
+    return localStorage.getItem('playflow.timeZone')
+      ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+      ?? 'UTC';
+  });
 
   // El access token (JWT) vive en memoria — nunca en localStorage
   const accessTokenRef = useRef<string | null>(null);
@@ -154,6 +162,13 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
     setStepUpAtState(timestamp);
   }, []);
 
+  const setTimeZone = useCallback((tz: string) => {
+    setTimeZoneState(tz);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('playflow.timeZone', tz);
+    }
+  }, []);
+
   /** Valida que el step-up sea fresco (dentro de 5 minutos) */
   const isStepUpFresh = useCallback(() => {
     if (!stepUpAt) return false;
@@ -198,6 +213,8 @@ export function SecurityContextProvider({ children }: { children: ReactNode }) {
         clearStepUpToken,
         setStepUpAt,
         isStepUpFresh,
+        timeZone,
+        setTimeZone,
         setAccessToken,
         getAccessToken,
         logout,

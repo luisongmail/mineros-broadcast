@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { OperatorControlPanel } from './components/OperatorControlPanel';
 import AdminPanel from './modules/admin/AdminPanel';
-import { AdminUsersPage } from './modules/admin/AdminUsersPage';
 import { AuditViewerPage } from './modules/admin/AuditViewerPage';
 import { PermissionSimulatorPage } from './modules/admin/PermissionSimulatorPage';
 import { LoginPage, OtpVerifyPage, ScopeSelectorPage } from './modules/auth/AuthPages';
@@ -69,9 +68,7 @@ export function App() {
       <Route
         path="/admin/users"
         element={(
-          <PrivateRoute>
-            <AdminUsersPage />
-          </PrivateRoute>
+          <Navigate replace to="/control/admin" />
         )}
       />
       <Route

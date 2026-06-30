@@ -33,6 +33,8 @@ export interface AuditFilter {
   resourceType?: string;
   resourceId?: string;
   action?: string;
+  result?: 'allowed' | 'denied';
+  search?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -40,6 +42,7 @@ export interface AuditFilter {
 }
 
 let lastHash: string | null = null;
+const AUDIT_TIMESTAMP_COLUMN = 'timestamp';
 
 export async function logAuditEvent(
   actorUserId: string,
@@ -52,12 +55,7 @@ export async function logAuditEvent(
 ): Promise<string> {
   const auditId = `aud_${crypto.randomUUID().replace(/-/g, '')}`;
   const eventHash = hashEntry(auditId, actorUserId, action, resourceType, resourceId);
-
-  const integrityJson = JSON.stringify({
-    eventHash,
-    previousHash: lastHash,
-    algorithm: 'sha256-chain',
-  });
+  const previousHash = lastHash;
 
   lastHash = eventHash;
 
@@ -66,8 +64,9 @@ export async function logAuditEvent(
     try {
       await conn.execute(
         `INSERT INTO audit_events
-           (audit_id, actor_user_id, action, resource_type, resource_id, result, authorization_json, request_json, integrity_json, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+           (audit_id, actor_user_id, action, resource_type, resource_id, result,
+            reason, previous_hash, event_hash, authorization_json, change_summary, ${AUDIT_TIMESTAMP_COLUMN})
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(3))`,
         [
           auditId,
           actorUserId,
@@ -75,9 +74,11 @@ export async function logAuditEvent(
           resourceType,
           resourceId,
           result,
+          typeof requestContext.reason === 'string' ? requestContext.reason : null,
+          previousHash,
+          eventHash,
           JSON.stringify(authorizationContext),
           JSON.stringify(requestContext),
-          integrityJson,
         ],
       );
     } finally {
@@ -219,38 +220,79 @@ export async function logAccessDenialEvent(event: {
   );
 }
 
-export async function queryAudit(filter: AuditFilter = {}): Promise<AuditEntry[]> {
-  if (!pool) return [];
+function buildAuditWhere(filter: AuditFilter): { where: string; params: Array<string | number> } {
   const {
     actorUserId,
     resourceType,
     resourceId,
     action,
+    result,
+    search,
     from,
     to,
-    page = 1,
-    limit = 50,
   } = filter;
-
   const conditions: string[] = [];
-  const params: unknown[] = [];
+  const params: Array<string | number> = [];
 
   if (actorUserId) { conditions.push('actor_user_id = ?'); params.push(actorUserId); }
   if (resourceType) { conditions.push('resource_type = ?'); params.push(resourceType); }
   if (resourceId) { conditions.push('resource_id = ?'); params.push(resourceId); }
   if (action) { conditions.push('action = ?'); params.push(action); }
-  if (from) { conditions.push('created_at >= ?'); params.push(from); }
-  if (to) { conditions.push('created_at <= ?'); params.push(to); }
+  if (result) { conditions.push('result = ?'); params.push(result); }
+  const trimmedSearch = search?.trim();
+  if (trimmedSearch && trimmedSearch.length >= 3) {
+    const like = `%${trimmedSearch}%`;
+    conditions.push('(audit_id LIKE ? OR actor_user_id LIKE ? OR resource_type LIKE ? OR resource_id LIKE ?)');
+    params.push(like, like, like, like);
+  }
+  if (from) { conditions.push(`${AUDIT_TIMESTAMP_COLUMN} >= ?`); params.push(from); }
+  if (to) { conditions.push(`${AUDIT_TIMESTAMP_COLUMN} <= ?`); params.push(to); }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const offset = (page - 1) * limit;
-  params.push(limit, offset);
+  return {
+    where: conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '',
+    params,
+  };
+}
+
+export async function queryAuditCount(filter: AuditFilter = {}): Promise<number> {
+  if (!pool) return 0;
+  const conn = await pool.getConnection();
+  try {
+    const { where, params } = buildAuditWhere(filter);
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS total
+       FROM audit_events
+       ${where}`,
+      params,
+    );
+    return (rows[0]?.total as number) || 0;
+  } finally {
+    conn.release();
+  }
+}
+
+export async function queryAudit(filter: AuditFilter = {}): Promise<AuditEntry[]> {
+  if (!pool) return [];
+  const {
+    page = 1,
+    limit = 50,
+  } = filter;
+  const pageNum = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+  const limitNum = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.floor(limit))) : 50;
 
   const conn = await pool.getConnection();
   try {
-    const [rows] = await conn.execute<RowDataPacket[]>(
-      `SELECT * FROM audit_events ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      params as string[],
+    const { where, params } = buildAuditWhere(filter);
+
+    const offset = (pageNum - 1) * limitNum;
+
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `SELECT *, ${AUDIT_TIMESTAMP_COLUMN} AS created_at
+       FROM audit_events
+       ${where}
+       ORDER BY ${AUDIT_TIMESTAMP_COLUMN} DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limitNum, offset],
     );
     return rows.map(mapAudit);
   } finally {
@@ -268,12 +310,13 @@ export async function verifyChainIntegrity(from?: string, to?: string): Promise<
   try {
     const params: string[] = [];
     let where = '';
-    if (from) { where += 'WHERE created_at >= ?'; params.push(from); }
-    if (to) { where += (where ? ' AND' : 'WHERE') + ' created_at <= ?'; params.push(to); }
+    if (from) { where += `WHERE ${AUDIT_TIMESTAMP_COLUMN} >= ?`; params.push(from); }
+    if (to) { where += (where ? ' AND' : 'WHERE') + ` ${AUDIT_TIMESTAMP_COLUMN} <= ?`; params.push(to); }
 
     const [rows] = await conn.execute<RowDataPacket[]>(
-      `SELECT audit_id, actor_user_id, action, resource_type, resource_id, integrity_json, created_at
-       FROM audit_events ${where} ORDER BY created_at ASC`,
+      `SELECT audit_id, actor_user_id, action, resource_type, resource_id, previous_hash, event_hash,
+              ${AUDIT_TIMESTAMP_COLUMN} AS created_at
+       FROM audit_events ${where} ORDER BY ${AUDIT_TIMESTAMP_COLUMN} ASC`,
       params,
     );
 
@@ -282,10 +325,6 @@ export async function verifyChainIntegrity(from?: string, to?: string): Promise<
     let prevHash: string | null = null;
 
     for (const row of rows) {
-      const integrity = JSON.parse(row.integrity_json as string) as {
-        eventHash: string;
-        previousHash: string | null;
-      };
       const expected = hashEntry(
         row.audit_id as string,
         row.actor_user_id as string,
@@ -293,14 +332,17 @@ export async function verifyChainIntegrity(from?: string, to?: string): Promise<
         row.resource_type as string,
         row.resource_id as string,
       );
-      const hashOk = expected === integrity.eventHash;
-      const chainOk = integrity.previousHash === prevHash;
+      const rowEventHash = row.event_hash as string;
+      const rowPreviousHash = (row.previous_hash as string | null) ?? null;
+      const hashOk = expected === rowEventHash;
+      const chainOk = rowPreviousHash === prevHash;
 
       if (!hashOk || !chainOk) {
         broken++;
         if (!firstBrokenAt) firstBrokenAt = String(row.created_at);
       }
-      prevHash = integrity.eventHash;
+
+      prevHash = rowEventHash;
     }
 
     return { totalChecked: rows.length, broken, firstBrokenAt };
@@ -323,6 +365,12 @@ function hashEntry(
 }
 
 function mapAudit(row: RowDataPacket): AuditEntry {
+  const createdAt = normalizeToUtcIso(row.created_at);
+  const integrityJson = JSON.stringify({
+    eventHash: row.event_hash ?? null,
+    previousHash: row.previous_hash ?? null,
+    algorithm: 'sha256-chain',
+  });
   return {
     auditId: row.audit_id as string,
     actorUserId: row.actor_user_id as string,
@@ -330,9 +378,21 @@ function mapAudit(row: RowDataPacket): AuditEntry {
     resourceType: row.resource_type as string,
     resourceId: row.resource_id as string,
     result: row.result as AuditEntry['result'],
-    authorizationJson: row.authorization_json as string,
-    requestJson: row.request_json as string,
-    integrityJson: row.integrity_json as string,
-    createdAt: String(row.created_at),
+    authorizationJson: (row.authorization_json as string) ?? '{}',
+    requestJson: (row.change_summary as string) ?? '{}',
+    integrityJson,
+    createdAt,
   };
+}
+
+function normalizeToUtcIso(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') {
+    const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+    const withZone = /Z|[+-]\d{2}:\d{2}$/.test(normalized) ? normalized : `${normalized}Z`;
+    const date = new Date(withZone);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+  }
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
 }

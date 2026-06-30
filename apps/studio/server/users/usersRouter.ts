@@ -1,7 +1,11 @@
 import { Router } from 'express';
+import type { RowDataPacket } from 'mysql2';
 import type { AuthenticatedRequest } from '../auth/authMiddleware';
 import { requireAuth } from '../auth/authMiddleware';
 import { authorize } from '../authorization/authorizationService';
+import { stepUpRequired } from '../authorization/stepUpService';
+import { logAuditEvent } from '../audit/auditService';
+import { pool } from '../db';
 import { listUsers, getUserById, inviteUser, suspendUser, reactivateUser } from './userService';
 import { assignRole, revokeRole, getUserRoles, getResourceMembers } from './roleAssignmentService';
 
@@ -93,6 +97,109 @@ usersRouter.post('/:userId/reactivate', requireAuth, async (req, res) => {
   if (check.decision !== 'allow') return void res.status(403).json({ error: 'forbidden' });
   await reactivateUser(req.params.userId, authReq.user!.sub);
   res.json({ ok: true });
+});
+
+// DELETE /api/users/:userId
+usersRouter.delete('/:userId', requireAuth, async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const { resourceType, resourceId, reason } = req.body as {
+    resourceType?: string;
+    resourceId?: string;
+    reason?: string;
+  };
+
+  const userId = req.params.userId;
+  const targetUser = await getUserById(userId);
+  if (!targetUser) return void res.status(404).json({ error: 'not_found' });
+
+  if (!reason || !reason.trim()) {
+    return void res.status(400).json({ error: 'reason_required' });
+  }
+
+  if (!stepUpRequired(authReq.user!.sessionId, authReq.user!.stepUpAt)) {
+    return void res.status(403).json({ error: 'step_up_required', hint: 'POST /api/security/step-up/request' });
+  }
+
+  if (!pool) {
+    await logAuditEvent(
+      authReq.user!.sub,
+      'delete_user',
+      'User',
+      userId,
+      'allowed',
+      { reason, resourceType, resourceId, mode: 'mock' },
+      {},
+    );
+    return void res.json({ ok: true, userId, deleted: true });
+  }
+
+  const isSysAdmin = authReq.user?.role === 'SysAdmin';
+  const scopeType = resourceType;
+  const scopeId = resourceId;
+
+  if (!isSysAdmin) {
+    if (!scopeType || !scopeId) {
+      return void res.status(400).json({ error: 'resource_required' });
+    }
+
+    if (!['Tournament', 'Team'].includes(scopeType)) {
+      return void res.status(400).json({ error: 'invalid_scope' });
+    }
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    if (!isSysAdmin) {
+      const [callerScopes] = await conn.execute<RowDataPacket[]>(
+        `SELECT 1
+         FROM role_assignments
+         WHERE user_id = ? AND resource_type = ? AND resource_id = ?
+           AND role IN ('Admin', 'Owner') AND status = 'active'
+         LIMIT 1`,
+        [authReq.user!.sub, scopeType as string, scopeId as string],
+      );
+
+      if (callerScopes.length === 0) {
+        return void res.status(403).json({ error: 'forbidden' });
+      }
+
+      const [targetScopes] = await conn.execute<RowDataPacket[]>(
+        `SELECT 1
+         FROM role_assignments
+         WHERE user_id = ? AND resource_type = ? AND resource_id = ?
+           AND status = 'active'
+         LIMIT 1`,
+        [userId, scopeType as string, scopeId as string],
+      );
+
+      if (targetScopes.length === 0) {
+        return void res.status(403).json({ error: 'user_not_assigned_to_scope' });
+      }
+    }
+
+    await conn.execute(`DELETE FROM users WHERE user_id = ?`, [userId]);
+
+    await logAuditEvent(
+      authReq.user!.sub,
+      'delete_user',
+      'User',
+      userId,
+      'allowed',
+      {
+        reason,
+        deletedByRole: authReq.user?.role,
+        resourceType: scopeType ?? 'Platform',
+        resourceId: scopeId ?? 'global',
+      },
+      {
+        targetUserEmail: targetUser.email,
+      },
+    );
+
+    res.json({ ok: true, userId, deleted: true });
+  } finally {
+    conn.release();
+  }
 });
 
 // GET /api/users/:userId/roles

@@ -11,6 +11,8 @@ export interface StepUpModalProps {
   actionDescription?: string;
   /** Mostrar loader */
   isLoading?: boolean;
+  /** Método de verificación */
+  verificationMethod?: 'otp' | 'totp';
 }
 
 /**
@@ -31,6 +33,7 @@ export function StepUpModal({
   onClose,
   actionDescription,
   isLoading = false,
+  verificationMethod = 'otp',
 }: StepUpModalProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -63,6 +66,16 @@ export function StepUpModal({
 
   if (!isOpen) return null;
 
+  const methodLabel =
+    verificationMethod === 'totp'
+      ? 'Ingresa el código de 6 dígitos de tu autenticador'
+      : 'Ingresa el código OTP de 6 dígitos enviado a tu correo';
+
+  const methodHelp =
+    verificationMethod === 'totp'
+      ? 'De Google Authenticator, Authy o similar'
+      : 'Revisa tu bandeja de entrada y carpeta de spam';
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-gray-900 rounded-xl p-8 w-full max-w-sm shadow-lg">
@@ -75,7 +88,7 @@ export function StepUpModal({
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-300 mb-3">
-            Ingresa el código de 6 dígitos de tu autenticador
+            {methodLabel}
           </label>
           <input
             type="text"
@@ -89,7 +102,7 @@ export function StepUpModal({
             className="w-full px-4 py-4 text-center text-3xl tracking-widest bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500 disabled:opacity-50"
           />
           <p className="text-gray-500 text-xs mt-2">
-            De Google Authenticator, Authy o similar
+            {methodHelp}
           </p>
         </div>
 
@@ -117,7 +130,7 @@ export function StepUpModal({
         </div>
 
         <p className="text-gray-500 text-xs mt-4 text-center">
-          ¿No tienes acceso a tu autenticador?{' '}
+          ¿No puedes completar la verificación?{' '}
           <button className="text-blue-400 hover:text-blue-300">Contacta soporte</button>
         </p>
       </div>

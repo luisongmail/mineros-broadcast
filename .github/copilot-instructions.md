@@ -68,6 +68,12 @@ pnpm turbo dev            # modo desarrollo
 pnpm changeset            # crear changeset para release semántico
 ```
 
+## Regla de calidad obligatoria (no negociable)
+
+- **No implementar sin prueba primero:** antes de cambiar código, agregar/ajustar pruebas que reproduzcan el caso real reportado.
+- **No ocultar errores:** no usar fallbacks silenciosos para “pasar”; exponer causa raíz con código de error explícito y mensaje accionable.
+- **Cierre de tarea:** no se considera resuelto hasta que la prueba nueva falle antes del fix y pase después del fix.
+
 ## Arquitectura — principios clave
 
 - **Fuente única de verdad deportiva:** Game Engine. Ningún overlay calcula marcador, inning, outs, bases ni conteo.
