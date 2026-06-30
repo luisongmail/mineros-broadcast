@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "defaultModel": "claude-haiku-4.5",
+  "defaultModel": "gpt-5.4-mini",
   "agentModelOverrides": {
-    "babe": "claude-sonnet-4.6",
-    "sandy": "claude-sonnet-4.6",
-    "jeter": "claude-sonnet-4.6",
-    "mariano": "claude-sonnet-4.6",
-    "robinson": "claude-haiku-4.5",
+    "babe": "gpt-5.3-codex",
+    "sandy": "gpt-5.3-codex",
+    "jeter": "gpt-5.3-codex",
+    "mariano": "gpt-5.4-mini",
+    "robinson": "gpt-5.4-mini",
     "scribe": "claude-haiku-4.5",
     "ralph": "claude-haiku-4.5",
-    "rai": "claude-haiku-4.5"
+    "rai": "claude-sonnet-4.6"
   }
 }

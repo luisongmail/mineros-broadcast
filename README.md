@@ -35,6 +35,12 @@ pnpm turbo build
 
 La fuente de verdad del sistema vive en `docs/requirements/`. Revisar esos documentos antes de implementar cualquier modulo del monorepo.
 
+## Operación de modelos (Squad)
+
+Referencia persistente para política activa y rollback:
+
+- `MODEL_POLICY_ROLLBACK.md`
+
 ## Plan de releases
 
 | Release | Contenido |

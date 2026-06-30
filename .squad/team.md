@@ -16,10 +16,10 @@
 | Sandy | Backend Engineer | .squad/agents/sandy/charter.md | ✅ active |
 | Jeter | Frontend Engineer | .squad/agents/jeter/charter.md | ✅ active |
 | Mariano | QA / Tester | .squad/agents/mariano/charter.md | ✅ active |
-| Robinson | Infrastructure / DevOps | .squad/agents/robinson/charter.md | ✅ active |
+| Robinson | Infrastructure / DevOps | .squad/agents/robinson/charter.md | 💤 standby |
 | Scribe | Session Logger | .squad/agents/scribe/charter.md | ✅ active |
-| Ralph | Work Monitor | .squad/agents/ralph/charter.md | ✅ active |
-| Rai | RAI Reviewer | .squad/agents/Rai/charter.md | ✅ active |
+| Ralph | Work Monitor | .squad/agents/ralph/charter.md | 💤 standby |
+| Rai | RAI Reviewer | .squad/agents/Rai/charter.md | 💤 standby |
 
 ## Project Context
 
