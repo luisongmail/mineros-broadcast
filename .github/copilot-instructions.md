@@ -1,6 +1,6 @@
-# Copilot Instructions — Mineros Broadcast
+# Copilot Instructions — PlayFlow
 
-**Sistema de overlays para transmisión de béisbol en vivo — Club Mineros de Santiago**  
+**Sistema de overlays para transmisión de béisbol en vivo (PlayFlow) — Club Mineros de Santiago**  
 Stack: Turborepo + pnpm | React + TypeScript + Vite + Tailwind | Supabase + Vercel | Vitest + Playwright
 
 ## Estructura del monorepo
@@ -16,9 +16,9 @@ packages/scene-engine/      → Gestión de escenas de transmisión (fuente: 07-
 packages/overlay-manager/   → Orquestador de renders (fuente: 08-overlay-manager.md)
 packages/layout-manager/    → Orquestador visual — zonas, Preview/Program (fuente: 01-layout-manager.md)
 packages/overlays/{name}/   → Overlays individuales (fuentes: 10-22)
-apps/overlay-server/        → Browser Source + panel del operador real en `/control` (fuente: 24)
+apps/studio/                → Browser Source + panel del operador real en `/control` (fuente: 24)
 infra/supabase/             → Migraciones PostgreSQL + seed
-docs/requirements/          → Especificaciones originales (NO modificar — 26 documentos aprobados)
+docs/requirements/          → Especificaciones funcionales vigentes (NO modificar sin aprobación explícita)
 ```
 
 ## Documentos de requerimientos (`docs/requirements/`)
@@ -54,6 +54,11 @@ Antes de implementar cualquier módulo, leer el documento correspondiente. Son l
 | `24-operator-control-panel.md` | Panel del Operador — acciones, roles, reglas de seguridad | CERRADO |
 | `25-qa-acceptance-checklist.md` | Checklist de aceptación QA | CERRADO |
 | `26-master-package-index.md` | Índice final del paquete + orden de implementación | CERRADO |
+| `27-live-game-scoring-assets.md` | Assets y flujos de live scoring | ACTIVO |
+| `28-baserunning-events.md` | Eventos de corrido de bases | ACTIVO |
+| `29-professional-data-standards.md` | Estándares profesionales de datos y métricas | ACTIVO |
+| `30-security-access-control-audit.md` | Seguridad, control de acceso y auditoría | ACTIVO |
+| `31-Refactor - COMPLETE.md` | Estado consolidado del refactor | REFERENCIA |
 ```
 
 ## Comandos
@@ -73,6 +78,15 @@ pnpm changeset            # crear changeset para release semántico
 - **No implementar sin prueba primero:** antes de cambiar código, agregar/ajustar pruebas que reproduzcan el caso real reportado.
 - **No ocultar errores:** no usar fallbacks silenciosos para “pasar”; exponer causa raíz con código de error explícito y mensaje accionable.
 - **Cierre de tarea:** no se considera resuelto hasta que la prueba nueva falle antes del fix y pase después del fix.
+
+## Protocolo operativo de sesiones (resiliente a reinicios)
+
+- **Un objetivo por sesión/bloque:** no mezclar fixes no relacionados en el mismo ciclo.
+- **Contexto mínimo útil:** error real, archivos objetivo y criterio de cierre explícito.
+- **Límite de iteración:** máximo 2 intentos por enfoque; si falla, escalar modelo/estrategia.
+- **Validación mínima obligatoria:** prueba real del endpoint/flujo tocado + typecheck del alcance.
+- **Cierre estricto:** entregar resultado, dejar estado limpio y abrir siguiente bloque en sesión nueva.
+- **Control de costo:** evitar paralelismo innecesario; usar agentes/modelos caros solo en tareas críticas.
 
 ## Arquitectura — principios clave
 
@@ -120,31 +134,30 @@ This repo uses **Squad** (`create-squad`) to manage an AI agent team. The coordi
 
 ## Git Workflow
 
-All feature work branches from `dev`, not `main`.
+All feature work branches from `develop`, not `main`.
 
 | Branch | Purpose |
 |--------|---------|
 | `main` | Stable released code only |
-| `dev` | Integration — all feature work lands here |
-| `insiders` | Early-access, synced from `dev` |
+| `develop` | Integration — all feature work lands here |
 
-**Branch naming:** `squad/{issue-number}-{kebab-slug}` — e.g. `squad/42-add-auth`
+**Branch naming (estándar):** `dev/yyyy/mm/dd/{kebab-slug}` — e.g. `dev/2026/06/30/admin-sessions-pagination`
 
 ```bash
 # Start issue work
-git checkout dev && git pull origin dev
-git checkout -b squad/{number}-{slug}
+git checkout develop && git pull origin develop
+git checkout -b dev/{yyyy}/{mm}/{dd}/{slug}
 
-# Open draft PR targeting dev
-gh pr create --base dev --title "{description}" --body "Closes #{number}" --draft
+# Open draft PR targeting develop
+gh pr create --base develop --title "{description}" --body "Closes #{number}" --draft
 
 # After merge cleanup
-git checkout dev && git pull origin dev
-git branch -d squad/{number}-{slug}
-git push origin --delete squad/{number}-{slug}
+git checkout develop && git pull origin develop
+git branch -d dev/{yyyy}/{mm}/{dd}/{slug}
+git push origin --delete dev/{yyyy}/{mm}/{dd}/{slug}
 ```
 
-**Never** branch from `main`, target `main` directly in a PR, or commit directly to `main`/`dev`.
+**Never** branch from `main`, target `main` directly in a PR, or commit directly to `main`/`develop`.
 
 **Parallel issues:** Use `git worktree` (one worktree per issue) rather than branch-switching. Name worktrees `../{repo-name}-{issue-number}`.
 
