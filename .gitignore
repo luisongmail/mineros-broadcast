@@ -32,6 +32,10 @@ dist/
 playwright-report/
 test-results/
 
+# Coverage artifacts
+coverage/
+**/coverage/
+
 # Assets locales — binarios no se commitean, subirlos a Azure en producción
 apps/overlay-server/storage/assets/**/*.jpg
 apps/overlay-server/storage/assets/**/*.jpeg
